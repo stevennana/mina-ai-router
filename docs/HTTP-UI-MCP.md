@@ -49,10 +49,31 @@ The page shows:
 - registered agents
 - tmux session status
 - request history
+- request retry, cancel, archive, and stale cleanup controls
+- request status filtering and search
+- agent attach command copy
+- tmux session restart controls
+- health summary
 - MCP URL and Codex registration command
 - quick two-Codex setup for `minasoftai` and `mina-ralph-loop-bootstrap-nextjs`
 - manual agent registration
 - manual ask flow
+
+## Health
+
+The server exposes a local health endpoint:
+
+```text
+http://127.0.0.1:3333/api/health
+```
+
+The CLI exposes the same operator view:
+
+```sh
+mar health
+mar version
+mar verify
+```
 
 ## Verify
 

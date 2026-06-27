@@ -1,14 +1,19 @@
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
+const { mkdtempSync } = require("node:fs");
+const { join } = require("node:path");
+const { tmpdir } = require("node:os");
 
 const port = 3344;
 const baseUrl = `http://127.0.0.1:${port}`;
+const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
+const statePath = join(tempDir, "router-state.json");
 const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
   cwd: process.cwd(),
   env: {
     ...process.env,
     PORT: String(port),
-    MINA_ROUTER_STATE: "/Users/stevenna/WebstormProjects/mina-aimesh/data/router-state.json",
+    MINA_ROUTER_STATE: statePath,
   },
   stdio: ["ignore", "ignore", "inherit"],
 });
@@ -21,8 +26,42 @@ async function main() {
     assert.equal(state.mcpUrl, `${baseUrl}/mcp`);
     assert.ok(Array.isArray(state.agents));
 
+    const health = await json(`${baseUrl}/api/health`);
+    assert.equal(health.mcpUrl, `${baseUrl}/mcp`);
+    assert.equal(typeof health.ok, "boolean");
+
     const html = await text(`${baseUrl}/`);
     assert.match(html, /Mina Agent Router/);
+    assert.match(html, /Restart Session/);
+    assert.match(html, /Selected Request/);
+    assert.match(html, /Archive Stale/);
+    assert.match(html, /Copy MCP Command/);
+
+    const registered = await postJson(`${baseUrl}/api/register`, {
+      id: "http-smoke",
+      name: "http-smoke",
+      agentType: "shell",
+      transport: "headless",
+      sessionId: "http-smoke",
+      projectRoot: "/tmp",
+    });
+    assert.equal(registered.agent.id, "http-smoke");
+
+    const asked = await postJson(`${baseUrl}/api/ask`, {
+      target: "http-smoke",
+      task: "HTTP smoke request",
+      timeoutMs: 1000,
+    });
+    assert.equal(asked.result.target, "http-smoke");
+
+    const archived = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/archive`, {});
+    assert.equal(archived.result.status, "archived");
+
+    const stale = await postJson(`${baseUrl}/api/requests/archive-stale`, { olderThanMs: 0 });
+    assert.ok(Array.isArray(stale.archived));
+
+    const deleted = await deleteJson(`${baseUrl}/api/agents/http-smoke`);
+    assert.equal(deleted.agent.id, "http-smoke");
 
     const initialized = await postMcp({
       jsonrpc: "2.0",
@@ -81,6 +120,22 @@ async function postMcp(body) {
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error(`/mcp failed: ${response.status}`);
+  return response.json();
+}
+
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
+  return response.json();
+}
+
+async function deleteJson(url) {
+  const response = await fetch(url, { method: "DELETE" });
+  if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
   return response.json();
 }
 

@@ -12,6 +12,7 @@ import {
 import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
+const version = "0.1.0";
 
 async function main(argv: string[]): Promise<void> {
   const command = argv[2];
@@ -24,6 +25,17 @@ async function main(argv: string[]): Promise<void> {
   const context = createContext();
 
   switch (command) {
+    case "version":
+    case "--version":
+    case "-v":
+      printJson({ name: "mina-aimesh", version });
+      break;
+    case "health":
+      await showHealth(context);
+      break;
+    case "verify":
+      runVerify();
+      break;
     case "register":
       registerAgent(argv.slice(3), context);
       break;
@@ -54,6 +66,44 @@ async function main(argv: string[]): Promise<void> {
     default:
       throw new Error(`Unknown command "${command}". Run "mar help".`);
   }
+}
+
+async function showHealth(context: ReturnType<typeof createContext>): Promise<void> {
+  const agents = await context.router.listAgentStatuses();
+  const requests = context.router.listRequests();
+  const openRequests = requests.filter((request) => ["created", "sent", "waiting"].includes(request.status));
+
+  printJson({
+    ok: agents.every((agent) => agent.status !== "missing"),
+    version,
+    statePath,
+    tmuxAvailable: new TmuxClient().isAvailable(),
+    agents: {
+      total: agents.length,
+      available: agents.filter((agent) => agent.status === "available").length,
+      busy: agents.filter((agent) => agent.status === "busy").length,
+      missing: agents.filter((agent) => agent.status === "missing").length,
+      unknown: agents.filter((agent) => agent.status === "unknown").length,
+    },
+    requests: {
+      total: requests.length,
+      open: openRequests.length,
+      answered: requests.filter((request) => request.status === "answered").length,
+      failed: requests.filter((request) => ["failed", "timeout"].includes(request.status)).length,
+      archived: requests.filter((request) => request.status === "archived").length,
+    },
+    mcp: {
+      httpUrl: `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`,
+    },
+  });
+}
+
+function runVerify(): void {
+  execFileSync("npm", ["run", "verify"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  printJson({ ok: true, command: "npm run verify" });
 }
 
 function serveHttp(args: string[]): void {
@@ -341,6 +391,9 @@ function printHelp(): void {
   console.log(`Mina Agent Router POC
 
 Commands:
+  mar version
+  mar health
+  mar verify
   mar register <id> --agent <type> --transport <headless|mock|tmux|zmux> --session <session> --root <path>
   mar agents
   mar agent <id>

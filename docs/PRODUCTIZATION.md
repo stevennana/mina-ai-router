@@ -68,6 +68,12 @@ Already implemented:
 - request list and request detail view
 - request-flow visual state on diagram lines
 - setup support for the two-Codex demo
+- request retry, cancel, archive, and stale cleanup controls
+- per-agent busy guard
+- agent attach command copy and tmux restart controls
+- HTTP health endpoint
+- CLI `health`, `version`, and `verify` commands
+- atomic JSON state writes
 - verification command: `npm run verify`
 
 Current verification:
@@ -407,10 +413,36 @@ Mina Agent Router can be called MVP-ready when:
 
 ## Next Recommended Work
 
-Start with Phase P1.
+Phase P1 is now partially implemented.
 
-The first productization milestone should be:
+The next productization milestone should be:
 
-> Operator Control Center: request retry, stale cleanup, attach/restart controls, and clearer health explanations.
+> Setup and Registration Flow: turn the current controls into a guided wizard with validation, connection checks, and a built-in route test.
 
 This builds directly on the current UI without changing the core architecture.
+
+## Implemented Productization Slice
+
+The first productization implementation after the POC added:
+
+- request retry from the UI
+- request cancel from the UI
+- request archive from the UI
+- stale request archive cleanup
+- request status filtering and search
+- agent attach command copy
+- tmux session restart from the UI
+- clearer agent health explanations
+- HTTP `/api/health`
+- CLI `mar health`
+- CLI `mar version`
+- CLI `mar verify`
+- in-process per-agent busy protection
+- atomic JSON state writes
+- isolated HTTP smoke state to avoid mutating real local state
+
+Verification:
+
+```sh
+npm run verify
+```

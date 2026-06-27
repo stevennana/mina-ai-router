@@ -8,7 +8,9 @@ export type RequestStatus =
   | "waiting"
   | "answered"
   | "failed"
-  | "timeout";
+  | "timeout"
+  | "cancelled"
+  | "archived";
 
 export interface Agent {
   id: string;
@@ -53,7 +55,7 @@ export interface AgentStatus {
   transport: TransportType;
   sessionId: string;
   projectRoot: string;
-  status: "available" | "missing" | "unknown";
+  status: "available" | "missing" | "unknown" | "busy";
   detail?: string;
   lastRequestStatus?: RequestStatus;
 }

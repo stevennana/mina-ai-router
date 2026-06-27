@@ -51,6 +51,14 @@ export class TmuxClient {
     }
   }
 
+  killSession(sessionId: string): void {
+    if (!this.hasSession(sessionId)) {
+      return;
+    }
+
+    this.run(["kill-session", "-t", sessionId]);
+  }
+
   ensureSession(agent: Agent): void {
     if (this.hasSession(agent.sessionId)) {
       return;

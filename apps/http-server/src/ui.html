@@ -370,6 +370,12 @@
         background: rgba(181, 71, 8, 0.08);
       }
 
+      .status.busy {
+        color: var(--warn);
+        border-color: rgba(181, 71, 8, 0.42);
+        background: rgba(181, 71, 8, 0.1);
+      }
+
       .status.missing,
       .status.timeout,
       .status.failed {
@@ -380,6 +386,13 @@
 
       .status.unknown {
         color: var(--unknown);
+        background: rgba(105, 115, 134, 0.08);
+      }
+
+      .status.cancelled,
+      .status.archived {
+        color: var(--unknown);
+        border-color: rgba(105, 115, 134, 0.3);
         background: rgba(105, 115, 134, 0.08);
       }
 
@@ -451,6 +464,32 @@
         gap: 0.65rem;
       }
 
+      .request-tools {
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .filter-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+
+      .filter-button {
+        min-height: 2.25rem;
+        background: white;
+        color: var(--ink);
+        border-color: var(--line);
+        padding: 0.42rem 0.65rem;
+      }
+
+      .filter-button.selected {
+        background: var(--router);
+        border-color: var(--router);
+        color: white;
+      }
+
       .request-item {
         display: grid;
         gap: 0.4rem;
@@ -490,6 +529,16 @@
         padding-top: 1rem;
         display: grid;
         gap: 0.75rem;
+      }
+
+      .notice {
+        border: 1px solid var(--line);
+        border-radius: 0.45rem;
+        background: var(--panel-2);
+        color: var(--muted);
+        padding: 0.75rem;
+        font-size: 0.86rem;
+        line-height: 1.45;
       }
 
       .flow-path {
@@ -580,6 +629,8 @@
         <div class="meta-row">
           <span class="chip" id="mcp-url">Loading MCP URL...</span>
           <span class="chip" id="state-path">Loading state...</span>
+          <span class="chip" id="health-summary">Health loading...</span>
+          <button id="copyMcpCommand" class="secondary">Copy MCP Command</button>
         </div>
       </header>
 
@@ -620,6 +671,8 @@
               <label style="grid-column: 1 / -1">Ask selected agent<textarea id="askTask">현재 프로젝트 목적을 짧게 요약해줘.</textarea></label>
               <div class="actions" style="grid-column: 1 / -1">
                 <button type="submit">Ask via Router</button>
+                <button type="button" class="secondary" id="copyAttach">Copy Attach</button>
+                <button type="button" class="secondary" id="restartAgent">Restart Session</button>
                 <button type="button" class="danger" id="deleteAgent">Delete Agent</button>
               </div>
               <pre id="askOutput" style="grid-column: 1 / -1"></pre>
@@ -635,7 +688,10 @@
               <h2>Register & Requests</h2>
               <p class="subtitle">Create visible tmux agents, then watch requests move through the router</p>
             </div>
-            <button id="setupPair" class="secondary">Create Two-Codex Demo</button>
+            <div class="actions">
+              <button id="archiveStale" class="secondary">Archive Stale</button>
+              <button id="setupPair" class="secondary">Create Two-Codex Demo</button>
+            </div>
           </div>
           <div class="bottom-body">
             <form id="registerForm" class="form-grid hidden">
@@ -654,6 +710,16 @@
             </form>
 
             <pre id="setupOutput" class="hidden"></pre>
+            <div class="request-tools">
+              <input id="requestSearch" placeholder="Search requests by id, target, status, or task" />
+              <div class="filter-row" id="requestFilters">
+                <button type="button" class="filter-button selected" data-filter="all">All</button>
+                <button type="button" class="filter-button" data-filter="waiting">Waiting</button>
+                <button type="button" class="filter-button" data-filter="failed">Failed</button>
+                <button type="button" class="filter-button" data-filter="answered">Answered</button>
+                <button type="button" class="filter-button" data-filter="archived">Archived</button>
+              </div>
+            </div>
             <div class="request-list" id="requests"></div>
           </div>
         </section>
@@ -667,6 +733,8 @@
       let selectedAgentId = "";
       let selectedRequestId = "";
       let lastAskOutput = "";
+      let requestFilter = "all";
+      let requestSearch = "";
 
       async function api(path, options = {}) {
         const res = await fetch(path, {
@@ -680,7 +748,15 @@
 
       async function refresh() {
         currentState = await api("/api/state");
+        refreshHealth().catch(() => undefined);
         render();
+      }
+
+      async function refreshHealth() {
+        const health = await api("/api/health");
+        $("health-summary").textContent = health.ok
+          ? `${health.agents.available}/${health.agents.total} available, ${health.requests.open} open`
+          : `${health.agents.missing} missing, ${health.requests.open} open`;
       }
 
       function render() {
@@ -796,12 +872,15 @@
         $("detailStatus").className = `status ${agent.status}`;
         $("agentDetail").className = "detail-grid";
         $("agentDetail").innerHTML = `
+          <div class="notice" style="grid-column: 1 / -1">${escapeHtml(healthMessage(agent))}</div>
           ${kv("Name", agent.name || agent.id)}
           ${kv("Type", `${agent.agentType} / ${agent.transport}`)}
           ${kv("Session", agent.sessionId || "-")}
           ${kv("Project root", agent.projectRoot || "-")}
           ${kv("Detail", agent.detail || "-")}
           ${kv("Last request", agent.lastRequestStatus || "-")}
+          ${kv("Attach command", attachCommand(agent))}
+          ${kv("Open root", `cd ${agent.projectRoot || "."}`)}
         `;
         $("askTarget").value = agent.id;
         $("askOutput").textContent = lastAskOutput;
@@ -813,7 +892,7 @@
       }
 
       function renderRequests(requests) {
-        const recent = requests.slice().reverse().slice(0, 8);
+        const recent = filterRequests(requests).slice().reverse().slice(0, 12);
         $("requests").innerHTML = recent.length
           ? recent.map((request) => `
               <button type="button" class="request-item ${request.id === selectedRequestId ? "selected" : ""}" data-request-id="${escapeAttr(request.id)}">
@@ -862,7 +941,28 @@
           <div class="kv"><span>Task</span><strong>${escapeHtml(request.task)}</strong></div>
           ${request.answer ? `<div class="kv"><span>Answer</span><pre>${escapeHtml(request.answer)}</pre></div>` : ""}
           ${request.error ? `<div class="kv"><span>Error</span><pre>${escapeHtml(request.error)}</pre></div>` : ""}
+          <div class="actions">
+            <button type="button" data-request-action="retry" data-request-id="${escapeAttr(request.id)}">Retry</button>
+            <button type="button" class="secondary" data-request-action="cancel" data-request-id="${escapeAttr(request.id)}">Cancel</button>
+            <button type="button" class="secondary" data-request-action="archive" data-request-id="${escapeAttr(request.id)}">Archive</button>
+          </div>
         `;
+        detail.querySelectorAll("[data-request-action]").forEach((button) => {
+          button.onclick = () => withBusy(async () => {
+            const action = button.dataset.requestAction;
+            const id = button.dataset.requestId;
+            if (!action || !id) return;
+            if (action === "cancel" && !confirm(`Mark request "${id}" as cancelled?`)) return;
+            if (action === "archive" && !confirm(`Archive request "${id}"?`)) return;
+            const result = await api(`/api/requests/${encodeURIComponent(id)}/${action}`, { method: "POST" });
+            currentState = result.state;
+            if (action === "retry" && result.result?.requestId) {
+              selectedRequestId = result.result.requestId;
+              lastAskOutput = JSON.stringify(result.result, null, 2);
+            }
+            render();
+          });
+        });
       }
 
       async function withBusy(fn) {
@@ -880,8 +980,27 @@
       }
 
       $("refresh").onclick = () => withBusy(refresh);
+      $("copyMcpCommand").onclick = () => withBusy(async () => {
+        const command = `codex mcp add mina-agent-router --url ${currentState.mcpUrl}`;
+        await copyText(command);
+        lastAskOutput = `Copied: ${command}`;
+        render();
+      });
       $("showRegister").onclick = () => $("registerForm").classList.toggle("hidden");
       $("hideRegister").onclick = () => $("registerForm").classList.add("hidden");
+      $("requestSearch").oninput = (event) => {
+        requestSearch = event.target.value;
+        renderRequests(currentState.requests || []);
+      };
+      document.querySelectorAll("[data-filter]").forEach((button) => {
+        button.onclick = () => {
+          requestFilter = button.dataset.filter || "all";
+          document.querySelectorAll("[data-filter]").forEach((candidate) => {
+            candidate.classList.toggle("selected", candidate.dataset.filter === requestFilter);
+          });
+          renderRequests(currentState.requests || []);
+        };
+      });
 
       $("registerForm").onsubmit = (event) => withBusy(async () => {
         event.preventDefault();
@@ -920,6 +1039,17 @@
         await refresh();
       });
 
+      $("archiveStale").onclick = () => withBusy(async () => {
+        if (!confirm("Archive stale created/sent/waiting requests older than 30 minutes?")) return;
+        const result = await api("/api/requests/archive-stale", {
+          method: "POST",
+          body: JSON.stringify({ olderThanMs: 30 * 60 * 1000 }),
+        });
+        currentState = result.state;
+        lastAskOutput = `Archived ${result.archived.length} stale request(s).`;
+        render();
+      });
+
       $("askForm").onsubmit = (event) => withBusy(async () => {
         event.preventDefault();
         const result = await api("/api/ask", {
@@ -933,6 +1063,28 @@
         lastAskOutput = JSON.stringify(result.result || result, null, 2);
         $("askOutput").textContent = lastAskOutput;
         currentState = result.state;
+        render();
+      });
+
+      $("copyAttach").onclick = () => withBusy(async () => {
+        const agent = selectedAgent();
+        if (!agent) return;
+        await copyText(attachCommand(agent));
+        lastAskOutput = `Copied: ${attachCommand(agent)}`;
+        render();
+      });
+
+      $("restartAgent").onclick = () => withBusy(async () => {
+        const agent = selectedAgent();
+        if (!agent) return;
+        if (agent.transport !== "tmux") {
+          alert(`Agent "${agent.id}" does not use tmux.`);
+          return;
+        }
+        if (!confirm(`Restart tmux session "${agent.sessionId}" for agent "${agent.id}"?`)) return;
+        const result = await api(`/api/agents/${encodeURIComponent(agent.id)}/restart`, { method: "POST" });
+        currentState = result.state;
+        lastAskOutput = `Restarted tmux session: ${agent.sessionId}`;
         render();
       });
 
@@ -972,6 +1124,70 @@
         }
 
         return latestRequestFor(agentId);
+      }
+
+      function filterRequests(requests) {
+        const query = requestSearch.trim().toLowerCase();
+        return requests.filter((request) => {
+          const statusGroup = requestFilter === "failed"
+            ? ["failed", "timeout", "cancelled"].includes(request.status)
+            : requestFilter === "all" || request.status === requestFilter;
+          if (!statusGroup) {
+            return false;
+          }
+
+          if (!query) {
+            return true;
+          }
+
+          return [
+            request.id,
+            request.sourceAgent,
+            request.targetAgent,
+            request.status,
+            request.task,
+            request.answer,
+            request.error,
+          ].some((value) => String(value || "").toLowerCase().includes(query));
+        });
+      }
+
+      function attachCommand(agent) {
+        if (agent.transport !== "tmux") {
+          return "not available for non-tmux agents";
+        }
+
+        return `tmux attach -t ${agent.sessionId}`;
+      }
+
+      function healthMessage(agent) {
+        if (agent.status === "available") {
+          return "Agent session is reachable. It can receive routed requests.";
+        }
+
+        if (agent.status === "missing") {
+          return agent.detail || `tmux session "${agent.sessionId}" is missing. Restart the session or re-register the agent.`;
+        }
+
+        if (agent.status === "unknown") {
+          return "This transport does not expose a live health check yet. Calls may still work if the transport is headless or mock.";
+        }
+
+        return "Agent status needs operator attention.";
+      }
+
+      async function copyText(value) {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+          return;
+        }
+
+        const input = document.createElement("textarea");
+        input.value = value;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
       }
 
       function answeredCount() {

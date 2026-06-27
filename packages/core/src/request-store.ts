@@ -45,4 +45,15 @@ export class RequestStore {
     this.requests.set(id, updated);
     return updated;
   }
+
+  patch(id: string, patch: Partial<AgentRequest>): AgentRequest {
+    const current = this.require(id);
+    const updated: AgentRequest = {
+      ...current,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
+    this.requests.set(id, updated);
+    return updated;
+  }
 }

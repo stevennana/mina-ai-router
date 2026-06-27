@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Agent, AgentRequest } from "./types";
 
@@ -34,6 +34,8 @@ export class FileState {
 
   save(state: RouterState): void {
     mkdirSync(dirname(this.filePath), { recursive: true });
-    writeFileSync(this.filePath, `${JSON.stringify(state, null, 2)}\n`);
+    const tempPath = `${this.filePath}.tmp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    writeFileSync(tempPath, `${JSON.stringify(state, null, 2)}\n`);
+    renameSync(tempPath, this.filePath);
   }
 }

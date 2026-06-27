@@ -21,6 +21,7 @@ export class AgentRouter {
   private readonly defaultSourceAgent: string;
   private readonly defaultTimeoutMs: number;
   private readonly onStateChanged?: () => void;
+  private readonly busyAgents = new Set<string>();
 
   constructor(options: AgentRouterOptions) {
     this.registry = options.registry;
@@ -57,7 +58,7 @@ export class AgentRouter {
           transport: agent.transport,
           sessionId: agent.sessionId,
           projectRoot: agent.projectRoot,
-          status: status.status,
+          status: this.busyAgents.has(agent.id) ? "busy" as const : status.status,
           detail: status.detail,
           lastRequestStatus: lastRequest?.status,
         };
@@ -71,6 +72,11 @@ export class AgentRouter {
 
   async callAgent(input: CallAgentInput): Promise<AgentResponse> {
     const target = this.registry.require(input.target);
+    if (this.busyAgents.has(target.id)) {
+      throw new Error(`Agent "${target.id}" is busy with another request.`);
+    }
+
+    this.busyAgents.add(target.id);
     const now = new Date().toISOString();
     const request: AgentRequest = this.requestStore.create({
       id: createRequestId(),
@@ -113,6 +119,8 @@ export class AgentRouter {
       this.requestStore.updateStatus(request.id, status, { error: message });
       this.persistState();
       throw error;
+    } finally {
+      this.busyAgents.delete(target.id);
     }
   }
 

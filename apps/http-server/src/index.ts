@@ -97,6 +97,11 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
+  if (url.pathname === "/api/health" && request.method === "GET") {
+    sendJson(response, 200, await getHealth());
+    return;
+  }
+
   if (url.pathname === "/api/register" && request.method === "POST") {
     const body = await readJsonBody(request);
     const agent = registerAgent(body);
@@ -108,6 +113,13 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   if (agentDeleteMatch && request.method === "DELETE") {
     const agent = context.registry.unregister(decodeURIComponent(agentDeleteMatch[1]));
     context.save();
+    sendJson(response, 200, { agent, state: await getUiState() });
+    return;
+  }
+
+  const agentRestartMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/restart$/);
+  if (agentRestartMatch && request.method === "POST") {
+    const agent = restartAgent(decodeURIComponent(agentRestartMatch[1]));
     sendJson(response, 200, { agent, state: await getUiState() });
     return;
   }
@@ -137,6 +149,23 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
+  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive)$/);
+  if (requestActionMatch && request.method === "POST") {
+    const requestId = decodeURIComponent(requestActionMatch[1]);
+    const action = requestActionMatch[2];
+    const result = await handleRequestAction(requestId, action);
+    sendJson(response, 200, { result, state: await getUiState() });
+    return;
+  }
+
+  if (url.pathname === "/api/requests/archive-stale" && request.method === "POST") {
+    const body = await readJsonBody(request);
+    const olderThanMs = typeof body.olderThanMs === "number" ? body.olderThanMs : 30 * 60 * 1000;
+    const archived = archiveStaleRequests(olderThanMs);
+    sendJson(response, 200, { archived, state: await getUiState() });
+    return;
+  }
+
   if (url.pathname === "/api/setup-codex-pair" && request.method === "POST") {
     const body = await readJsonBody(request);
     const result = setupCodexPair(body);
@@ -145,6 +174,61 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
   }
 
   sendJson(response, 404, { error: "Not found" });
+}
+
+function archiveStaleRequests(olderThanMs: number) {
+  const staleStatuses = new Set(["created", "sent", "waiting"]);
+  const cutoff = Date.now() - olderThanMs;
+  const archived = [];
+
+  for (const request of context.requestStore.list()) {
+    if (!staleStatuses.has(request.status)) {
+      continue;
+    }
+
+    const updatedAt = Date.parse(request.updatedAt);
+    if (Number.isFinite(updatedAt) && updatedAt > cutoff) {
+      continue;
+    }
+
+    archived.push(context.requestStore.updateStatus(request.id, "archived", {
+      error: request.error ?? "Archived as stale by operator.",
+    }));
+  }
+
+  if (archived.length > 0) {
+    context.save();
+  }
+
+  return archived;
+}
+
+async function handleRequestAction(requestId: string, action: string) {
+  const request = context.requestStore.require(requestId);
+
+  if (action === "retry") {
+    return context.router.callAgent({
+      sourceAgent: request.sourceAgent,
+      target: request.targetAgent,
+      task: request.task,
+    });
+  }
+
+  if (action === "cancel") {
+    const updated = context.requestStore.updateStatus(requestId, "cancelled", {
+      error: "Cancelled by operator from Mina Agent Router UI.",
+    });
+    context.save();
+    return updated;
+  }
+
+  if (action === "archive") {
+    const updated = context.requestStore.updateStatus(requestId, "archived");
+    context.save();
+    return updated;
+  }
+
+  throw new Error(`Unsupported request action "${action}".`);
 }
 
 async function handleMcp(
@@ -208,6 +292,33 @@ async function getUiState() {
   };
 }
 
+async function getHealth() {
+  const agents = await context.router.listAgentStatuses();
+  const requests = context.router.listRequests();
+  const openRequests = requests.filter((request) => ["created", "sent", "waiting"].includes(request.status));
+
+  return {
+    ok: agents.every((agent) => agent.status !== "missing"),
+    statePath,
+    mcpUrl: `http://${host}:${port}/mcp`,
+    agents: {
+      total: agents.length,
+      available: agents.filter((agent) => agent.status === "available").length,
+      busy: agents.filter((agent) => agent.status === "busy").length,
+      missing: agents.filter((agent) => agent.status === "missing").length,
+      unknown: agents.filter((agent) => agent.status === "unknown").length,
+    },
+    requests: {
+      total: requests.length,
+      open: openRequests.length,
+      waiting: requests.filter((request) => request.status === "waiting").length,
+      answered: requests.filter((request) => request.status === "answered").length,
+      failed: requests.filter((request) => ["failed", "timeout", "cancelled"].includes(request.status)).length,
+      archived: requests.filter((request) => request.status === "archived").length,
+    },
+  };
+}
+
 function registerAgent(body: Record<string, unknown>): Agent {
   const id = requiredString(body.id, "id");
   const agent: Agent = {
@@ -222,6 +333,19 @@ function registerAgent(body: Record<string, unknown>): Agent {
   };
 
   context.registry.register(agent);
+  context.save();
+  return agent;
+}
+
+function restartAgent(id: string): Agent {
+  const agent = context.registry.require(id);
+  if (agent.transport !== "tmux") {
+    throw new Error(`Agent "${id}" uses transport "${agent.transport}", not tmux.`);
+  }
+
+  const tmux = new TmuxClient();
+  tmux.killSession(agent.sessionId);
+  tmux.ensureSession(agent);
   context.save();
   return agent;
 }
