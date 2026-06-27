@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mina Agent Router</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #eef1ed;
+        --ink: #17201b;
+        --muted: #64716a;
+        --line: #c9d0c8;
+        --panel: #fbfcf8;
+        --panel-2: #f3f6ef;
+        --router: #20372d;
+        --router-ink: #f8fbf5;
+        --ok: #14745d;
+        --warn: #b54708;
+        --bad: #b42318;
+        --unknown: #697386;
+        --focus: #245bff;
+        --shadow: 0 1rem 2.5rem rgba(24, 35, 28, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 12% 8%, rgba(32, 55, 45, 0.12), transparent 24rem),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.62), transparent 34rem),
+          var(--bg);
+        color: var(--ink);
+        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        letter-spacing: 0;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        min-height: 2.75rem;
+        border: 1px solid var(--router);
+        border-radius: 0.45rem;
+        padding: 0.7rem 0.9rem;
+        background: var(--router);
+        color: white;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: var(--panel);
+        color: var(--ink);
+        border-color: var(--line);
+      }
+
+      button.danger {
+        background: #fff8f7;
+        color: var(--bad);
+        border-color: #e7b7b0;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.55;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        min-height: 2.75rem;
+        border: 1px solid var(--line);
+        border-radius: 0.45rem;
+        padding: 0.72rem;
+        background: white;
+        color: var(--ink);
+      }
+
+      textarea {
+        min-height: 7.5rem;
+        resize: vertical;
+      }
+
+      label {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .shell {
+        width: min(100rem, calc(100% - 1.5rem));
+        margin: 0 auto;
+        padding: 1rem 0 2rem;
+      }
+
+      header {
+        display: grid;
+        gap: 0.9rem;
+        padding: 0.6rem 0 1rem;
+      }
+
+      .topbar,
+      .toolbar,
+      .actions,
+      .meta-row {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+      }
+
+      .topbar {
+        justify-content: space-between;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 1.45rem;
+        line-height: 1.12;
+      }
+
+      .subtitle {
+        color: var(--muted);
+        margin-top: 0.25rem;
+        font-size: 0.95rem;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.25rem;
+        max-width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.35rem 0.65rem;
+        background: rgba(255, 255, 255, 0.74);
+        color: var(--muted);
+        font-size: 0.82rem;
+        overflow-wrap: anywhere;
+      }
+
+      .layout {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .map-panel,
+      .side-panel,
+      .bottom-panel {
+        background: rgba(251, 252, 248, 0.94);
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        box-shadow: var(--shadow);
+      }
+
+      .map-panel {
+        min-height: 34rem;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .map-head,
+      .side-head {
+        min-height: 3.6rem;
+        padding: 0.9rem 1rem;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .map {
+        position: relative;
+        min-height: 30rem;
+        padding: 1rem;
+      }
+
+      .links {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      .link-line {
+        stroke: rgba(32, 55, 45, 0.32);
+        stroke-width: 2;
+        stroke-dasharray: 7 8;
+      }
+
+      .link-line.answered {
+        stroke: rgba(20, 116, 93, 0.72);
+        stroke-dasharray: 0;
+      }
+
+      .link-line.waiting {
+        stroke: rgba(181, 71, 8, 0.82);
+        stroke-width: 3;
+        animation: flowPulse 1.4s ease-in-out infinite;
+      }
+
+      .link-line.failed,
+      .link-line.timeout {
+        stroke: rgba(180, 35, 24, 0.78);
+        stroke-dasharray: 4 6;
+      }
+
+      .link-line.selected {
+        stroke-width: 4;
+      }
+
+      .router-node,
+      .agent-node {
+        position: absolute;
+        border-radius: 0.75rem;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        box-shadow: 0 0.75rem 1.5rem rgba(24, 35, 28, 0.12);
+      }
+
+      .router-node {
+        left: 50%;
+        top: 50%;
+        width: min(16rem, 64vw);
+        min-height: 9.5rem;
+        transform: translate(-50%, -50%);
+        background: var(--router);
+        color: var(--router-ink);
+        padding: 1rem;
+        display: grid;
+        align-content: center;
+        gap: 0.65rem;
+        z-index: 3;
+      }
+
+      .router-node h2 {
+        font-size: 1.1rem;
+      }
+
+      .router-node code {
+        color: var(--router-ink);
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .agent-node {
+        width: min(13.5rem, 42vw);
+        min-height: 7.5rem;
+        padding: 0.8rem;
+        display: grid;
+        gap: 0.45rem;
+        cursor: pointer;
+        text-align: left;
+        color: var(--ink);
+        z-index: 4;
+        overflow: hidden;
+        transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      }
+
+      .agent-node:hover,
+      .agent-node.selected {
+        transform: translateY(-0.16rem);
+        border-color: var(--focus);
+        box-shadow: 0 1rem 2rem rgba(36, 91, 255, 0.14);
+      }
+
+      .agent-node.active-request {
+        border-color: rgba(181, 71, 8, 0.62);
+        box-shadow: 0 1rem 2rem rgba(181, 71, 8, 0.14);
+      }
+
+      .agent-node.failed-request {
+        border-color: rgba(180, 35, 24, 0.55);
+      }
+
+      .agent-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .agent-id {
+        font-weight: 800;
+        overflow-wrap: anywhere;
+      }
+
+      .node-meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        overflow-wrap: anywhere;
+      }
+
+      .request-summary {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
+      }
+
+      .legend {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .legend-dot {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 999px;
+        background: var(--unknown);
+      }
+
+      .legend-dot.available,
+      .legend-dot.answered {
+        background: var(--ok);
+      }
+
+      .legend-dot.waiting {
+        background: var(--warn);
+      }
+
+      .legend-dot.failed,
+      .legend-dot.timeout,
+      .legend-dot.missing {
+        background: var(--bad);
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        min-height: 1.75rem;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        padding: 0.15rem 0.5rem;
+        font-size: 0.74rem;
+        white-space: nowrap;
+      }
+
+      .status.available,
+      .status.answered {
+        color: var(--ok);
+        border-color: rgba(20, 116, 93, 0.35);
+        background: rgba(20, 116, 93, 0.08);
+      }
+
+      .status.waiting {
+        color: var(--warn);
+        border-color: rgba(181, 71, 8, 0.35);
+        background: rgba(181, 71, 8, 0.08);
+      }
+
+      .status.missing,
+      .status.timeout,
+      .status.failed {
+        color: var(--bad);
+        border-color: rgba(180, 35, 24, 0.35);
+        background: rgba(180, 35, 24, 0.08);
+      }
+
+      .status.unknown {
+        color: var(--unknown);
+        background: rgba(105, 115, 134, 0.08);
+      }
+
+      .side-panel {
+        overflow: hidden;
+      }
+
+      .side-body,
+      .bottom-body {
+        padding: 1rem;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .detail-grid,
+      .form-grid {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .kv {
+        display: grid;
+        gap: 0.3rem;
+        min-width: 0;
+      }
+
+      .kv span {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .kv strong,
+      .kv code {
+        overflow-wrap: anywhere;
+      }
+
+      code,
+      pre {
+        border-radius: 0.35rem;
+        background: var(--panel-2);
+      }
+
+      code {
+        padding: 0.12rem 0.28rem;
+      }
+
+      pre {
+        margin: 0;
+        max-height: 18rem;
+        overflow: auto;
+        padding: 0.75rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .empty {
+        min-height: 12rem;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--line);
+        border-radius: 0.5rem;
+        padding: 1rem;
+      }
+
+      .request-list {
+        display: grid;
+        gap: 0.65rem;
+      }
+
+      .request-item {
+        display: grid;
+        gap: 0.4rem;
+        padding: 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 0.45rem;
+        background: white;
+        color: var(--ink);
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+        min-height: 5.25rem;
+      }
+
+      .request-item:hover {
+        border-color: var(--focus);
+      }
+
+      .request-item.selected {
+        border-color: var(--focus);
+        box-shadow: 0 0.75rem 1.5rem rgba(36, 91, 255, 0.12);
+      }
+
+      .request-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .flow-detail {
+        border-top: 1px solid var(--line);
+        padding-top: 1rem;
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .flow-path {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+      }
+
+      @keyframes flowPulse {
+        0%,
+        100% {
+          opacity: 0.45;
+        }
+
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (min-width: 48rem) {
+        h1 {
+          font-size: 1.9rem;
+        }
+
+        .form-grid,
+        .detail-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (min-width: 64rem) {
+        .layout {
+          grid-template-columns: minmax(0, 1fr) 24rem;
+          align-items: start;
+        }
+
+        .bottom-panel {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (max-width: 47.99rem) {
+        .map-panel {
+          min-height: auto;
+        }
+
+        .map {
+          min-height: auto;
+          display: grid;
+          gap: 0.75rem;
+        }
+
+        .links {
+          display: none;
+        }
+
+        .router-node,
+        .agent-node {
+          position: static;
+          transform: none;
+          width: 100%;
+        }
+
+        .router-node {
+          order: -1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div class="topbar">
+          <div>
+            <h1>Mina Agent Router</h1>
+            <p class="subtitle">MCP router centered view for visible Codex agents</p>
+          </div>
+          <div class="toolbar">
+            <button id="refresh" class="secondary">Refresh</button>
+            <button id="showRegister">Register Agent</button>
+          </div>
+        </div>
+        <div class="meta-row">
+          <span class="chip" id="mcp-url">Loading MCP URL...</span>
+          <span class="chip" id="state-path">Loading state...</span>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="map-panel">
+          <div class="map-head">
+            <div>
+              <h2>Live Diagram</h2>
+              <p class="subtitle">Click an agent to inspect or control it</p>
+            </div>
+            <span class="chip" id="agent-count">0 agents</span>
+          </div>
+          <div class="map" id="diagram">
+            <svg class="links" id="links" aria-hidden="true"></svg>
+            <div class="router-node" id="routerNode">
+              <h2>MCP Router</h2>
+              <div><code>/mcp</code></div>
+              <div class="node-meta" id="routerSummary">Waiting for state...</div>
+              <div class="legend">
+                <span class="legend-dot answered"></span><span>answered</span>
+                <span class="legend-dot waiting"></span><span>waiting</span>
+                <span class="legend-dot failed"></span><span>failed</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side-panel">
+          <div class="side-head">
+            <h2 id="detailTitle">Router</h2>
+            <span class="status unknown" id="detailStatus">ready</span>
+          </div>
+          <div class="side-body">
+            <div id="agentDetail" class="empty">Select an agent node to see session, root, status, and controls.</div>
+
+            <form id="askForm" class="hidden detail-grid">
+              <label class="hidden">Target<input id="askTarget" /></label>
+              <label style="grid-column: 1 / -1">Ask selected agent<textarea id="askTask">현재 프로젝트 목적을 짧게 요약해줘.</textarea></label>
+              <div class="actions" style="grid-column: 1 / -1">
+                <button type="submit">Ask via Router</button>
+                <button type="button" class="danger" id="deleteAgent">Delete Agent</button>
+              </div>
+              <pre id="askOutput" style="grid-column: 1 / -1"></pre>
+            </form>
+
+            <div id="requestDetail" class="flow-detail hidden"></div>
+          </div>
+        </aside>
+
+        <section class="bottom-panel">
+          <div class="map-head">
+            <div>
+              <h2>Register & Requests</h2>
+              <p class="subtitle">Create visible tmux agents, then watch requests move through the router</p>
+            </div>
+            <button id="setupPair" class="secondary">Create Two-Codex Demo</button>
+          </div>
+          <div class="bottom-body">
+            <form id="registerForm" class="form-grid hidden">
+              <label>ID<input id="agentId" value="ralph" /></label>
+              <label>Name<input id="agentName" value="ralph" /></label>
+              <label>Type<select id="agentType"><option>codex</option><option>gemini</option><option>claude</option><option>shell</option></select></label>
+              <label>Transport<select id="agentTransport"><option>tmux</option><option>headless</option><option>mock</option></select></label>
+              <label>tmux session<input id="agentSession" value="mina-ralph-codex" /></label>
+              <label>tmux target<input id="agentTarget" placeholder="optional pane target" /></label>
+              <label style="grid-column: 1 / -1">Project root<input id="agentRoot" value="/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs" /></label>
+              <label style="grid-column: 1 / -1">Startup command<input id="agentCommand" value="codex --no-alt-screen" /></label>
+              <div class="actions" style="grid-column: 1 / -1">
+                <button type="submit">Save Agent</button>
+                <button type="button" class="secondary" id="hideRegister">Close</button>
+              </div>
+            </form>
+
+            <pre id="setupOutput" class="hidden"></pre>
+            <div class="request-list" id="requests"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let busy = false;
+      let currentState = { agents: [], requests: [] };
+      let selectedAgentId = "";
+      let selectedRequestId = "";
+      let lastAskOutput = "";
+
+      async function api(path, options = {}) {
+        const res = await fetch(path, {
+          ...options,
+          headers: { "content-type": "application/json", ...(options.headers || {}) },
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || res.statusText);
+        return json;
+      }
+
+      async function refresh() {
+        currentState = await api("/api/state");
+        render();
+      }
+
+      function render() {
+        $("mcp-url").textContent = currentState.mcpUrl || "MCP URL unavailable";
+        $("state-path").textContent = currentState.statePath || "state unavailable";
+        $("agent-count").textContent = `${currentState.agents.length} agent${currentState.agents.length === 1 ? "" : "s"}`;
+        $("routerSummary").textContent = `${answeredCount()} answered / ${waitingCount()} waiting`;
+        renderDiagram(currentState.agents || []);
+        renderDetail(selectedAgent());
+        renderRequestDetail(selectedRequest());
+        renderRequests(currentState.requests || []);
+      }
+
+      function renderDiagram(agents) {
+        const diagram = $("diagram");
+        diagram.querySelectorAll(".agent-node").forEach((node) => node.remove());
+        const positions = layoutFor(agents.length);
+
+        agents.forEach((agent, index) => {
+          const node = document.createElement("button");
+          node.type = "button";
+          const latest = latestRequestFor(agent.id);
+          node.dataset.agentId = agent.id;
+          node.className = [
+            "agent-node",
+            selectedAgentId === agent.id ? "selected" : "",
+            latest?.status === "waiting" ? "active-request" : "",
+            ["failed", "timeout"].includes(latest?.status) ? "failed-request" : "",
+          ].filter(Boolean).join(" ");
+          node.style.left = positions[index].left;
+          node.style.top = positions[index].top;
+          node.innerHTML = `
+            <div class="agent-title">
+              <span class="agent-id">${escapeHtml(agent.id)}</span>
+              <span class="status ${escapeAttr(agent.status)}">${escapeHtml(agent.status)}</span>
+            </div>
+            <div class="node-meta">${escapeHtml(agent.agentType)} / ${escapeHtml(agent.transport)}</div>
+            <div class="node-meta">${escapeHtml(agent.sessionId || "-")}</div>
+            <div class="node-meta request-summary">${escapeHtml(lastRequestLabel(agent, latest))}</div>
+          `;
+          node.onclick = () => {
+            if (selectedAgentId !== agent.id) {
+              lastAskOutput = "";
+            }
+            selectedAgentId = agent.id;
+            selectedRequestId = latest?.id || "";
+            render();
+          };
+          diagram.appendChild(node);
+        });
+
+        requestAnimationFrame(drawLinks);
+      }
+
+      function layoutFor(count) {
+        if (count <= 0) return [];
+        const slots = [
+          { left: "6%", top: "9%" },
+          { left: "70%", top: "9%" },
+          { left: "6%", top: "68%" },
+          { left: "70%", top: "68%" },
+          { left: "39%", top: "7%" },
+          { left: "39%", top: "72%" },
+          { left: "3%", top: "38%" },
+          { left: "75%", top: "38%" },
+        ];
+        return Array.from({ length: count }, (_, index) => slots[index] || orbitPosition(index, count));
+      }
+
+      function orbitPosition(index, count) {
+        const angle = (Math.PI * 2 * index) / Math.max(count, 1) - Math.PI / 2;
+        const x = 42 + Math.cos(angle) * 35;
+        const y = 42 + Math.sin(angle) * 31;
+        return { left: `${Math.max(2, Math.min(78, x))}%`, top: `${Math.max(4, Math.min(76, y))}%` };
+      }
+
+      function drawLinks() {
+        const svg = $("links");
+        const map = $("diagram").getBoundingClientRect();
+        const router = $("routerNode").getBoundingClientRect();
+        const center = rectCenter(router, map);
+        const nodes = Array.from(document.querySelectorAll(".agent-node"));
+        svg.setAttribute("viewBox", `0 0 ${map.width} ${map.height}`);
+        svg.innerHTML = nodes.map((node) => {
+          const target = rectCenter(node.getBoundingClientRect(), map);
+          const request = requestForLine(node.dataset.agentId || "");
+          const selected = request?.id && request.id === selectedRequestId ? "selected" : "";
+          const status = escapeAttr(request?.status || "");
+          return `<line class="link-line ${status} ${selected}" x1="${center.x}" y1="${center.y}" x2="${target.x}" y2="${target.y}"></line>`;
+        }).join("");
+      }
+
+      function rectCenter(rect, base) {
+        return {
+          x: rect.left - base.left + rect.width / 2,
+          y: rect.top - base.top + rect.height / 2,
+        };
+      }
+
+      function renderDetail(agent) {
+        if (!agent) {
+          $("detailTitle").textContent = "Router";
+          $("detailStatus").textContent = "ready";
+          $("detailStatus").className = "status unknown";
+          $("agentDetail").className = "empty";
+          $("agentDetail").innerHTML = "Select an agent node to see session, root, status, and controls.";
+          $("askForm").classList.add("hidden");
+          return;
+        }
+
+        $("detailTitle").textContent = agent.id;
+        $("detailStatus").textContent = agent.status;
+        $("detailStatus").className = `status ${agent.status}`;
+        $("agentDetail").className = "detail-grid";
+        $("agentDetail").innerHTML = `
+          ${kv("Name", agent.name || agent.id)}
+          ${kv("Type", `${agent.agentType} / ${agent.transport}`)}
+          ${kv("Session", agent.sessionId || "-")}
+          ${kv("Project root", agent.projectRoot || "-")}
+          ${kv("Detail", agent.detail || "-")}
+          ${kv("Last request", agent.lastRequestStatus || "-")}
+        `;
+        $("askTarget").value = agent.id;
+        $("askOutput").textContent = lastAskOutput;
+        $("askForm").classList.remove("hidden");
+      }
+
+      function kv(label, value) {
+        return `<div class="kv"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+      }
+
+      function renderRequests(requests) {
+        const recent = requests.slice().reverse().slice(0, 8);
+        $("requests").innerHTML = recent.length
+          ? recent.map((request) => `
+              <button type="button" class="request-item ${request.id === selectedRequestId ? "selected" : ""}" data-request-id="${escapeAttr(request.id)}">
+                <div class="request-top">
+                  <strong>${escapeHtml(request.id)}</strong>
+                  <span class="status ${escapeAttr(request.status)}">${escapeHtml(request.status)}</span>
+                </div>
+                <div><code>${escapeHtml(request.sourceAgent || "main")}</code> -> <code>${escapeHtml(request.targetAgent)}</code></div>
+                <div class="muted">${escapeHtml(request.task)}</div>
+              </button>
+            `).join("")
+          : '<div class="empty">No requests yet.</div>';
+        document.querySelectorAll(".request-item").forEach((item) => {
+          item.onclick = () => {
+            selectedRequestId = item.dataset.requestId || "";
+            const request = selectedRequest();
+            selectedAgentId = request?.targetAgent || selectedAgentId;
+            lastAskOutput = "";
+            render();
+          };
+        });
+      }
+
+      function renderRequestDetail(request) {
+        const detail = $("requestDetail");
+        if (!request) {
+          detail.classList.add("hidden");
+          detail.innerHTML = "";
+          return;
+        }
+
+        detail.classList.remove("hidden");
+        detail.innerHTML = `
+          <div class="request-top">
+            <h3>Selected Request</h3>
+            <span class="status ${escapeAttr(request.status)}">${escapeHtml(request.status)}</span>
+          </div>
+          <div class="flow-path">
+            <code>${escapeHtml(request.sourceAgent || "main")}</code>
+            <span class="muted">-></span>
+            <code>MCP Router</code>
+            <span class="muted">-></span>
+            <code>${escapeHtml(request.targetAgent)}</code>
+          </div>
+          <div class="kv"><span>Request ID</span><strong>${escapeHtml(request.id)}</strong></div>
+          <div class="kv"><span>Task</span><strong>${escapeHtml(request.task)}</strong></div>
+          ${request.answer ? `<div class="kv"><span>Answer</span><pre>${escapeHtml(request.answer)}</pre></div>` : ""}
+          ${request.error ? `<div class="kv"><span>Error</span><pre>${escapeHtml(request.error)}</pre></div>` : ""}
+        `;
+      }
+
+      async function withBusy(fn) {
+        if (busy) return;
+        busy = true;
+        document.querySelectorAll("button").forEach((button) => button.disabled = true);
+        try {
+          await fn();
+        } catch (error) {
+          alert(error.message || String(error));
+        } finally {
+          busy = false;
+          document.querySelectorAll("button").forEach((button) => button.disabled = false);
+        }
+      }
+
+      $("refresh").onclick = () => withBusy(refresh);
+      $("showRegister").onclick = () => $("registerForm").classList.toggle("hidden");
+      $("hideRegister").onclick = () => $("registerForm").classList.add("hidden");
+
+      $("registerForm").onsubmit = (event) => withBusy(async () => {
+        event.preventDefault();
+        const result = await api("/api/register", {
+          method: "POST",
+          body: JSON.stringify({
+            id: $("agentId").value,
+            name: $("agentName").value,
+            agentType: $("agentType").value,
+            transport: $("agentTransport").value,
+            sessionId: $("agentSession").value,
+            tmuxTarget: $("agentTarget").value,
+            projectRoot: $("agentRoot").value,
+            startupCommand: $("agentCommand").value,
+          }),
+        });
+        selectedAgentId = result.agent.id;
+        currentState = result.state;
+        $("registerForm").classList.add("hidden");
+        render();
+      });
+
+      $("setupPair").onclick = () => withBusy(async () => {
+        const result = await api("/api/setup-codex-pair", {
+          method: "POST",
+          body: JSON.stringify({
+            mainRoot: "/Users/stevenna/WebstormProjects/minasoftai",
+            helperRoot: "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs",
+            helperId: "ralph",
+            sessionId: "mina-ralph-codex",
+          }),
+        });
+        $("setupOutput").classList.remove("hidden");
+        $("setupOutput").textContent = JSON.stringify(result, null, 2);
+        selectedAgentId = result.helper.id;
+        await refresh();
+      });
+
+      $("askForm").onsubmit = (event) => withBusy(async () => {
+        event.preventDefault();
+        const result = await api("/api/ask", {
+          method: "POST",
+          body: JSON.stringify({
+            target: $("askTarget").value,
+            task: $("askTask").value,
+            timeoutMs: 300000,
+          }),
+        });
+        lastAskOutput = JSON.stringify(result.result || result, null, 2);
+        $("askOutput").textContent = lastAskOutput;
+        currentState = result.state;
+        render();
+      });
+
+      $("deleteAgent").onclick = () => withBusy(async () => {
+        const agent = selectedAgent();
+        if (!agent) return;
+        if (!confirm(`Delete agent "${agent.id}" from the router registry?`)) return;
+        const result = await api(`/api/agents/${encodeURIComponent(agent.id)}`, { method: "DELETE" });
+        currentState = result.state;
+        selectedAgentId = "";
+        lastAskOutput = "";
+        render();
+      });
+
+      window.addEventListener("resize", drawLinks);
+      setInterval(() => refresh().catch(() => undefined), 5000);
+
+      function selectedAgent() {
+        return currentState.agents.find((agent) => agent.id === selectedAgentId);
+      }
+
+      function selectedRequest() {
+        return currentState.requests.find((request) => request.id === selectedRequestId);
+      }
+
+      function latestRequestFor(agentId) {
+        return currentState.requests
+          .slice()
+          .reverse()
+          .find((request) => request.targetAgent === agentId);
+      }
+
+      function requestForLine(agentId) {
+        const selected = selectedRequest();
+        if (selected?.targetAgent === agentId) {
+          return selected;
+        }
+
+        return latestRequestFor(agentId);
+      }
+
+      function answeredCount() {
+        return currentState.requests.filter((request) => request.status === "answered").length;
+      }
+
+      function waitingCount() {
+        return currentState.requests.filter((request) => request.status === "waiting").length;
+      }
+
+      function lastRequestLabel(agent, latest) {
+        if (latest) {
+          return `${latest.status}: ${latest.task}`;
+        }
+
+        return agent.lastRequestStatus ? `last: ${agent.lastRequestStatus}` : "no recent request";
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        })[char]);
+      }
+
+      function escapeAttr(value) {
+        return String(value ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+      }
+
+      refresh();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "name": "mina-aimesh",
+  "version": "0.1.0",
+  "description": "Mina Agent Router POC",
+  "main": "dist/apps/cli/src/index.js",
+  "bin": {
+    "mar": "dist/apps/cli/src/index.js",
+    "mar-mcp": "dist/apps/mcp-server/src/index.js",
+    "mar-http": "dist/apps/http-server/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node scripts/core-tests.js",
+    "mar": "node dist/apps/cli/src/index.js",
+    "mcp": "node dist/apps/mcp-server/src/index.js",
+    "http": "node dist/apps/http-server/src/index.js",
+    "smoke": "npm run build && node dist/apps/cli/src/index.js register payment --agent gemini --transport headless --session payment --root ./payment && node dist/apps/cli/src/index.js ask payment \"현재 payment flow를 요약해줘.\"",
+    "smoke:http": "npm run build && node scripts/smoke-http.js",
+    "smoke:tmux": "npm run build && node scripts/smoke-tmux.js",
+    "smoke:mcp": "npm run build && node scripts/smoke-mcp.js",
+    "smoke:multi": "npm run build && node scripts/smoke-multi-agent.js",
+    "verify": "npm run test && npm run smoke:http && npm run smoke:tmux && npm run smoke:mcp && npm run smoke:multi"
+  },
+  "dependencies": {
+    "@minasoft/mcp-runtime": "^0.1.6"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.3"
+  },
+  "private": true
+}
