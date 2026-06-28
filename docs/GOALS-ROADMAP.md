@@ -16,6 +16,7 @@ The project should move in small slices. Each phase must produce a runnable syst
 | 3 | [GOALS-PHASE-3-PERSISTENCE-CLI-TESTS.md](./GOALS-PHASE-3-PERSISTENCE-CLI-TESTS.md) | durable request state, safer CLI, repeatable tests |
 | 4 | [GOALS-PHASE-4-MULTI-AGENT-OPERATIONS.md](./GOALS-PHASE-4-MULTI-AGENT-OPERATIONS.md) | multiple project-scoped helper agents with usable operator workflows |
 | 5 | [GOALS-PHASE-5-POC-COMPLETION.md](./GOALS-PHASE-5-POC-COMPLETION.md) | PRD success scenario demonstrated and POC closed |
+| 6 | [GOALS-PHASE-6-TMUX-WEB-CONSOLE.md](./GOALS-PHASE-6-TMUX-WEB-CONSOLE.md) | inspect and lightly interact with tmux-backed agents from the web UI |
 
 ## Sequencing Rule
 
@@ -43,7 +44,7 @@ The whole POC is complete when all of these are true:
 Do not add these during the POC unless the PRD changes:
 
 - autonomous planning across agents
-- web UI
+- hosted or cloud web UI
 - terminal emulator
 - permission policy engine
 - cloud service

@@ -68,7 +68,8 @@ The page shows:
 - each agent's short capability notice on the node
 - agent status, project root, capability details, and tmux metadata in a modal
 - per-agent request history in a modal opened from the agent context menu
-- agent controls in the context menu: details, history, ask, copy attach command, restart session, delete agent
+- agent controls in the context menu: details, history, ask, attach commands, copy attach command, restart session, delete agent
+- right-click flow background menu for creating a tmux-backed Codex or Claude agent from a project directory
 - a `Connect Agent` guide instead of manual UI registration
 - hidden `Developer Tools` for POC helpers such as the two-Codex demo and stale request cleanup
 
@@ -130,6 +131,12 @@ npm run smoke:http
 4. Start an agent from its project directory with `mar codex` or `mar claude`.
 5. Confirm the agent appears in the flow diagram.
 6. Click the agent node and use the context menu to inspect details, view history, or delete it.
-5. Run `codex mcp add mina-agent-router --url http://127.0.0.1:3333/mcp`.
-6. Restart main Codex in `/Users/stevenna/WebstormProjects/minasoftai`.
-7. Ask main Codex to call `call_agent` with `target=ralph`.
+
+Alternative UI-created agent flow:
+
+1. Right-click the `Live Agent Flow` background.
+2. Choose `Create tmux Agent`.
+3. Select `codex` or `claude`.
+4. Enter the target project directory or use `Browse Directory` to select it.
+5. Create the agent.
+6. Use the agent context menu `Attach Commands` when direct terminal control is needed.

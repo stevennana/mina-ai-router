@@ -20,6 +20,7 @@ It provides:
 - visible cross-agent request flow
 - project-scoped helper agent calls
 - request history and operational recovery tools
+- optional web console inspection for tmux-backed visible sessions
 
 It does not aim to replace Codex CLI, Claude Code, Gemini CLI, tmux, or a developer's IDE.
 

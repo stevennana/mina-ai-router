@@ -614,6 +614,69 @@
         overflow-wrap: anywhere;
       }
 
+      .directory-picker {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 0.6rem;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: white;
+        padding: 0.75rem;
+      }
+
+      .directory-list {
+        display: grid;
+        gap: 0.35rem;
+        max-height: 15rem;
+        overflow: auto;
+      }
+
+      .directory-row {
+        min-height: 2.35rem;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        border-color: var(--line);
+        background: var(--panel);
+        color: var(--ink);
+        text-align: left;
+      }
+
+      .terminal-panel {
+        grid-column: 1 / -1;
+        display: grid;
+        gap: 0.65rem;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: #101612;
+        color: #d8f5df;
+        padding: 0.75rem;
+      }
+
+      .terminal-panel .terminal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      .terminal-panel pre {
+        min-height: 16rem;
+        max-height: 24rem;
+        background: #080d0a;
+        color: #d8f5df;
+        border: 1px solid rgba(216, 245, 223, 0.16);
+      }
+
+      .terminal-panel input {
+        background: #080d0a;
+        color: #d8f5df;
+        border-color: rgba(216, 245, 223, 0.24);
+      }
+
       @keyframes flowPulse {
         0%,
         100% {
@@ -717,6 +780,7 @@
     </div>
 
     <div id="agentMenu" class="context-menu hidden"></div>
+    <div id="flowMenu" class="context-menu hidden"></div>
 
     <div id="modalBackdrop" class="modal-backdrop hidden">
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -738,6 +802,7 @@
       let selectedAgentId = "";
       let selectedRequestId = "";
       let lastAskOutput = "";
+      let createTerminalTimer = 0;
 
       async function api(path, options = {}) {
         const res = await fetch(path, {
@@ -870,7 +935,9 @@
         menu.innerHTML = `
           <button type="button" data-agent-action="details">Status & Details</button>
           <button type="button" data-agent-action="history">Request History</button>
+          <button type="button" data-agent-action="terminal">Open Terminal</button>
           <button type="button" data-agent-action="ask">Ask This Agent</button>
+          <button type="button" data-agent-action="attach">Attach Commands</button>
           <button type="button" data-agent-action="copy">Copy Attach Command</button>
           <button type="button" data-agent-action="restart">Restart Session</button>
           <button type="button" class="danger" data-agent-action="delete">Delete Agent</button>
@@ -889,6 +956,30 @@
         $("agentMenu").classList.add("hidden");
       }
 
+      function showFlowMenu(x, y) {
+        const menu = $("flowMenu");
+        menu.innerHTML = `
+          <button type="button" data-flow-action="create">Create tmux Agent</button>
+          <button type="button" data-flow-action="guide">Connect Guide</button>
+        `;
+        menu.classList.remove("hidden");
+        const left = Math.min(x + 8, window.innerWidth - menu.offsetWidth - 16);
+        const top = Math.min(y + 8, window.innerHeight - menu.offsetHeight - 16);
+        menu.style.left = `${Math.max(16, left)}px`;
+        menu.style.top = `${Math.max(16, top)}px`;
+        menu.querySelectorAll("[data-flow-action]").forEach((button) => {
+          button.onclick = () => {
+            hideFlowMenu();
+            if (button.dataset.flowAction === "create") showCreateTmuxAgent();
+            if (button.dataset.flowAction === "guide") showConnectGuide();
+          };
+        });
+      }
+
+      function hideFlowMenu() {
+        $("flowMenu").classList.add("hidden");
+      }
+
       function handleAgentAction(action, agentId) {
         const agent = currentState.agents.find((candidate) => candidate.id === agentId);
         if (!agent) return;
@@ -896,7 +987,9 @@
         hideAgentMenu();
         if (action === "details") showAgentDetails(agent);
         if (action === "history") showAgentHistory(agent);
+        if (action === "terminal") showAgentTerminal(agent);
         if (action === "ask") showAskAgent(agent);
+        if (action === "attach") showAttachCommands(agent);
         if (action === "copy") copyAttach(agent);
         if (action === "restart") restartAgent(agent);
         if (action === "delete") deleteAgent(agent);
@@ -914,9 +1007,75 @@
             ${kv("Detail", agent.detail || "-")}
             ${kv("Last request", agent.lastRequestStatus || "-")}
             ${kv("Attach command", attachCommand(agent))}
+            ${kv("MAR attach command", marAttachCommand(agent))}
             ${kv("Open root", `cd ${agent.projectRoot || "."}`)}
           </div>
+          <form id="capabilityForm" class="detail-grid" style="margin-top: 1rem">
+            <label style="grid-column: 1 / -1">Capabilities<textarea id="editCapabilitySummary">${escapeHtml(agent.capabilitySummary || "")}</textarea></label>
+            <label style="grid-column: 1 / -1">Capability sources<input id="editCapabilitySources" value="${escapeAttrValue(agent.capabilitySources || "")}" /></label>
+            <div class="actions">
+              <button type="submit">Save Capabilities</button>
+              <button type="button" class="secondary" id="resetCapabilityDraft">Reset</button>
+            </div>
+          </form>
         `);
+        $("capabilityForm").onsubmit = (event) => withBusy(async () => {
+          event.preventDefault();
+          const result = await api(`/api/agents/${encodeURIComponent(agent.id)}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              capabilitySummary: $("editCapabilitySummary").value,
+              capabilitySources: $("editCapabilitySources").value,
+            }),
+          });
+          currentState = result.state;
+          selectedAgentId = result.agent.id;
+          showAgentDetails(result.agent);
+          render();
+        });
+        $("resetCapabilityDraft").onclick = () => {
+          $("editCapabilitySummary").value = agent.capabilitySummary || "";
+          $("editCapabilitySources").value = agent.capabilitySources || "";
+        };
+      }
+
+      function showAttachCommands(agent) {
+        showModal(`${agent.id} attach`, "Use these commands when you want direct terminal control", `
+          <div class="guide-steps">
+            <div class="notice">The web UI can control routing and session lifecycle. For full interactive terminal control, run one of these commands in your terminal app.</div>
+            <div class="kv"><span>tmux attach</span><code>${escapeHtml(attachCommand(agent))}</code></div>
+            <div class="kv"><span>MAR helper command</span><code>${escapeHtml(marAttachCommand(agent))}</code></div>
+            <div class="actions">
+              <button type="button" id="copyTmuxAttach">Copy tmux attach</button>
+              <button type="button" class="secondary" id="copyMarAttach">Copy mar attach</button>
+            </div>
+          </div>
+        `);
+        $("copyTmuxAttach").onclick = () => withBusy(async () => copyText(attachCommand(agent)));
+        $("copyMarAttach").onclick = () => withBusy(async () => copyText(marAttachCommand(agent)));
+      }
+
+      function showAgentTerminal(agent) {
+        if (agent.transport !== "tmux") {
+          showModal(`${agent.id} terminal`, "Terminal preview is available only for tmux agents.", `
+            <div class="empty">This agent uses ${escapeHtml(agent.transport)}, not tmux.</div>
+          `);
+          return;
+        }
+
+        showModal(`${agent.id} terminal`, agent.sessionId || "tmux session", terminalPanelHtml("agent"));
+        startTerminalPanel({
+          agentId: agent.id,
+          panelId: "agentTerminalPanel",
+          statusId: "agentTerminalStatus",
+          outputId: "agentTerminalOutput",
+          inputId: "agentTerminalInput",
+          refreshId: "refreshAgentTerminal",
+          enterId: "sendAgentEnter",
+          sendId: "sendAgentInput",
+          autoHideOnRegistered: false,
+          idleStatus: "Watching the current tmux session.",
+        });
       }
 
       function showAgentHistory(agent) {
@@ -1029,6 +1188,7 @@
       }
 
       function closeModal() {
+        stopCreateTerminal();
         $("modalBackdrop").classList.add("hidden");
         $("modalBody").innerHTML = "";
       }
@@ -1043,6 +1203,235 @@
             <div class="kv"><span>Codex MCP command</span><code>codex mcp add mina-agent-router --url ${escapeHtml(currentState.mcpUrl || "http://127.0.0.1:3333/mcp")}</code></div>
           </div>
         `);
+      }
+
+      function showCreateTmuxAgent() {
+        showModal("Create tmux agent", "Start Codex or Claude in a project directory", `
+          <form id="createTmuxAgentForm" class="detail-grid">
+            <label>Agent type<select id="createAgentType"><option value="codex">codex</option><option value="claude">claude</option></select></label>
+            <label>Project directory<input id="createProjectRoot" placeholder="/Users/you/work/project" /></label>
+            <div class="actions">
+              <button type="button" class="secondary" id="browseProjectRoot">Browse Directory</button>
+            </div>
+            <label>Agent id<input id="createAgentId" placeholder="optional, derived from directory" /></label>
+            <label>tmux session<input id="createSessionId" placeholder="optional, derived from directory" /></label>
+            <div id="directoryPicker" class="directory-picker hidden">
+              <div class="actions">
+                <button type="button" class="secondary" id="directoryHome">Home</button>
+                <button type="button" class="secondary" id="directoryUp">Up</button>
+                <button type="button" id="useCurrentDirectory">Use Current Directory</button>
+              </div>
+              <div class="kv"><span>Current directory</span><strong id="directoryCurrent">-</strong></div>
+              <div id="directoryList" class="directory-list"></div>
+            </div>
+            <div class="notice" style="grid-column: 1 / -1">Mina will create or reuse the tmux session, register the agent, and send a self-registration prompt so the agent can update its capability notice.</div>
+            <div class="actions" style="grid-column: 1 / -1">
+              <button type="submit">Create Agent</button>
+            </div>
+            <pre id="createTmuxOutput" class="hidden" style="grid-column: 1 / -1"></pre>
+            <div id="createTerminalPanel" class="terminal-panel hidden">
+              <div class="terminal-head">
+                <div>
+                  <strong>Terminal preview</strong>
+                  <p class="subtitle" id="createTerminalStatus"></p>
+                </div>
+                <div class="actions">
+                  <button type="button" class="secondary" id="refreshCreateTerminal">Refresh</button>
+                  <button type="button" class="secondary" id="sendCreateEnter">Send Enter</button>
+                </div>
+              </div>
+              <pre id="createTerminalOutput"></pre>
+              <div class="actions">
+                <input id="createTerminalInput" placeholder="Type input for this tmux session" />
+                <button type="button" id="sendCreateInput">Send</button>
+              </div>
+            </div>
+          </form>
+        `);
+        let pickerPath = $("createProjectRoot").value || "";
+        $("browseProjectRoot").onclick = () => withBusy(async () => {
+          $("directoryPicker").classList.remove("hidden");
+          await loadDirectory(pickerPath || undefined);
+        });
+        $("directoryHome").onclick = () => withBusy(async () => loadDirectory("__HOME__"));
+        $("directoryUp").onclick = () => withBusy(async () => {
+          const current = $("directoryCurrent").textContent;
+          const parent = $("directoryUp").dataset.parent;
+          await loadDirectory(parent || current || undefined);
+        });
+        $("useCurrentDirectory").onclick = () => {
+          $("createProjectRoot").value = $("directoryCurrent").textContent;
+          $("directoryPicker").classList.add("hidden");
+        };
+        async function loadDirectory(path) {
+          const body = path === "__HOME__" ? {} : { path };
+          const result = await api("/api/fs/directories", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          pickerPath = result.path;
+          $("directoryCurrent").textContent = result.path;
+          $("directoryUp").dataset.parent = result.parent;
+          $("createProjectRoot").value = result.path;
+          $("directoryList").innerHTML = result.entries.length
+            ? result.entries.map((entry) => `
+                <button type="button" class="directory-row" data-directory-path="${escapeAttrValue(entry.path)}">
+                  <span>${escapeHtml(entry.name)}</span>
+                  <span class="muted">Open</span>
+                </button>
+              `).join("")
+            : '<div class="empty">No child directories.</div>';
+          $("directoryList").querySelectorAll("[data-directory-path]").forEach((button) => {
+            button.onclick = () => withBusy(async () => loadDirectory(button.dataset.directoryPath));
+          });
+        }
+        $("createTmuxAgentForm").onsubmit = (event) => withBusy(async () => {
+          event.preventDefault();
+          const result = await api("/api/agents/create-tmux", {
+            method: "POST",
+            body: JSON.stringify({
+              agentType: $("createAgentType").value,
+              projectRoot: $("createProjectRoot").value,
+              id: $("createAgentId").value,
+              sessionId: $("createSessionId").value,
+            }),
+          });
+          currentState = result.state;
+          selectedAgentId = result.agent.id;
+          $("createTmuxOutput").classList.remove("hidden");
+          $("createTmuxOutput").textContent = JSON.stringify({
+            agent: result.agent.id,
+            session: result.agent.sessionId,
+            existed: result.existed,
+            registration: result.registration,
+            nextAction: result.nextAction,
+            tmuxAttach: result.attachCommand,
+            marAttach: result.marAttachCommand,
+          }, null, 2);
+          render();
+          startTerminalPanel({
+            agentId: result.agent.id,
+            panelId: "createTerminalPanel",
+            statusId: "createTerminalStatus",
+            outputId: "createTerminalOutput",
+            inputId: "createTerminalInput",
+            refreshId: "refreshCreateTerminal",
+            enterId: "sendCreateEnter",
+            sendId: "sendCreateInput",
+            autoHideOnRegistered: true,
+            idleStatus: "Watching the tmux session. The panel hides after self-registration completes.",
+          });
+        });
+      }
+
+      function terminalPanelHtml(prefix) {
+        return `
+          <div id="${prefix}TerminalPanel" class="terminal-panel">
+            <div class="terminal-head">
+              <div>
+                <strong>Terminal preview</strong>
+                <p class="subtitle" id="${prefix}TerminalStatus"></p>
+              </div>
+              <div class="actions">
+                <button type="button" class="secondary" id="refresh${capitalize(prefix)}Terminal">Refresh</button>
+                <button type="button" class="secondary" id="send${capitalize(prefix)}Enter">Send Enter</button>
+              </div>
+            </div>
+            <pre id="${prefix}TerminalOutput"></pre>
+            <div class="actions">
+              <input id="${prefix}TerminalInput" placeholder="Type input for this tmux session" />
+              <button type="button" id="send${capitalize(prefix)}Input">Send</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function startTerminalPanel(options) {
+        stopCreateTerminal();
+        $(options.panelId).classList.remove("hidden");
+        $(options.statusId).textContent = options.idleStatus;
+        $(options.refreshId).onclick = () => withBusy(async () => refreshTerminalPanel(options, false));
+        $(options.enterId).onclick = () => withBusy(async () => sendTerminalPanelInput(options, "", true));
+        $(options.sendId).onclick = () => withBusy(async () => {
+          await submitTerminalInput(options);
+        });
+        $(options.inputId).onkeydown = (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            withBusy(async () => submitTerminalInput(options));
+          }
+        };
+        refreshTerminalPanel(options, false).catch((error) => {
+          $(options.outputId).textContent = error.message || String(error);
+        });
+        createTerminalTimer = window.setInterval(() => {
+          refreshTerminalPanel(options, true).catch(() => undefined);
+        }, 1800);
+      }
+
+      async function submitTerminalInput(options) {
+        const value = $(options.inputId).value;
+        $(options.inputId).value = "";
+        await sendTerminalPanelInput(options, value, true);
+      }
+
+      function stopCreateTerminal() {
+        if (createTerminalTimer) {
+          window.clearInterval(createTerminalTimer);
+          createTerminalTimer = 0;
+        }
+      }
+
+      async function refreshTerminalPanel(options, allowAutoHide) {
+        const result = await api(`/api/agents/${encodeURIComponent(options.agentId)}/terminal`);
+        $(options.outputId).textContent = result.terminal.text || "";
+        $(options.statusId).textContent = terminalStatusText(result, options.autoHideOnRegistered);
+        const latest = (await api("/api/state")).agents.find((agent) => agent.id === options.agentId);
+        if (latest) {
+          currentState.agents = currentState.agents.map((agent) => agent.id === latest.id ? latest : agent);
+        }
+        if (allowAutoHide && options.autoHideOnRegistered && latest && !isPendingUiRegistration(latest)) {
+          $(options.panelId).classList.add("hidden");
+          stopCreateTerminal();
+          if ($("createTmuxOutput")) {
+            $("createTmuxOutput").textContent = `Agent "${options.agentId}" completed self-registration and is available.`;
+          }
+          render();
+        }
+      }
+
+      async function sendTerminalPanelInput(options, text, enter) {
+        const result = await api(`/api/agents/${encodeURIComponent(options.agentId)}/terminal/input`, {
+          method: "POST",
+          body: JSON.stringify({ text, enter }),
+        });
+        $(options.outputId).textContent = result.terminal.text || "";
+        $(options.statusId).textContent = result.registration === "registration prompt sent to agent"
+          ? "Trust approved. Mina sent the self-registration prompt."
+          : terminalStatusText(result, options.autoHideOnRegistered);
+      }
+
+      function terminalStatusText(result, autoHideOnRegistered) {
+        if (result.terminal.trustPrompt) {
+          return "Codex is waiting for directory trust approval. Press Send Enter to continue.";
+        }
+
+        if (result.terminal.pendingRegistration) {
+          return "Waiting for the agent to finish self-registration.";
+        }
+
+        return autoHideOnRegistered
+          ? "Agent is registered. Terminal preview will close automatically."
+          : "Live terminal preview is active.";
+      }
+
+      function capitalize(value) {
+        return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+      }
+
+      function isPendingUiRegistration(agent) {
+        return agent.capabilitySummary === "Pending self-registration capability notice."
+          && agent.capabilitySources === "created from Mina UI";
       }
 
       function showDeveloperTools() {
@@ -1148,14 +1537,26 @@
       $("modalBackdrop").onclick = (event) => {
         if (event.target.id === "modalBackdrop") closeModal();
       };
+      $("diagram").addEventListener("contextmenu", (event) => {
+        if (event.target.closest(".agent-node")) {
+          return;
+        }
+        event.preventDefault();
+        hideAgentMenu();
+        showFlowMenu(event.clientX, event.clientY);
+      });
       document.addEventListener("click", (event) => {
         if (!event.target.closest(".agent-node") && !event.target.closest("#agentMenu")) {
           hideAgentMenu();
+        }
+        if (!event.target.closest("#diagram") && !event.target.closest("#flowMenu")) {
+          hideFlowMenu();
         }
       });
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
           hideAgentMenu();
+          hideFlowMenu();
           closeModal();
         }
       });
@@ -1200,6 +1601,14 @@
         }
 
         return `tmux attach -t ${agent.sessionId}`;
+      }
+
+      function marAttachCommand(agent) {
+        if (agent.transport !== "tmux") {
+          return "not available for non-tmux agents";
+        }
+
+        return `mar attach ${agent.id}`;
       }
 
       function healthMessage(agent) {
@@ -1265,6 +1674,16 @@
 
       function escapeAttr(value) {
         return String(value ?? "").replace(/[^a-zA-Z0-9_-]/g, "");
+      }
+
+      function escapeAttrValue(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        })[char]);
       }
 
       refresh();

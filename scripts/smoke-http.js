@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
+const { execFileSync, spawn } = require("node:child_process");
 const { mkdtempSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
@@ -8,6 +8,7 @@ const port = 3344;
 const baseUrl = `http://127.0.0.1:${port}`;
 const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
+const uiSession = `mina-http-ui-${process.pid}`;
 const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
   cwd: process.cwd(),
   env: {
@@ -35,9 +36,52 @@ async function main() {
     assert.match(html, /Live Agent Flow/);
     assert.match(html, /Connect Agent/);
     assert.match(html, /Developer Tools/);
+    assert.match(html, /Create tmux Agent/);
+    assert.match(html, /Open Terminal/);
+    assert.match(html, /Save Capabilities/);
+    assert.match(html, /Attach Commands/);
+    assert.match(html, /Browse Directory/);
     assert.match(html, /Restart Session/);
     assert.match(html, /Archive Stale/);
     assert.match(html, /Copy MCP Command/);
+
+    const directories = await postJson(`${baseUrl}/api/fs/directories`, {
+      path: tempDir,
+    });
+    assert.equal(directories.path, tempDir);
+    assert.ok(Array.isArray(directories.entries));
+
+    const uiCreated = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-created",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: uiSession,
+      startupCommand: "/bin/sh",
+      sendRegistrationPrompt: false,
+    });
+    assert.equal(uiCreated.agent.id, "ui-created");
+    assert.equal(uiCreated.agent.sessionId, uiSession);
+    assert.equal(uiCreated.attachCommand, `tmux attach -t ${uiSession}`);
+    assert.equal(uiCreated.marAttachCommand, "mar attach ui-created");
+
+    const terminal = await json(`${baseUrl}/api/agents/ui-created/terminal`);
+    assert.equal(terminal.agent.id, "ui-created");
+    assert.equal(typeof terminal.terminal.text, "string");
+
+    const terminalInput = await postJson(`${baseUrl}/api/agents/ui-created/terminal/input`, {
+      enter: true,
+    });
+    assert.equal(terminalInput.ok, true);
+
+    const updatedUiCreated = await patchJson(`${baseUrl}/api/agents/ui-created`, {
+      capabilitySummary: "Edited capability notice.",
+      capabilitySources: "manual UI edit",
+    });
+    assert.equal(updatedUiCreated.agent.capabilitySummary, "Edited capability notice.");
+    assert.equal(updatedUiCreated.agent.capabilitySources, "manual UI edit");
+
+    const deletedUiCreated = await deleteJson(`${baseUrl}/api/agents/ui-created`);
+    assert.equal(deletedUiCreated.agent.id, "ui-created");
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "http-smoke",
@@ -89,6 +133,13 @@ async function main() {
 
     console.log("http smoke passed");
   } finally {
+    try {
+      execFileSync("tmux", ["kill-session", "-t", uiSession], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      // Temporary UI-created session may not exist.
+    }
     server.kill("SIGTERM");
   }
 }
@@ -131,6 +182,16 @@ async function postMcp(body) {
 async function postJson(url, body) {
   const response = await fetch(url, {
     method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
+  return response.json();
+}
+
+async function patchJson(url, body) {
+  const response = await fetch(url, {
+    method: "PATCH",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
