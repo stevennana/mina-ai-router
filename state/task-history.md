@@ -10,3 +10,4 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-28T14:44:42.938Z: branched request-retry-cancel-archive -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 | blocker=deterministic_failure|npm-run-smoke-cli-controls|no-path-details
 - 2026-06-28T14:48:46.784Z: promoted request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 -> request-retry-cancel-archive
 - 2026-06-28T14:52:01.636Z: promoted request-retry-cancel-archive -> capability-refresh-command
+- 2026-06-28T15:02:43.787Z: promoted capability-refresh-command -> capability-freshness-ui

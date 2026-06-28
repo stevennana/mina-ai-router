@@ -4,8 +4,8 @@
 - [x] request-detail-diagnostics — Request detail diagnostics
 - [x] request-retry-cancel-archive — Request retry cancel archive controls
 - [x] request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 — RCA: Request retry cancel archive controls blocker
-- [ ] capability-refresh-command — Capability refresh command ← current
-- [ ] capability-freshness-ui — Capability freshness UI
+- [x] capability-refresh-command — Capability refresh command
+- [ ] capability-freshness-ui — Capability freshness UI ← current
 - [ ] agent-health-core-api — Agent health core and API
 - [ ] agent-health-ui-cli — Agent health UI and CLI
 - [ ] collaboration-doc-walkthrough — Collaboration documentation walkthrough

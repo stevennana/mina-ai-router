@@ -1,5 +1,5 @@
 import type { RouterAgent, RouterRequest } from "../domain/types";
-import { agentRequests, attachCommand, displayAgentName, healthMessage } from "../domain/helpers";
+import { agentRequests, attachCommand, capabilityFreshness, displayAgentName, healthMessage } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
@@ -28,6 +28,7 @@ export function Inspector({
   }
 
   const recent = agentRequests(agent.id, requests).slice().reverse().slice(0, 3);
+  const freshness = capabilityFreshness(agent);
 
   return (
     <aside className={["inspector floating-inspector", collapsed ? "is-collapsed" : ""].filter(Boolean).join(" ")} aria-label="Selected agent inspector">
@@ -69,15 +70,27 @@ export function Inspector({
         </div>
         <div className="section">
           <div className="section-title"><Icon name="bolt" size={15} />Capabilities</div>
-          <p>{agent.capabilitySummary || "No capability notice registered yet."}</p>
-          <p className="subtitle">{agent.capabilitySources || "No sources recorded."}</p>
+          <div className={`capability-card capability-${freshness.state}`}>
+            <div className="capability-card-head">
+              <span className={`status capability-status ${freshness.state}`}>{freshness.label}</span>
+              <span className="subtitle">{freshness.sourceLabel}</span>
+            </div>
+            <p>{agent.capabilitySummary || "No capability notice registered yet."}</p>
+            <p className="subtitle">{agent.capabilitySources || "No sources recorded."}</p>
+            <div className="capability-meta">
+              <span>Updated {freshness.timestampLabel}</span>
+              <span>{freshness.detail}</span>
+            </div>
+            <div className="capability-actions">
+              <Button tone="secondary" onClick={() => onAction("details", agent.id)}><Icon name="bolt" />Edit Capabilities</Button>
+            </div>
+          </div>
         </div>
         <div className="section">
           <div className="section-title"><Icon name="history" size={15} />Recent Requests</div>
           {recent.length ? <div className="request-list">{recent.map((request) => <RequestCard key={request.id} request={request} onOpen={onRequest} />)}</div> : <div className="empty">No requests for this agent yet.</div>}
         </div>
         <div className="actions">
-          <Button onClick={() => onAction("details", agent.id)}><Icon name="bolt" />Edit Capabilities</Button>
           <Button tone="secondary" onClick={() => onAction("ask", agent.id)}><Icon name="send" />Ask</Button>
         </div>
       </div>

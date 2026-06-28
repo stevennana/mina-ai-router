@@ -1,5 +1,15 @@
 import type { RouterAgent, RouterRequest } from "./types";
 
+const capabilityFreshnessWindowMs = 7 * 24 * 60 * 60 * 1000;
+
+export type CapabilityFreshness = {
+  state: "missing" | "manual" | "fresh" | "stale";
+  label: string;
+  detail: string;
+  timestampLabel: string;
+  sourceLabel: string;
+};
+
 export function displayAgentName(agent: RouterAgent): string {
   return `${capitalize(agent.agentType || "agent")} ${agent.id}`;
 }
@@ -61,6 +71,56 @@ export function shortCapability(agent: RouterAgent): string {
   return text.length > 88 ? `${text.slice(0, 85)}...` : text;
 }
 
+export function capabilityFreshness(agent: RouterAgent, now = Date.now()): CapabilityFreshness {
+  const hasSummary = Boolean(agent.capabilitySummary?.trim());
+  const hasSources = Boolean(agent.capabilitySources?.trim());
+  const updatedAt = agent.capabilityUpdatedAt || agent.lastCapabilityRefreshAt;
+  const timestampLabel = formatDateTime(updatedAt);
+  const sourceLabel = capabilitySourceLabel(agent);
+
+  if (!hasSummary && !hasSources) {
+    return {
+      state: "missing",
+      label: "Missing",
+      detail: "No capability summary has been registered for this agent.",
+      timestampLabel,
+      sourceLabel,
+    };
+  }
+
+  if (agent.capabilitySource === "manual") {
+    return {
+      state: "manual",
+      label: "Manual",
+      detail: "This capability card was edited by an operator and is not agent-generated.",
+      timestampLabel,
+      sourceLabel,
+    };
+  }
+
+  const refreshTime = Date.parse(agent.lastCapabilityRefreshAt || agent.capabilityUpdatedAt || "");
+  if (!Number.isFinite(refreshTime)) {
+    return {
+      state: "stale",
+      label: "Stale",
+      detail: "Generated capability metadata has no refresh timestamp.",
+      timestampLabel,
+      sourceLabel,
+    };
+  }
+
+  const isStale = now - refreshTime > capabilityFreshnessWindowMs;
+  return {
+    state: isStale ? "stale" : "fresh",
+    label: isStale ? "Stale" : "Fresh",
+    detail: isStale
+      ? "Generated capability metadata is older than 7 days."
+      : "Generated capability metadata was refreshed within 7 days.",
+    timestampLabel,
+    sourceLabel,
+  };
+}
+
 export function latencyLabel(request: RouterRequest): string {
   const start = Date.parse(request.createdAt || "");
   const end = Date.parse(request.updatedAt || "");
@@ -75,6 +135,18 @@ export function formatTime(value?: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+export function formatDateTime(value?: string): string {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function isPendingUiRegistration(agent: RouterAgent): boolean {
   return agent.capabilitySummary === "Pending self-registration capability notice."
     && agent.capabilitySources === "created from Mina UI";
@@ -82,4 +154,10 @@ export function isPendingUiRegistration(agent: RouterAgent): boolean {
 
 export function capitalize(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function capabilitySourceLabel(agent: RouterAgent): string {
+  if (agent.capabilitySource === "manual") return "manual edit";
+  if (agent.capabilitySource === "generated") return "agent-generated";
+  return "unknown source";
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { RouterAgent } from "../domain/types";
-import { attachCommand, healthMessage, mairAttachCommand } from "../domain/helpers";
+import { attachCommand, capabilityFreshness, healthMessage, mairAttachCommand } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { Icon } from "../primitives/Icon";
@@ -14,16 +14,30 @@ export function AgentDetailsForm({
 }) {
   const [summary, setSummary] = useState(agent.capabilitySummary || "");
   const [sources, setSources] = useState(agent.capabilitySources || "");
+  const freshness = capabilityFreshness(agent);
 
   return (
     <>
       <div className="detail-grid">
         <div className="notice" style={{ gridColumn: "1 / -1" }}>{healthMessage(agent)}</div>
+        <div className={`capability-card capability-${freshness.state}`} style={{ gridColumn: "1 / -1" }}>
+          <div className="capability-card-head">
+            <span className={`status capability-status ${freshness.state}`}>{freshness.label}</span>
+            <span className="subtitle">{freshness.sourceLabel}</span>
+          </div>
+          <p>{freshness.detail}</p>
+          <div className="capability-meta">
+            <span>Updated {freshness.timestampLabel}</span>
+            <span>Saving this form marks the capability card as manual.</span>
+          </div>
+        </div>
         <Kv label="Status">{agent.status}</Kv>
         <Kv label="Session">{agent.sessionId || "-"}</Kv>
         <Kv label="Project root">{agent.projectRoot || "-"}</Kv>
         <Kv label="Capabilities">{agent.capabilitySummary || "No capability notice registered yet."}</Kv>
         <Kv label="Capability sources">{agent.capabilitySources || "-"}</Kv>
+        <Kv label="Capability source">{freshness.sourceLabel}</Kv>
+        <Kv label="Capability updated">{freshness.timestampLabel}</Kv>
         <Kv label="Detail">{agent.detail || "-"}</Kv>
         <Kv label="Last request">{agent.lastRequestStatus || "-"}</Kv>
         <Kv label="Attach command">{attachCommand(agent)}</Kv>

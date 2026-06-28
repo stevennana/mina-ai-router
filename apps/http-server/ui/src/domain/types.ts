@@ -40,6 +40,9 @@ export type RouterAgent = {
   tmuxTarget?: string;
   capabilitySummary?: string;
   capabilitySources?: string;
+  capabilitySource?: "manual" | "generated";
+  capabilityUpdatedAt?: string;
+  lastCapabilityRefreshAt?: string;
   detail?: string;
   status: AgentStatus;
   lastRequestStatus?: string;

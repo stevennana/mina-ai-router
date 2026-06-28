@@ -246,3 +246,17 @@
 - worker-summary: Implemented the capability refresh path and wrote the handoff to `state/last-result.txt`.
 - evaluator: started
 - evaluator: status=done promotion=true The implementation satisfies the task in substance: `mair agent refresh-capabilities <id>` is a terminal-usable command, routes a refresh prompt to the existing registered agent, parses the returned capability JSON, and persists generated freshness metadata without deleting or recreating the agent. Core, CLI controls, and tmux smoke coverage include the refresh path; MCP coverage verifies freshness metadata remains compatible with registration/listing and live routing surfaces. -> state/artifacts/20260628T235231-capability-refresh-command/evaluator.log
+- commit: commit: created
+- promote: Promoted capability-refresh-command -> capability-freshness-ui
+- backlog: rendered current=capability-freshness-ui
+- health: ooxxxxxxxxxxxxxoo
+- cycle: finished
+
+### cycle 2026-06-29T00:03:13+09:00 task=capability-freshness-ui
+- artifacts: state/artifacts/20260629T000313-capability-freshness-ui
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260629T000313-capability-freshness-ui/worker.jsonl
+- worker-summary: Implemented capability freshness UI and wrote the handoff to `state/last-result.txt`.
+- evaluator: started
+- evaluator: status=not_done promotion=false The implementation adds capability freshness state rendering in the inspector and edit modal, preserves Edit Capabilities, and the required command summary reports build, HTTP smoke, and docs smoke passing. However, this task explicitly requires visual sanity for inspector and activity layout plus desktop/mobile overflow verification, and the handoff states screenshots could not be captured. I also found no focused UI/DOM/screenshot coverage proving the new freshness states render correctly or that the floating inspector/activity layout remains overflow-safe on desktop and mobile. -> state/artifacts/20260629T000313-capability-freshness-ui/evaluator.log

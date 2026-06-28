@@ -1,53 +1,49 @@
 Read the following repository documents before making changes:
 - AGENTS.md
-- ARCHITECTURE.md
+- docs/FRONTEND.md
 - docs/product-specs/agent-capability-refresh.md
-- docs/RELIABILITY.md
-- skills/mina-ai-router-agent/SKILL.md
-- docs/exec-plans/active/004-capability-refresh-command.md
+- docs/design-docs/collaboration-reliability.md
+- docs/exec-plans/active/005-capability-freshness-ui.md
 
-Current task id: capability-refresh-command
-Current task title: Capability refresh command
+Current task id: capability-freshness-ui
+Current task title: Capability freshness UI
 
 Objective:
-Add a CLI-driven capability refresh path for one registered agent.
+Show capability freshness in the browser console and expose a safe refresh/edit path.
 
 Scope:
-- Add metadata needed to track capability freshness.
-- Add a command such as `mair agent refresh-capabilities <id>` or a clearly documented equivalent.
-- Prompt the target agent to inspect local project docs and update its registration.
-- Preserve manual edit semantics.
+- Display missing/stale/fresh/manual states in the inspector.
+- Provide a refresh affordance if the API exists from the prior task.
+- Preserve manual editing through `Edit Capabilities`.
+- Verify desktop and mobile layout does not overflow.
 
 Out of scope:
+- New CLI command behavior.
 - Scheduled refresh.
-- Team presets.
-- UI freshness indicators beyond what is needed for API support.
+- Team-wide capability comparison.
 
 Exit criteria:
-1. A user can refresh one agent without deleting or recreating it.
-2. Capability freshness data persists in local state.
-3. CLI controls smoke covers the command or its underlying API.
-4. tmux or MCP smoke proves the refresh path remains compatible with live agent routing.
+1. Users can tell whether an agent capability card is fresh enough to trust.
+2. Manual and generated capability summaries are not visually confused.
+3. Focused verification proves the relevant UI/API data is exposed and docs links remain valid.
+4. UI build, HTTP smoke, and docs smoke pass.
 
 Required checks:
-- `npm run test`
-- `npm run smoke:cli-controls`
-- `npm run smoke:tmux`
-- `npm run smoke:mcp`
+- `npm run build`
+- `npm run smoke:http`
+- `npm run smoke:docs`
 
 Evaluator notes:
-Promote only when the command is useful from a terminal, not just an internal helper.
+This is a UI task. Require visual sanity in the inspector and activity layout before promotion.
 
 Required repository artifacts for this task:
-- apps/cli/src/index.ts
-- packages/core/src/registry.ts
-- packages/mcp/src/provider.ts
+- apps/http-server/ui/src/features/Inspector.tsx
+- apps/http-server/ui/src/features/AgentDetailsForm.tsx
 
 Required commands for this task:
-- npm run test
-- npm run smoke:cli-controls
-- npm run smoke:tmux
-- npm run smoke:mcp
+- npm run build
+- npm run smoke:http
+- npm run smoke:docs
 
 Previous known gaps from the last evaluation:
 - none

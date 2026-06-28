@@ -436,6 +436,30 @@ pre {
   background: rgba(113, 121, 118, 0.08);
 }
 
+.status.fresh {
+  color: var(--success);
+  border-color: rgba(22, 129, 95, 0.3);
+  background: rgba(22, 129, 95, 0.08);
+}
+
+.status.manual {
+  color: var(--secondary);
+  border-color: rgba(0, 106, 106, 0.28);
+  background: rgba(0, 106, 106, 0.08);
+}
+
+.status.stale {
+  color: var(--warning);
+  border-color: rgba(166, 95, 20, 0.32);
+  background: rgba(166, 95, 20, 0.08);
+}
+
+.status.missing {
+  color: var(--danger);
+  border-color: rgba(186, 26, 26, 0.28);
+  background: rgba(186, 26, 26, 0.08);
+}
+
 .section,
 .request-list,
 .detail-grid,
@@ -472,6 +496,76 @@ pre {
 .kv code {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.capability-card {
+  min-width: 0;
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid var(--outline-soft);
+  border-radius: var(--radius-lg);
+  padding: 0.72rem;
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.capability-card p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.capability-card-head,
+.capability-meta,
+.capability-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.capability-card-head {
+  justify-content: space-between;
+}
+
+.capability-meta {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.capability-meta span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.capability-actions button {
+  flex: 1 1 10rem;
+}
+
+.capability-status {
+  text-transform: uppercase;
+}
+
+.capability-fresh {
+  border-color: rgba(22, 129, 95, 0.26);
+  background: rgba(22, 129, 95, 0.05);
+}
+
+.capability-manual {
+  border-color: rgba(0, 106, 106, 0.24);
+  background: rgba(0, 106, 106, 0.05);
+}
+
+.capability-stale {
+  border-color: rgba(166, 95, 20, 0.28);
+  background: rgba(166, 95, 20, 0.06);
+}
+
+.capability-missing {
+  border-color: rgba(186, 26, 26, 0.24);
+  background: rgba(186, 26, 26, 0.05);
 }
 
 .request-detail {

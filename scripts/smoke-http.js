@@ -77,6 +77,8 @@ async function main() {
     });
     assert.equal(updatedUiCreated.agent.capabilitySummary, "Edited capability notice.");
     assert.equal(updatedUiCreated.agent.capabilitySources, "manual UI edit");
+    assert.equal(updatedUiCreated.agent.capabilitySource, "manual");
+    assert.ok(updatedUiCreated.agent.capabilityUpdatedAt);
 
     const deletedUiCreated = await deleteJson(`${baseUrl}/api/agents/ui-created`);
     assert.equal(deletedUiCreated.agent.id, "ui-created");
@@ -93,6 +95,16 @@ async function main() {
     });
     assert.equal(registered.agent.id, "http-smoke");
     assert.equal(registered.agent.capabilitySummary, "HTTP smoke helper for validating registration metadata.");
+    assert.equal(registered.agent.capabilitySource, "generated");
+    assert.ok(registered.agent.capabilityUpdatedAt);
+    assert.ok(registered.agent.lastCapabilityRefreshAt);
+
+    const registeredState = await json(`${baseUrl}/api/state`);
+    const registeredAgent = registeredState.agents.find((agent) => agent.id === "http-smoke");
+    assert.ok(registeredAgent, "expected registered agent in HTTP UI state");
+    assert.equal(registeredAgent.capabilitySource, "generated");
+    assert.ok(registeredAgent.capabilityUpdatedAt);
+    assert.ok(registeredAgent.lastCapabilityRefreshAt);
 
     const asked = await postJson(`${baseUrl}/api/ask`, {
       target: "http-smoke",
