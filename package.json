@@ -1,7 +1,23 @@
 {
   "name": "@minasoft/mina-ai-router",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local MCP router and Web UI for visible tmux-backed AI agents.",
+  "homepage": "https://github.com/stevennana/mina-ai-router#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stevennana/mina-ai-router.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stevennana/mina-ai-router/issues"
+  },
+  "keywords": [
+    "mcp",
+    "ai-agent",
+    "codex",
+    "claude",
+    "tmux",
+    "router"
+  ],
   "main": "dist/apps/cli/src/index.js",
   "bin": {
     "mair": "dist/apps/cli/src/index.js",

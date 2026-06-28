@@ -2,52 +2,88 @@
 
 Mina AI Router is a local control plane for visible CLI AI agents.
 
-It lets a developer run project-scoped Codex or Claude sessions in `tmux`, register them as agents, inspect their capabilities, and route questions between agents through a local MCP server.
+It runs Codex or Claude sessions in `tmux`, registers them as project-scoped agents, exposes them through a local MCP server, and gives you a browser UI to inspect and control the live sessions.
 
-## What It Does
+GitHub: [stevennana/mina-ai-router](https://github.com/stevennana/mina-ai-router)
 
-- Runs a local HTTP UI and MCP endpoint.
-- Shows live agents in a router-centered flow diagram.
-- Starts Codex or Claude agents in `tmux` from a project directory.
-- Includes a repo-local agent registration skill for self-registration.
-- Captures and controls each agent terminal from the browser.
-- Stores agent metadata, capability notices, and routed request history locally.
-- Lets one registered agent ask another registered agent for project-specific context.
-
-## Install the `mair` Command
+## Install
 
 ```sh
 npm install -g @minasoft/mina-ai-router
 mair version
 ```
 
-Then start the local router:
+## Start
 
 ```sh
 mair server start --port 3333
+mair server status
 ```
 
-Open:
+Open the Web UI:
 
 ```text
 http://127.0.0.1:3333/
 ```
 
-## Documentation
+## Connect Codex or Claude
 
-- [Getting Started](./docs/GETTING-STARTED.md): choose the right start guide.
-- [User Start Guide](./docs/USER-START-GUIDE.md): UI-first usage with screenshots.
-- [Developer Start Guide](./docs/DEVELOPER-START-GUIDE.md): build, test, and development workflow.
-- [MCP Client Setup](./docs/MCP-CLIENT-SETUP.md): Codex and Claude MCP registration.
-- [Skill Install Guide](./docs/SKILL-INSTALL-GUIDE.md): Codex and Claude skill installation.
-- [HTTP UI and MCP Server](./docs/HTTP-UI-MCP.md): server, MCP, and command reference.
-- [Agent Registration Skill](./skills/mina-ai-router-agent/SKILL.md): instructions used by Codex or Claude to register the current visible CLI session.
-- [Troubleshooting](./docs/TROUBLESHOOTING.md): common routing and tmux issues.
-
-## Verification
+Codex:
 
 ```sh
-npm run verify
+codex mcp remove mina-ai-router
+codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
+codex mcp get mina-ai-router
 ```
 
-This runs core tests plus HTTP, CLI control, tmux, MCP, and multi-agent smoke tests.
+Claude:
+
+```sh
+claude mcp remove mina-ai-router
+claude mcp add --transport http mina-ai-router http://127.0.0.1:3333/mcp
+claude mcp get mina-ai-router
+```
+
+## Create an Agent
+
+From a project directory:
+
+```sh
+mair codex
+```
+
+or:
+
+```sh
+mair claude
+```
+
+You can also create agents from the Web UI by right-clicking the `Live Agent Flow` area and choosing `Create tmux Agent`.
+
+## What You Get
+
+- Local HTTP UI at `http://127.0.0.1:3333/`
+- Local MCP endpoint at `http://127.0.0.1:3333/mcp`
+- `mair` CLI for server and agent controls
+- Browser terminal preview for tmux-backed agents
+- Agent capability summaries and editable metadata
+- MCP tools: `list_agents`, `register_agent`, `call_agent`, `get_request_status`
+- Repo-local skill for agent self-registration
+
+## Guides
+
+- [Getting Started](https://github.com/stevennana/mina-ai-router/blob/main/docs/GETTING-STARTED.md)
+- [User Start Guide](https://github.com/stevennana/mina-ai-router/blob/main/docs/USER-START-GUIDE.md)
+- [MCP Client Setup](https://github.com/stevennana/mina-ai-router/blob/main/docs/MCP-CLIENT-SETUP.md)
+- [Skill Install Guide](https://github.com/stevennana/mina-ai-router/blob/main/docs/SKILL-INSTALL-GUIDE.md)
+- [HTTP UI and MCP Server](https://github.com/stevennana/mina-ai-router/blob/main/docs/HTTP-UI-MCP.md)
+- [Troubleshooting](https://github.com/stevennana/mina-ai-router/blob/main/docs/TROUBLESHOOTING.md)
+
+## Development
+
+```sh
+git clone https://github.com/stevennana/mina-ai-router.git
+cd mina-ai-router
+npm install
+npm run verify
+```
