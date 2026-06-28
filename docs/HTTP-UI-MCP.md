@@ -1,6 +1,8 @@
 # HTTP UI and MCP Server
 
-Mina AI Router now runs as a local HTTP server.
+Mina AI Router runs as a local HTTP server. It gives local Codex and Claude CLI agents a shared MCP router and a browser operations console.
+
+![Mina AI Router overview](./assets/mina-ai-router-overview.svg)
 
 It serves both:
 
@@ -63,15 +65,17 @@ http://127.0.0.1:3333/
 
 The page shows:
 
-- a router-centered agent flow diagram
-- registered agents as clickable nodes around the router
+- a router-centered live flow diagram
+- registered Codex or Claude agents as clickable nodes around the router
 - each agent's short capability notice on the node
-- agent status, project root, capability details, and tmux metadata in a modal
-- per-agent request history in a modal opened from the agent context menu
-- agent controls in the context menu: details, history, ask, attach commands, copy attach command, restart session, delete agent
+- a floating agent inspector with status, project root, tmux metadata, attach command, capabilities, and recent requests
+- an agent-filtered activity panel for routed request history
+- agent controls in the context menu: open terminal, ask, attach commands, copy attach command, restart session, delete agent
+- zoom, reset, draggable agent positions, and draggable flow canvas positioning
 - right-click flow background menu for creating a tmux-backed Codex or Claude agent from a project directory
 - a `Connect Agent` guide instead of manual UI registration
-- hidden `Developer Tools` for diagnostics such as the two-Codex demo and stale request cleanup
+
+The UI is intentionally local-operations focused: it helps you see which local agent is available, what each agent can do, and which requests are moving between them.
 
 ## Health
 
@@ -130,7 +134,8 @@ npm run smoke:http
 3. Click `Connect Agent` for the registration command guide.
 4. Start an agent from its project directory with `mair codex` or `mair claude`.
 5. Confirm the agent appears in the flow diagram.
-6. Click the agent node and use the context menu to inspect details, view history, or delete it.
+6. Click the agent node to open the inspector and filter the bottom activity panel to that agent.
+7. Use the agent context menu for terminal, ask, attach, restart, or delete actions.
 
 Alternative UI-created agent flow:
 

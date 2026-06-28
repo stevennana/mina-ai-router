@@ -63,6 +63,17 @@ Use Mina AI Router MCP list_agents and summarize the registered agents.
 
 If the MCP setup is working, the agent should call `list_agents`.
 
+## Collaboration Prompt Example
+
+After two or more agents are registered, ask one of them:
+
+```text
+Use Mina AI Router to ask docs:
+Review the README changes and summarize what a first-time user should understand.
+```
+
+The source agent should call `list_agents`, choose the target agent, send the work with `call_agent`, and check progress with `get_request_status`.
+
 ## Available MCP Tools
 
 - `list_agents`: list known agents and their statuses

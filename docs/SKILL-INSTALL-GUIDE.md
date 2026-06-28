@@ -91,6 +91,6 @@ Open the MAIR UI:
 http://127.0.0.1:3333/
 ```
 
-Click the agent node and choose `Status & Details`.
+Click the agent node and open `Edit Capabilities` from the inspector.
 
 The capability summary should describe the target project, and the capability sources should mention files such as `CLAUDE.md`, `AGENTS.md`, `README.md`, or package metadata.

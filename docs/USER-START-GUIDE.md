@@ -2,6 +2,10 @@
 
 This guide is for someone who wants to use Mina AI Router, not develop it.
 
+Mina AI Router is for running several local Codex or Claude CLI agents and letting them collaborate through one local MCP router.
+
+![Mina AI Router overview](./assets/mina-ai-router-overview.svg)
+
 ## What You Will Set Up
 
 You will:
@@ -11,7 +15,7 @@ You will:
 3. Connect Codex or Claude to the local MCP server.
 4. Install the agent registration skill.
 5. Create visible tmux-backed agents.
-6. Inspect and control agents from the browser.
+6. Route tasks between agents and watch the activity from the browser.
 
 ## 1. Install the `mair` Command
 
@@ -32,7 +36,7 @@ Expected output:
 ```json
 {
   "name": "@minasoft/mina-ai-router",
-  "version": "0.1.0"
+  "version": "0.1.5"
 }
 ```
 
@@ -49,7 +53,7 @@ Open:
 http://127.0.0.1:3333/
 ```
 
-The center node is the local MCP router. The surrounding nodes are registered agents.
+The center node is the local MCP router. The surrounding nodes are visible Codex or Claude agents running in local tmux sessions.
 
 ![Live agent flow](./assets/mair-live-flow.jpg)
 
@@ -132,7 +136,9 @@ If you created the agent from the Web UI, this step is still useful but not alwa
 
 ## 8. Inspect or Edit Capabilities
 
-Click an agent node and choose `Status & Details`.
+Click an agent node. The floating inspector opens on the right, and the bottom activity panel filters to that agent.
+
+Use `Edit Capabilities` when you want to update what the agent is good at.
 
 You can view and edit:
 
@@ -146,7 +152,7 @@ You can view and edit:
 
 ## 9. Open the Agent Terminal
 
-Click an agent node and choose `Open Terminal`.
+Click an agent node and choose `Open Terminal` from the context menu or the inspector.
 
 The browser shows the current tmux screen. Type into the input field and press `Enter`, or click `Send`.
 
@@ -179,6 +185,8 @@ Expected flow:
 4. MAIR sends the task into the target tmux session.
 5. The target agent answers with Mina response markers.
 6. MAIR returns the parsed answer to the source agent.
+
+You can watch the routed request in the bottom activity panel. Selecting the target agent filters that panel to only that agent's work.
 
 ## 11. Stop the Router
 

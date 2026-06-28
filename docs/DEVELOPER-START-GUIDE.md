@@ -96,7 +96,9 @@ export MINA_ROUTER_STATE=/path/to/router-state.json
 
 - CLI: `apps/cli/src/index.ts`
 - HTTP UI/server: `apps/http-server/src/index.ts`
-- Browser UI HTML: `apps/http-server/src/ui.html`
+- React browser UI: `apps/http-server/ui/src`
+- Vite UI entry: `apps/http-server/ui/index.html`
+- Built UI assets served from: `dist/apps/http-server/src/public`
 - MCP provider: `packages/mcp/src/provider.ts`
 - tmux transport: `packages/transports/src/tmux`
 - agent registration skill: `skills/mina-ai-router-agent/SKILL.md`

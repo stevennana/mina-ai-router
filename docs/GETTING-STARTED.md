@@ -1,5 +1,9 @@
 # Getting Started
 
+Mina AI Router lets multiple local Codex and Claude CLI agents collaborate through one local MCP router and browser console.
+
+![Mina AI Router overview](./assets/mina-ai-router-overview.svg)
+
 Choose the guide that matches what you are trying to do.
 
 ## For Users
@@ -27,6 +31,7 @@ Use these once per machine or per AI CLI profile:
 2. Start the MAIR server.
 3. Connect your AI CLI to MAIR MCP.
 4. Install the MAIR agent registration skill.
-5. Create an agent from the Web UI or with `mair codex` / `mair claude`.
+5. Create two or more agents from the Web UI or with `mair codex` / `mair claude`.
+6. Ask one registered agent to use Mina AI Router to call another agent.
 
 The user guide walks through that path with screenshots.

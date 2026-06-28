@@ -1,0 +1,109 @@
+<svg width="1400" height="820" viewBox="0 0 1400 820" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Mina AI Router local agent collaboration overview</title>
+  <desc id="desc">Mina AI Router runs on your computer and lets multiple visible Codex and Claude CLI agents collaborate through a local MCP router, shared request tracking, and a browser operations console.</desc>
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1400" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBF8F6"/>
+      <stop offset="1" stop-color="#EEF6F8"/>
+    </linearGradient>
+    <linearGradient id="computerBg" x1="130" y1="160" x2="1270" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F3FAF7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1C1B1B" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M2 2.5L11 7L2 11.5" stroke="#315C52" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .title { font: 750 50px 'Hanken Grotesk', 'Inter', Arial, sans-serif; fill: #1C1B1B; }
+      .subtitle { font: 500 22px 'Work Sans', 'Inter', Arial, sans-serif; fill: #535C59; }
+      .section { font: 750 26px 'Hanken Grotesk', 'Inter', Arial, sans-serif; fill: #1C1B1B; }
+      .body { font: 500 17px 'Work Sans', 'Inter', Arial, sans-serif; fill: #404846; }
+      .small { font: 500 14px 'Work Sans', 'Inter', Arial, sans-serif; fill: #68716E; }
+      .mono { font: 700 17px 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; fill: #006A6A; }
+      .chip { font: 700 13px 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace; fill: #315C52; }
+      .computer { fill: url(#computerBg); stroke: #D7DDDA; stroke-width: 2; rx: 34; filter: url(#shadow); }
+      .hub { fill: #315C52; filter: url(#shadow); }
+      .card { fill: #FFFFFF; stroke: #D7DDDA; stroke-width: 1.6; rx: 20; filter: url(#shadow); }
+      .softCard { fill: #F8FBFA; stroke: #D7DDDA; stroke-width: 1.4; rx: 18; }
+      .codex { stroke: #74A7BE; }
+      .claude { stroke: #D1A66D; }
+      .route { stroke: #315C52; stroke-width: 3.2; marker-end: url(#arrow); }
+      .routeBack { stroke: #7AA89A; stroke-width: 2.7; stroke-dasharray: 9 10; marker-end: url(#arrow); }
+      .dash { stroke: #AEB8B4; stroke-width: 2; stroke-dasharray: 8 10; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="820" fill="url(#pageBg)"/>
+
+  <text x="86" y="86" class="title">Mina AI Router</text>
+  <text x="88" y="126" class="subtitle">Turn multiple local Codex and Claude CLI sessions into a visible collaboration mesh.</text>
+
+  <rect x="86" y="168" width="1228" height="548" class="computer"/>
+  <text x="126" y="220" class="section">Your computer</text>
+  <text x="126" y="250" class="body">Everything runs locally: tmux sessions, MCP routing, browser console, and request history.</text>
+
+  <g transform="translate(556 282)">
+    <circle cx="144" cy="144" r="118" class="hub"/>
+    <circle cx="144" cy="144" r="82" fill="#426E63"/>
+    <path d="M105 151H183M144 105V183M113 123L144 105L175 123M113 165L144 183L175 165" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="48" y="292" class="section">Local MCP Router</text>
+    <text x="44" y="322" class="body">routes agent-to-agent work</text>
+  </g>
+
+  <g>
+    <rect x="146" y="304" width="286" height="126" class="card codex"/>
+    <text x="178" y="348" class="section">Codex CLI Agent</text>
+    <text x="178" y="380" class="mono">tmux: project-a</text>
+    <text x="178" y="410" class="small">Visible terminal session</text>
+
+    <rect x="146" y="478" width="286" height="126" class="card claude"/>
+    <text x="178" y="522" class="section">Claude CLI Agent</text>
+    <text x="178" y="554" class="mono">tmux: project-b</text>
+    <text x="178" y="584" class="small">Project-scoped context</text>
+  </g>
+
+  <g>
+    <rect x="968" y="304" width="286" height="126" class="card codex"/>
+    <text x="1000" y="348" class="section">Codex CLI Agent</text>
+    <text x="1000" y="380" class="mono">tmux: api-server</text>
+    <text x="1000" y="410" class="small">Can receive routed work</text>
+
+    <rect x="968" y="478" width="286" height="126" class="card claude"/>
+    <text x="1000" y="522" class="section">Claude CLI Agent</text>
+    <text x="1000" y="554" class="mono">tmux: docs</text>
+    <text x="1000" y="584" class="small">Reports status and answers</text>
+  </g>
+
+  <path d="M432 366C486 366 510 386 556 410" class="route"/>
+  <path d="M432 540C486 540 510 508 556 464" class="route"/>
+  <path d="M844 410C890 386 914 366 968 366" class="route"/>
+  <path d="M844 464C890 508 914 540 968 540" class="route"/>
+
+  <path d="M968 398C908 430 890 446 846 446" class="routeBack"/>
+  <path d="M556 446C512 446 494 430 432 398" class="routeBack"/>
+
+  <rect x="232" y="640" width="936" height="46" rx="23" fill="#FFFFFF" stroke="#D7DDDA"/>
+  <text x="280" y="669" class="chip">call_agent</text>
+  <line x1="394" y1="663" x2="462" y2="663" class="dash"/>
+  <text x="486" y="669" class="chip">get_request_status</text>
+  <line x1="674" y1="663" x2="742" y2="663" class="dash"/>
+  <text x="766" y="669" class="chip">list_agents</text>
+  <line x1="884" y1="663" x2="952" y2="663" class="dash"/>
+  <text x="976" y="669" class="chip">register_agent</text>
+
+  <g>
+    <rect x="382" y="724" width="636" height="64" class="softCard"/>
+    <text x="424" y="754" class="section" style="font-size:22px">Browser operations console</text>
+    <text x="424" y="780" class="small">Live flow map, per-agent inspector, terminal preview, activity log, and controls</text>
+  </g>
+
+  <g>
+    <rect x="1010" y="88" width="232" height="54" rx="27" fill="#FFFFFF" stroke="#D7DDDA"/>
+    <circle cx="1040" cy="115" r="8" fill="#16815F"/>
+    <text x="1062" y="121" class="chip">local-first</text>
+    <text x="1168" y="121" class="chip">visible</text>
+  </g>
+</svg>
