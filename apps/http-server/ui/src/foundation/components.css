@@ -420,7 +420,10 @@ pre {
 
 .status.missing,
 .status.timeout,
-.status.failed {
+.status.failed,
+.status.parse_failure,
+.status.transport_failure,
+.status.unknown_failure {
   color: var(--danger);
   border-color: rgba(186, 26, 26, 0.28);
   background: rgba(186, 26, 26, 0.08);
@@ -469,6 +472,63 @@ pre {
 .kv code {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.request-detail {
+  min-width: 0;
+}
+
+.request-route {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1.45;
+}
+
+.request-route code {
+  overflow-wrap: anywhere;
+}
+
+.diagnostic-section {
+  min-width: 0;
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid var(--outline-soft);
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.diagnostic-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+}
+
+.diagnostic-section pre {
+  max-height: 15rem;
+  min-width: 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--outline-soft);
+  border-radius: var(--radius);
+  margin: 0;
+  padding: 0.65rem;
+  background: var(--terminal);
+  color: var(--terminal-ink);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+@media (min-width: 768px) {
+  .diagnostic-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .command-box,

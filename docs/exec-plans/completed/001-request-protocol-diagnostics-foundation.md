@@ -5,7 +5,7 @@
   "id": "request-protocol-diagnostics-foundation",
   "title": "Request protocol diagnostics foundation",
   "order": 1,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "request-detail-diagnostics",
   "prompt_docs": [
     "AGENTS.md",
@@ -31,7 +31,8 @@
     "Request diagnostics are only present in UI state",
     "Raw evidence is stored without clear size or sensitivity boundaries",
     "The protocol change breaks existing call_agent behavior"
-  ]
+  ],
+  "completed_at": "2026-06-28T13:42:43.899Z"
 }
 ```
 
@@ -75,3 +76,4 @@ Promote only if this is a core/protocol foundation. Do not implement retry contr
 - Added after exec-plan quality review to split core protocol work from UI request detail work.
 - 2026-06-28: Added core request diagnostic status, parser diagnostics, and bounded raw transport capture evidence on answered, parse failure, timeout, cancelled, and archived request paths. Exposed diagnostics through MCP `get_request_status` and added focused core tests for parser classification, answered evidence, parse failure, timeout, cancelled, and archived behavior.
 - 2026-06-28: `npm run test` passed. `npm run smoke:tmux` and `npm run smoke:mcp` rebuilt successfully but could not start tmux sessions in this sandbox because tmux returned `error connecting to /private/tmp/tmux-501/default (Operation not permitted)`.
+- 2026-06-28T13:42:43.899Z: automatically promoted after deterministic checks and evaluator approval.

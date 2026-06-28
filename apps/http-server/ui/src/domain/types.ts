@@ -1,5 +1,34 @@
 export type AgentStatus = "available" | "busy" | "missing" | "unknown" | string;
 export type RequestStatus = "created" | "sent" | "waiting" | "answered" | "failed" | "timeout" | "cancelled" | "archived" | string;
+export type RequestDiagnosticStatus =
+  | "pending"
+  | "answered"
+  | "timeout"
+  | "cancelled"
+  | "archived"
+  | "parse_failure"
+  | "transport_failure"
+  | "unknown_failure"
+  | string;
+
+export type ResponseParserDiagnostics = {
+  kind: "parsed" | "missing_markers" | "missing_start_marker" | "placeholder_only" | string;
+  requestId: string;
+  message: string;
+  startMarkerFound: boolean;
+  endMarkerFound: boolean;
+  candidateCount: number;
+  placeholderCount: number;
+  answerLength?: number;
+};
+
+export type RequestRawEvidence = {
+  kind: "transport_capture" | string;
+  capturedAt: string;
+  characterCount: number;
+  excerpt: string;
+  truncated: boolean;
+};
 
 export type RouterAgent = {
   id: string;
@@ -24,6 +53,9 @@ export type RouterRequest = {
   status: RequestStatus;
   answer?: string;
   error?: string;
+  diagnosticStatus?: RequestDiagnosticStatus;
+  parserDiagnostics?: ResponseParserDiagnostics;
+  rawEvidence?: RequestRawEvidence;
   createdAt?: string;
   updatedAt?: string;
 };

@@ -1,7 +1,7 @@
 # Backlog
 
-- [ ] request-protocol-diagnostics-foundation — Request protocol diagnostics foundation ← current
-- [ ] request-detail-diagnostics — Request detail diagnostics
+- [x] request-protocol-diagnostics-foundation — Request protocol diagnostics foundation
+- [ ] request-detail-diagnostics — Request detail diagnostics ← current
 - [ ] request-retry-cancel-archive — Request retry cancel archive controls
 - [ ] capability-refresh-command — Capability refresh command
 - [ ] capability-freshness-ui — Capability freshness UI

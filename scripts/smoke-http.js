@@ -94,9 +94,30 @@ async function main() {
       timeoutMs: 1000,
     });
     assert.equal(asked.result.target, "http-smoke");
+    const answeredRequest = findRequest(asked.state, asked.result.requestId);
+    assert.equal(answeredRequest.sourceAgent, "main");
+    assert.equal(answeredRequest.targetAgent, "http-smoke");
+    assert.equal(answeredRequest.task, "HTTP smoke request");
+    assert.equal(answeredRequest.status, "answered");
+    assert.equal(answeredRequest.diagnosticStatus, "answered");
+    assert.match(answeredRequest.answer, /Headless response from http-smoke/);
+    assert.equal(answeredRequest.parserDiagnostics.kind, "parsed");
+    assert.equal(answeredRequest.parserDiagnostics.startMarkerFound, true);
+    assert.equal(answeredRequest.parserDiagnostics.endMarkerFound, true);
+    assert.equal(answeredRequest.rawEvidence.kind, "transport_capture");
+    assert.equal(typeof answeredRequest.rawEvidence.excerpt, "string");
+    assert.match(answeredRequest.rawEvidence.excerpt, /MINA_AGENT_RESPONSE_START/);
+    assert.equal(answeredRequest.rawEvidence.truncated, false);
 
     const archived = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/archive`, {});
     assert.equal(archived.result.status, "archived");
+    assert.equal(archived.result.diagnosticStatus, "archived");
+    const archivedRequest = findRequest(archived.state, asked.result.requestId);
+    assert.equal(archivedRequest.status, "archived");
+    assert.equal(archivedRequest.diagnosticStatus, "archived");
+    assert.match(archivedRequest.answer, /Headless response from http-smoke/);
+    assert.equal(archivedRequest.parserDiagnostics.kind, "parsed");
+    assert.equal(archivedRequest.rawEvidence.kind, "transport_capture");
 
     const stale = await postJson(`${baseUrl}/api/requests/archive-stale`, { olderThanMs: 0 });
     assert.ok(Array.isArray(stale.archived));
@@ -195,6 +216,12 @@ async function deleteJson(url) {
   const response = await fetch(url, { method: "DELETE" });
   if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
   return response.json();
+}
+
+function findRequest(state, requestId) {
+  const request = state.requests.find((candidate) => candidate.id === requestId);
+  assert.ok(request, `expected request ${requestId} in HTTP state`);
+  return request;
 }
 
 main().catch((error) => {
