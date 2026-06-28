@@ -14,7 +14,7 @@ Install the skill into your Codex skills directory:
 
 ```sh
 mkdir -p ~/.codex/skills
-ln -sfn "$(npm root -g)/@minsoft/mina-ai-router/skills/mina-ai-router-agent" \
+ln -sfn "$(npm root -g)/@minasoft/mina-ai-router/skills/mina-ai-router-agent" \
   ~/.codex/skills/mina-ai-router-agent
 ```
 
@@ -50,7 +50,7 @@ For a single project, copy or link the MAIR skill into that project:
 ```sh
 cd /path/to/project
 mkdir -p .claude/skills
-ln -sfn "$(npm root -g)/@minsoft/mina-ai-router/skills/mina-ai-router-agent" \
+ln -sfn "$(npm root -g)/@minasoft/mina-ai-router/skills/mina-ai-router-agent" \
   .claude/skills/mina-ai-router-agent
 ```
 

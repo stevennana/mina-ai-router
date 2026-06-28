@@ -17,7 +17,7 @@ It lets a developer run project-scoped Codex or Claude sessions in `tmux`, regis
 ## Install the `mair` Command
 
 ```sh
-npm install -g @minsoft/mina-ai-router
+npm install -g @minasoft/mina-ai-router
 mair version
 ```
 

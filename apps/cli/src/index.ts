@@ -30,7 +30,7 @@ async function main(argv: string[]): Promise<void> {
     case "version":
     case "--version":
     case "-v":
-      printJson({ name: "@minsoft/mina-ai-router", version });
+      printJson({ name: "@minasoft/mina-ai-router", version });
       break;
     case "health":
       await showHealth(context);

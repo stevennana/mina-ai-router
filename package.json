@@ -1,5 +1,5 @@
 {
-  "name": "@minsoft/mina-ai-router",
+  "name": "@minasoft/mina-ai-router",
   "version": "0.1.0",
   "description": "Local MCP router and Web UI for visible tmux-backed AI agents.",
   "main": "dist/apps/cli/src/index.js",

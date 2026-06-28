@@ -18,7 +18,7 @@ You will:
 Install the published package:
 
 ```sh
-npm install -g @minsoft/mina-ai-router
+npm install -g @minasoft/mina-ai-router
 ```
 
 Verify:
@@ -31,7 +31,7 @@ Expected output:
 
 ```json
 {
-  "name": "@minsoft/mina-ai-router",
+  "name": "@minasoft/mina-ai-router",
   "version": "0.1.0"
 }
 ```
