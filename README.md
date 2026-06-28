@@ -96,6 +96,7 @@ The source agent calls MCP `list_agents`, selects a target, sends the task with 
 
 ## Guides
 
+- [Roadmap](https://github.com/stevennana/mina-ai-router/blob/main/ROADMAP.md)
 - [Getting Started](https://github.com/stevennana/mina-ai-router/blob/main/docs/GETTING-STARTED.md)
 - [User Start Guide](https://github.com/stevennana/mina-ai-router/blob/main/docs/USER-START-GUIDE.md)
 - [MCP Client Setup](https://github.com/stevennana/mina-ai-router/blob/main/docs/MCP-CLIENT-SETUP.md)
