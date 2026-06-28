@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { RouterAgent } from "../domain/types";
-import { attachCommand, capabilityFreshness, healthMessage, mairAttachCommand } from "../domain/helpers";
+import { attachCommand, capabilityFreshness, healthMessage, mairAttachCommand, mairRefreshCapabilitiesCommand } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { Icon } from "../primitives/Icon";
@@ -20,7 +20,13 @@ export function AgentDetailsForm({
     <>
       <div className="detail-grid">
         <div className="notice" style={{ gridColumn: "1 / -1" }}>{healthMessage(agent)}</div>
-        <div className={`capability-card capability-${freshness.state}`} style={{ gridColumn: "1 / -1" }}>
+        <div
+          className={`capability-card capability-${freshness.state}`}
+          data-testid="capability-card"
+          data-capability-state={freshness.state}
+          data-capability-source={agent.capabilitySource || "unknown"}
+          style={{ gridColumn: "1 / -1" }}
+        >
           <div className="capability-card-head">
             <span className={`status capability-status ${freshness.state}`}>{freshness.label}</span>
             <span className="subtitle">{freshness.sourceLabel}</span>
@@ -38,6 +44,7 @@ export function AgentDetailsForm({
         <Kv label="Capability sources">{agent.capabilitySources || "-"}</Kv>
         <Kv label="Capability source">{freshness.sourceLabel}</Kv>
         <Kv label="Capability updated">{freshness.timestampLabel}</Kv>
+        <Kv label="Refresh command">{mairRefreshCapabilitiesCommand(agent)}</Kv>
         <Kv label="Detail">{agent.detail || "-"}</Kv>
         <Kv label="Last request">{agent.lastRequestStatus || "-"}</Kv>
         <Kv label="Attach command">{attachCommand(agent)}</Kv>

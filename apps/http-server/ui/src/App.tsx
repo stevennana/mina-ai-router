@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { HealthState, MenuState, ModalState, RouterAgent, RouterRequest, UiState } from "./domain/types";
-import { agentRequests, attachCommand, displayAgentName, mairAttachCommand } from "./domain/helpers";
+import { agentRequests, attachCommand, displayAgentName, mairAttachCommand, mairRefreshCapabilitiesCommand } from "./domain/helpers";
 import { copyText, routerApi } from "./lib/api";
 import { CommandBar } from "./features/CommandBar";
 import { LiveFlow } from "./features/LiveFlow";
@@ -131,6 +131,10 @@ export function App() {
     if (action === "copy") {
       const agent = agentById(agentId);
       if (agent) void run(async () => copyText(attachCommand(agent)));
+    }
+    if (action === "copy-refresh") {
+      const agent = agentById(agentId);
+      if (agent) void run(async () => copyText(mairRefreshCapabilitiesCommand(agent)));
     }
     if (action === "restart") {
       const agent = agentById(agentId);

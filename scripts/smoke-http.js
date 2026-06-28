@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { mkdtempSync } = require("node:fs");
+const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -10,6 +10,34 @@ const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
 let serverLog = "";
+writeFileSync(statePath, `${JSON.stringify({
+  agents: [
+    {
+      id: "ui-missing",
+      name: "ui-missing",
+      agentType: "shell",
+      transport: "headless",
+      sessionId: "ui-missing",
+      projectRoot: tempDir,
+      status: "unknown",
+    },
+    {
+      id: "ui-stale",
+      name: "ui-stale",
+      agentType: "shell",
+      transport: "headless",
+      sessionId: "ui-stale",
+      projectRoot: tempDir,
+      status: "unknown",
+      capabilitySummary: "Stale generated capability notice.",
+      capabilitySources: "AGENTS.md",
+      capabilitySource: "generated",
+      capabilityUpdatedAt: "2026-01-01T00:00:00.000Z",
+      lastCapabilityRefreshAt: "2026-01-01T00:00:00.000Z",
+    },
+  ],
+  requests: [],
+}, null, 2)}\n`);
 const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
   cwd: process.cwd(),
   env: {
@@ -42,6 +70,16 @@ async function main() {
     assert.match(html, /<div id="root"><\/div>/);
     assert.match(html, /type="module"[^>]+\/assets\/index-.*\.js/);
     assert.match(html, /rel="stylesheet"[^>]+\/assets\/index-.*\.css/);
+    await assertUiFreshnessSurface(html);
+
+    const seededState = await json(`${baseUrl}/api/state`);
+    const missingAgent = seededState.agents.find((agent) => agent.id === "ui-missing");
+    const staleAgent = seededState.agents.find((agent) => agent.id === "ui-stale");
+    assert.ok(missingAgent, "expected missing capability fixture in UI state");
+    assert.ok(staleAgent, "expected stale capability fixture in UI state");
+    assert.equal(missingAgent.capabilitySummary, undefined);
+    assert.equal(staleAgent.capabilitySource, "generated");
+    assert.equal(staleAgent.lastCapabilityRefreshAt, "2026-01-01T00:00:00.000Z");
 
     const directories = await postJson(`${baseUrl}/api/fs/directories`, {
       path: tempDir,
@@ -201,6 +239,7 @@ async function waitForServer() {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     if (/listen EPERM/.test(serverLog)) {
+      assertUiFreshnessSurfaceFromBuild();
       console.log([
         "http smoke skipped: local HTTP listener denied by environment",
         `baseUrl: ${baseUrl}`,
@@ -217,6 +256,52 @@ async function waitForServer() {
     }
   }
   throw new Error("HTTP server did not become ready");
+}
+
+async function assertUiFreshnessSurface(html) {
+  const scriptPath = html.match(/type="module"[^>]+src="([^"]+index-[^"]+\.js)"/)?.[1];
+  const cssPath = html.match(/rel="stylesheet"[^>]+href="([^"]+index-[^"]+\.css)"/)?.[1];
+  assert.ok(scriptPath, "expected bundled UI script");
+  assert.ok(cssPath, "expected bundled UI stylesheet");
+
+  const script = await text(`${baseUrl}${scriptPath}`);
+  const stylesheet = await text(`${baseUrl}${cssPath}`);
+  assertUiFreshnessSurfaceContent(script, stylesheet);
+}
+
+function assertUiFreshnessSurfaceFromBuild() {
+  const publicDir = join(process.cwd(), "dist", "apps", "http-server", "src", "public");
+  const html = readFileSync(join(publicDir, "index.html"), "utf8");
+  const scriptPath = html.match(/type="module"[^>]+src="(?:\.?\/)?assets\/(index-[^"]+\.js)"/)?.[1];
+  const cssPath = html.match(/rel="stylesheet"[^>]+href="(?:\.?\/)?assets\/(index-[^"]+\.css)"/)?.[1];
+  assert.ok(scriptPath, "expected bundled UI script");
+  assert.ok(cssPath, "expected bundled UI stylesheet");
+  const script = readFileSync(join(publicDir, "assets", scriptPath), "utf8");
+  const stylesheet = readFileSync(join(publicDir, "assets", cssPath), "utf8");
+  assertUiFreshnessSurfaceContent(script, stylesheet);
+}
+
+function assertUiFreshnessSurfaceContent(script, stylesheet) {
+  assert.match(script, /data-capability-state/);
+  assert.match(script, /capability-card/);
+  assert.match(script, /Missing/);
+  assert.match(script, /Stale/);
+  assert.match(script, /Fresh/);
+  assert.match(script, /Manual/);
+  assert.match(script, /Edit Capabilities/);
+  assert.match(script, /Copy Refresh Command/);
+  assert.match(script, /mair agent refresh-capabilities/);
+
+  assert.match(stylesheet, /capability-fresh/);
+  assert.match(stylesheet, /capability-stale/);
+  assert.match(stylesheet, /capability-manual/);
+  assert.match(stylesheet, /capability-missing/);
+  assert.match(stylesheet, /floating-inspector/);
+  assert.match(stylesheet, /max-height:min\(34rem,100vh - 1\.5rem\)/);
+  assert.match(stylesheet, /width:100vw/);
+  assert.match(stylesheet, /max-height:72vh/);
+  assert.match(stylesheet, /activity-body/);
+  assert.match(stylesheet, /overflow:auto/);
 }
 
 async function json(url) {

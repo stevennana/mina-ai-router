@@ -28,6 +28,10 @@ export function mairAttachCommand(agent: RouterAgent): string {
   return `mair attach ${agent.id}`;
 }
 
+export function mairRefreshCapabilitiesCommand(agent: RouterAgent): string {
+  return `mair agent refresh-capabilities ${agent.id}`;
+}
+
 export function healthMessage(agent: RouterAgent): string {
   if (agent.status === "available") return "Agent session is reachable. It can receive routed requests.";
   if (agent.status === "missing") {

@@ -260,3 +260,17 @@
 - worker-summary: Implemented capability freshness UI and wrote the handoff to `state/last-result.txt`.
 - evaluator: started
 - evaluator: status=not_done promotion=false The implementation adds capability freshness state rendering in the inspector and edit modal, preserves Edit Capabilities, and the required command summary reports build, HTTP smoke, and docs smoke passing. However, this task explicitly requires visual sanity for inspector and activity layout plus desktop/mobile overflow verification, and the handoff states screenshots could not be captured. I also found no focused UI/DOM/screenshot coverage proving the new freshness states render correctly or that the floating inspector/activity layout remains overflow-safe on desktop and mobile. -> state/artifacts/20260629T000313-capability-freshness-ui/evaluator.log
+- commit: commit: created
+- promote: Task capability-freshness-ui not eligible for promotion.
+- backlog: rendered current=capability-freshness-ui
+- health: ooxxxxxxxxxxxxxoox
+- cycle: finished
+
+### cycle 2026-06-29T00:10:43+09:00 task=capability-freshness-ui
+- artifacts: state/artifacts/20260629T001043-capability-freshness-ui
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260629T001043-capability-freshness-ui/worker.jsonl
+- worker-summary: Implemented the capability freshness UI follow-up and wrote `state/last-result.txt`.
+- evaluator: started
+- evaluator: status=not_done promotion=false The implementation appears to expose capability freshness states, preserves manual editing, adds a safe refresh-command copy affordance, and the provided required command summary passes. However, this is explicitly a UI task and the evaluator notes require visual sanity in the inspector and activity layout before promotion. The worker could not capture desktop/mobile browser screenshots, and the current smoke coverage only asserts bundled strings/CSS constraints, not rendered overflow behavior. -> state/artifacts/20260629T001043-capability-freshness-ui/evaluator.log

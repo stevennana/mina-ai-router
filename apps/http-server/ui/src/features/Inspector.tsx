@@ -70,7 +70,12 @@ export function Inspector({
         </div>
         <div className="section">
           <div className="section-title"><Icon name="bolt" size={15} />Capabilities</div>
-          <div className={`capability-card capability-${freshness.state}`}>
+          <div
+            className={`capability-card capability-${freshness.state}`}
+            data-testid="capability-card"
+            data-capability-state={freshness.state}
+            data-capability-source={agent.capabilitySource || "unknown"}
+          >
             <div className="capability-card-head">
               <span className={`status capability-status ${freshness.state}`}>{freshness.label}</span>
               <span className="subtitle">{freshness.sourceLabel}</span>
@@ -83,6 +88,7 @@ export function Inspector({
             </div>
             <div className="capability-actions">
               <Button tone="secondary" onClick={() => onAction("details", agent.id)}><Icon name="bolt" />Edit Capabilities</Button>
+              <Button tone="ghost" onClick={() => onAction("copy-refresh", agent.id)}><Icon name="refresh" />Copy Refresh Command</Button>
             </div>
           </div>
         </div>
