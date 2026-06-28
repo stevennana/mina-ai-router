@@ -58,6 +58,8 @@ export class AgentRouter {
           transport: agent.transport,
           sessionId: agent.sessionId,
           projectRoot: agent.projectRoot,
+          capabilitySummary: agent.capabilitySummary,
+          capabilitySources: agent.capabilitySources,
           status: this.busyAgents.has(agent.id) ? "busy" as const : status.status,
           detail: status.detail,
           lastRequestStatus: lastRequest?.status,

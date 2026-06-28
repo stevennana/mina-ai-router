@@ -110,20 +110,21 @@ function startServer(flags: Record<string, string>): void {
   const serverPath = join(__dirname, "../../http-server/src/index.js");
   mkdirSync(dirname(serverPidPath), { recursive: true });
   const logPath = flags.log ?? join(dirname(serverPidPath), "mar-server.log");
-  const command = [
-    `PORT=${shellQuote(port)}`,
-    `HOST=${shellQuote(host)}`,
-    `MINA_ROUTER_STATE=${shellQuote(process.env.MINA_ROUTER_STATE ?? statePath)}`,
-    "nohup",
-    shellQuote(process.execPath),
-    shellQuote(serverPath),
-    ">",
-    shellQuote(logPath),
-    "2>&1",
-    "&",
-    "echo $!",
-  ].join(" ");
-  const pid = Number(execFileSync("/bin/sh", ["-c", command], { encoding: "utf8" }).trim());
+  const child = spawn(process.execPath, [serverPath], {
+    detached: true,
+    stdio: "ignore",
+    env: {
+      ...process.env,
+      PORT: port,
+      HOST: host,
+      MINA_ROUTER_STATE: process.env.MINA_ROUTER_STATE ?? statePath,
+    },
+  });
+  child.unref();
+  const pid = child.pid;
+  if (!pid) {
+    throw new Error("Failed to start Mina HTTP server.");
+  }
   sleep(500);
 
   writeFileSync(serverPidPath, `${JSON.stringify({
@@ -268,6 +269,12 @@ function buildSelfRegistrationPrompt(agent: Agent): string {
     `- sessionId: ${agent.sessionId}`,
     `- projectRoot: ${agent.projectRoot}`,
     `- startupCommand: ${agent.startupCommand ?? ""}`,
+    "",
+    "Before registering, create a concise capability notice for this session:",
+    "- Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
+    "- If those files are missing, inspect package metadata and the project file tree to infer what this project/agent can help with.",
+    "- Set register_agent capabilitySummary to 2-5 short bullets or one short paragraph under 800 characters.",
+    "- Set register_agent capabilitySources to a comma-separated list of the files or project signals you used.",
     "After registering, call list_agents and confirm this agent is available.",
   ].join("\n");
 }
@@ -446,6 +453,8 @@ function registerAgent(args: string[], context: ReturnType<typeof createContext>
     projectRoot: options.root ?? process.cwd(),
     tmuxTarget: options.target,
     startupCommand: options.command,
+    capabilitySummary: options.summary ?? options["capability-summary"],
+    capabilitySources: options.sources ?? options["capability-sources"],
   };
 
   context.registry.register(agent);

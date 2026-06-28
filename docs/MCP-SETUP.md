@@ -74,8 +74,17 @@ The skill tells Codex or Claude to infer:
 - tmux session from `tmux display-message -p '#S'`
 - agent id from the project directory name
 - agent type from the current CLI
+- capability summary from `CLAUDE.md`, `claude.md`, `AGENTS.md`, `agents.md`, `agent.md`, `README.md`, or project structure
+- capability sources from the files or project signals used
 
 Then it calls MCP `register_agent`.
+
+The registration payload may include:
+
+- `capabilitySummary`: a concise explanation of what the visible agent can help with
+- `capabilitySources`: comma-separated source files or project signals used to build that summary
+
+This lets the router UI and other agents see not only that an agent is connected, but also what it is useful for.
 
 ## Verify MCP Compatibility
 

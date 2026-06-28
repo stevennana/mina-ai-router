@@ -64,6 +64,7 @@ http://127.0.0.1:3333/
 The page shows:
 
 - registered agents
+- each agent's capability notice and source files
 - tmux session status
 - request history
 - request retry, cancel, archive, and stale cleanup controls
@@ -105,6 +106,8 @@ This derives the agent id and tmux session from the current directory. For examp
 - agent id: `minasoftai`
 - tmux session: `codex-minasoftai`
 - project root: current directory
+
+The started agent also receives a self-registration prompt. During registration it should inspect `CLAUDE.md`, `claude.md`, `AGENTS.md`, `agents.md`, `agent.md`, `README.md`, or project metadata and send `capabilitySummary` and `capabilitySources` to MCP `register_agent`.
 
 Start a visible Claude agent:
 

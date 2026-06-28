@@ -147,6 +147,7 @@ Expected:
 - Codex calls `mina-agent-router.register_agent`
 - the UI changes from `0 agents` to showing `ralph`
 - `ralph` status is `available`
+- the agent detail panel shows a capability summary and capability sources
 
 If Codex asks for tool permission, approve it inside the helper Codex CLI screen.
 
@@ -178,6 +179,7 @@ Expected:
 - Codex calls `mina-agent-router.register_agent`
 - the UI shows both `minasoftai` and `ralph`
 - both agent nodes are visible around the central router
+- each agent node has a short capability notice based on project docs or project structure
 
 ## 8. Test MCP Tool Discovery
 

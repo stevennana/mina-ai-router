@@ -703,6 +703,8 @@
               <label>tmux target<input id="agentTarget" placeholder="optional pane target" /></label>
               <label style="grid-column: 1 / -1">Project root<input id="agentRoot" value="/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs" /></label>
               <label style="grid-column: 1 / -1">Startup command<input id="agentCommand" value="codex --no-alt-screen" /></label>
+              <label style="grid-column: 1 / -1">Capability summary<textarea id="agentCapability" placeholder="What this agent can help with. Usually filled by the agent during MCP self-registration."></textarea></label>
+              <label style="grid-column: 1 / -1">Capability sources<input id="agentCapabilitySources" placeholder="CLAUDE.md, AGENTS.md, README.md, package.json" /></label>
               <div class="actions" style="grid-column: 1 / -1">
                 <button type="submit">Save Agent</button>
                 <button type="button" class="secondary" id="hideRegister">Close</button>
@@ -795,6 +797,7 @@
             </div>
             <div class="node-meta">${escapeHtml(agent.agentType)} / ${escapeHtml(agent.transport)}</div>
             <div class="node-meta">${escapeHtml(agent.sessionId || "-")}</div>
+            <div class="node-meta request-summary">${escapeHtml(shortCapability(agent))}</div>
             <div class="node-meta request-summary">${escapeHtml(lastRequestLabel(agent, latest))}</div>
           `;
           node.onclick = () => {
@@ -877,6 +880,8 @@
           ${kv("Type", `${agent.agentType} / ${agent.transport}`)}
           ${kv("Session", agent.sessionId || "-")}
           ${kv("Project root", agent.projectRoot || "-")}
+          ${kv("Capabilities", agent.capabilitySummary || "No capability notice registered yet.")}
+          ${kv("Capability sources", agent.capabilitySources || "-")}
           ${kv("Detail", agent.detail || "-")}
           ${kv("Last request", agent.lastRequestStatus || "-")}
           ${kv("Attach command", attachCommand(agent))}
@@ -1015,6 +1020,8 @@
             tmuxTarget: $("agentTarget").value,
             projectRoot: $("agentRoot").value,
             startupCommand: $("agentCommand").value,
+            capabilitySummary: $("agentCapability").value,
+            capabilitySources: $("agentCapabilitySources").value,
           }),
         });
         selectedAgentId = result.agent.id;
@@ -1204,6 +1211,11 @@
         }
 
         return agent.lastRequestStatus ? `last: ${agent.lastRequestStatus}` : "no recent request";
+      }
+
+      function shortCapability(agent) {
+        const text = agent.capabilitySummary || "capability not registered";
+        return text.length > 84 ? `${text.slice(0, 81)}...` : text;
       }
 
       function escapeHtml(value) {

@@ -37,6 +37,8 @@ const tools: McpTool[] = [
         projectRoot: { type: "string" },
         tmuxTarget: { type: "string" },
         startupCommand: { type: "string" },
+        capabilitySummary: { type: "string" },
+        capabilitySources: { type: "string" },
       },
       required: ["id", "agentType", "transport", "sessionId", "projectRoot"],
       additionalProperties: false,
@@ -171,6 +173,8 @@ function agentFromArgs(args: Record<string, JsonValue>): Agent {
     projectRoot: requiredString(args.projectRoot, "projectRoot"),
     tmuxTarget: stringValue(args.tmuxTarget),
     startupCommand: stringValue(args.startupCommand),
+    capabilitySummary: stringValue(args.capabilitySummary),
+    capabilitySources: stringValue(args.capabilitySources),
   };
 }
 

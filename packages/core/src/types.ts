@@ -21,6 +21,8 @@ export interface Agent {
   sessionId: string;
   tmuxTarget?: string;
   startupCommand?: string;
+  capabilitySummary?: string;
+  capabilitySources?: string;
 }
 
 export interface AgentRequest {
@@ -55,6 +57,8 @@ export interface AgentStatus {
   transport: TransportType;
   sessionId: string;
   projectRoot: string;
+  capabilitySummary?: string;
+  capabilitySources?: string;
   status: "available" | "missing" | "unknown" | "busy";
   detail?: string;
   lastRequestStatus?: RequestStatus;

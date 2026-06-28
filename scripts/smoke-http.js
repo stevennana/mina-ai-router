@@ -44,8 +44,11 @@ async function main() {
       transport: "headless",
       sessionId: "http-smoke",
       projectRoot: "/tmp",
+      capabilitySummary: "HTTP smoke helper for validating registration metadata.",
+      capabilitySources: "manual smoke payload",
     });
     assert.equal(registered.agent.id, "http-smoke");
+    assert.equal(registered.agent.capabilitySummary, "HTTP smoke helper for validating registration metadata.");
 
     const asked = await postJson(`${baseUrl}/api/ask`, {
       target: "http-smoke",

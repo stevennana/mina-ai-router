@@ -330,6 +330,8 @@ function registerAgent(body: Record<string, unknown>): Agent {
     projectRoot: stringValue(body.projectRoot) ?? process.cwd(),
     tmuxTarget: stringValue(body.tmuxTarget),
     startupCommand: stringValue(body.startupCommand),
+    capabilitySummary: stringValue(body.capabilitySummary),
+    capabilitySources: stringValue(body.capabilitySources),
   };
 
   context.registry.register(agent);

@@ -44,13 +44,17 @@ async function main() {
           transport: "tmux",
           sessionId: session,
           projectRoot: tempDir,
+          capabilitySummary: "Handles payment project questions and returns marker-wrapped tmux responses.",
+          capabilitySources: "AGENTS.md, package.json",
         })).content[0].text,
       );
       assert.equal(registered.agent.id, "payment");
+      assert.equal(registered.agent.capabilitySummary, "Handles payment project questions and returns marker-wrapped tmux responses.");
 
       const agents = JSON.parse((await mcp.callTool("list_agents", {})).content[0].text);
       assert.equal(agents.agents[0].id, "payment");
       assert.equal(agents.agents[0].status, "available");
+      assert.equal(agents.agents[0].capabilitySources, "AGENTS.md, package.json");
 
       const call = JSON.parse(
         (await mcp.callTool("call_agent", {
