@@ -54,7 +54,7 @@ async function main(argv: string[]): Promise<void> {
       await listAgents(context);
       break;
     case "agent":
-      await showAgent(argv.slice(3), context);
+      await handleAgent(argv.slice(3), context);
       break;
     case "attach":
       showAttach(argv.slice(3), context);
@@ -459,9 +459,11 @@ function registerAgent(args: string[], context: ReturnType<typeof createContext>
     capabilitySources: options.sources ?? options["capability-sources"],
   };
 
-  context.registry.register(agent);
+  const registered = context.registry.register(agent, {
+    capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "manual" : undefined,
+  });
   context.save();
-  printJson({ agent });
+  printJson({ agent: registered });
 }
 
 async function listAgents(context: ReturnType<typeof createContext>): Promise<void> {
@@ -471,10 +473,19 @@ async function listAgents(context: ReturnType<typeof createContext>): Promise<vo
   });
 }
 
+async function handleAgent(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
+  if (args[0] === "refresh-capabilities") {
+    await refreshAgentCapabilities(args.slice(1), context);
+    return;
+  }
+
+  await showAgent(args, context);
+}
+
 async function showAgent(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
   const id = args[0];
   if (!id) {
-    throw new Error("Usage: mair agent <id>");
+    throw new Error("Usage: mair agent <id> | mair agent refresh-capabilities <id> [--timeout-ms 300000]");
   }
 
   const agent = context.registry.require(id);
@@ -484,6 +495,90 @@ async function showAgent(args: string[], context: ReturnType<typeof createContex
     status: statuses.find((candidate) => candidate.id === id),
     attach: agent.transport === "tmux" ? `tmux attach -t ${agent.sessionId}` : undefined,
   });
+}
+
+async function refreshAgentCapabilities(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
+  const id = args[0];
+  if (!id) {
+    throw new Error("Usage: mair agent refresh-capabilities <id> [--timeout-ms 300000]");
+  }
+
+  const flags = parseFlags(args.slice(1));
+  const agent = context.registry.require(id);
+  const response = await context.router.callAgent({
+    target: id,
+    task: buildCapabilityRefreshTask(agent),
+    timeoutMs: flags["timeout-ms"] ? Number(flags["timeout-ms"]) : undefined,
+  });
+  const notice = parseCapabilityRefreshAnswer(response.answer);
+  const refreshedAt = new Date().toISOString();
+  const updated = context.registry.updateCapabilities(id, {
+    summary: notice.capabilitySummary,
+    sources: notice.capabilitySources,
+    source: "generated",
+    refreshedAt,
+  });
+  context.save();
+
+  printJson({
+    agent: updated,
+    refresh: {
+      requestId: response.requestId,
+      refreshedAt,
+      capabilitySource: updated.capabilitySource,
+    },
+  });
+}
+
+function buildCapabilityRefreshTask(agent: Agent): string {
+  return [
+    "Refresh your Mina AI Router capability registration for this visible local agent.",
+    "",
+    "Inspect local project docs and metadata before answering.",
+    "Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
+    "If those files are missing, inspect package metadata and the project file tree.",
+    "",
+    "Return only JSON with these string fields:",
+    "{",
+    '  "capabilitySummary": "2-5 short bullets or one short paragraph under 800 characters",',
+    '  "capabilitySources": "comma-separated file paths or project signals used"',
+    "}",
+    "",
+    "Do not include markdown fences or extra commentary in the JSON body.",
+    "",
+    "Registration context:",
+    `- id: ${agent.id}`,
+    `- agentType: ${agent.agentType}`,
+    `- transport: ${agent.transport}`,
+    `- sessionId: ${agent.sessionId}`,
+    `- projectRoot: ${agent.projectRoot}`,
+  ].join("\n");
+}
+
+function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: string; capabilitySources: string } {
+  const trimmed = answer.trim();
+  const jsonText = trimmed.startsWith("{") ? trimmed : trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1);
+
+  if (!jsonText || !jsonText.startsWith("{") || !jsonText.endsWith("}")) {
+    throw new Error("Capability refresh response did not contain a JSON object.");
+  }
+
+  const parsed = JSON.parse(jsonText) as {
+    capabilitySummary?: unknown;
+    capabilitySources?: unknown;
+  };
+  const capabilitySummary = typeof parsed.capabilitySummary === "string" ? parsed.capabilitySummary.trim() : "";
+  const capabilitySources = typeof parsed.capabilitySources === "string" ? parsed.capabilitySources.trim() : "";
+
+  if (!capabilitySummary || !capabilitySources) {
+    throw new Error("Capability refresh JSON requires non-empty capabilitySummary and capabilitySources strings.");
+  }
+
+  if (capabilitySummary.length > 800) {
+    throw new Error("Capability refresh JSON capabilitySummary must be under 800 characters.");
+  }
+
+  return { capabilitySummary, capabilitySources };
 }
 
 function showAttach(args: string[], context: ReturnType<typeof createContext>): void {
@@ -731,6 +826,7 @@ Commands:
   mair register <id> --agent <type> --transport <headless|mock|tmux|zmux> --session <session> --root <path>
   mair agents
   mair agent <id>
+  mair agent refresh-capabilities <id> [--timeout-ms 300000]
   mair attach <id>
   mair setup-codex-pair [--main-root <path>] [--helper-root <path>] [--helper-id <id>] [--session <tmux-session>]
   mair serve [--port 3333]

@@ -5,7 +5,7 @@
   "id": "request-retry-cancel-archive",
   "title": "Request retry cancel archive controls",
   "order": 3,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "capability-refresh-command",
   "prompt_docs": [
     "AGENTS.md",
@@ -27,7 +27,8 @@
     "Retry creates ambiguous request lineage",
     "Cancel/archive behavior is not reflected in activity",
     "CLI and UI request semantics diverge"
-  ]
+  ],
+  "completed_at": "2026-06-28T14:52:01.636Z"
 }
 ```
 
@@ -90,3 +91,4 @@ Do not promote if request action semantics are only implemented in the UI.
 - 2026-06-28T14:44:42.938Z: repeated blocker `deterministic_failure|npm-run-smoke-cli-controls|no-path-details` auto-branched into `request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619`. Summary: Repeated required-command failure: npm run smoke:cli-controls
 - 2026-06-28T14:47:58Z: RCA `request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619` isolated the repeated blocker to the smoke live-cancel harness: the shell-backed tmux session echoed the prompt markers and let the request answer before cancellation could observe an open request. The RCA changed only the smoke harness so `cli-live` uses a separate sleeping tmux session, then `npm run smoke:cli-controls` exited 0 with explicit listener-denial evidence in this sandbox instead of `deterministic_failure|npm-run-smoke-cli-controls|no-path-details`; the RCA keeps the normal return path back to this parent task.
 - 2026-06-28T14:48:46.784Z: blocker RCA task request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 completed; restored as current task after resolving blocker deterministic_failure|npm-run-smoke-cli-controls|no-path-details.
+- 2026-06-28T14:52:01.636Z: automatically promoted after deterministic checks and evaluator approval.

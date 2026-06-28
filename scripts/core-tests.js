@@ -12,12 +12,52 @@ const { DefaultTransportRegistry, HeadlessTransport } = require("../dist/package
 async function main() {
   testParser();
   testPromptEnvelope();
+  testRegistryCapabilityMetadata();
   testRequestStoreDiagnostics();
   await testRouterLifecycle();
   await testRouterCancelStaysTerminal();
   await testRouterParseFailure();
   await testRouterTimeout();
   console.log("core tests passed");
+}
+
+function testRegistryCapabilityMetadata() {
+  const registry = new AgentRegistry([
+    {
+      id: "payment",
+      name: "payment",
+      agentType: "gemini",
+      projectRoot: "/tmp/payment",
+      transport: "headless",
+      sessionId: "payment",
+      capabilitySummary: "Existing manual summary.",
+      capabilitySources: "manual notes",
+      capabilitySource: "manual",
+      capabilityUpdatedAt: "2026-01-01T00:00:00.000Z",
+    },
+  ]);
+
+  const merged = registry.register({
+    id: "payment",
+    name: "payment",
+    agentType: "gemini",
+    projectRoot: "/tmp/payment",
+    transport: "headless",
+    sessionId: "payment",
+  });
+  assert.equal(merged.capabilitySummary, "Existing manual summary.");
+  assert.equal(merged.capabilitySource, "manual");
+
+  const refreshed = registry.updateCapabilities("payment", {
+    summary: "Generated summary.",
+    sources: "AGENTS.md, package.json",
+    source: "generated",
+    refreshedAt: "2026-01-02T00:00:00.000Z",
+  });
+  assert.equal(refreshed.capabilitySummary, "Generated summary.");
+  assert.equal(refreshed.capabilitySource, "generated");
+  assert.equal(refreshed.capabilityUpdatedAt, "2026-01-02T00:00:00.000Z");
+  assert.equal(refreshed.lastCapabilityRefreshAt, "2026-01-02T00:00:00.000Z");
 }
 
 function testParser() {

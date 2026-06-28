@@ -232,3 +232,17 @@
 - worker-summary: Resolved the RCA blocker and returned the queue to `request-retry-cancel-archive`.
 - evaluator: started
 - evaluator: status=done promotion=true Core RequestStore now owns retry, cancel, archive, and unarchive validation; HTTP and CLI paths delegate to those semantics; request detail shows valid actions and lineage/status fields; smoke coverage exercises HTTP and CLI action behavior including invalid cancel and retry lineage. Required checks are reported passing for the parent task. -> state/artifacts/20260628T234513-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/evaluator.log
+- commit: commit: created
+- promote: Promoted request-retry-cancel-archive -> capability-refresh-command
+- backlog: rendered current=capability-refresh-command
+- health: ooxxxxxxxxxxxxxo
+- cycle: finished
+
+### cycle 2026-06-28T23:52:31+09:00 task=capability-refresh-command
+- artifacts: state/artifacts/20260628T235231-capability-refresh-command
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T235231-capability-refresh-command/worker.jsonl
+- worker-summary: Implemented the capability refresh path and wrote the handoff to `state/last-result.txt`.
+- evaluator: started
+- evaluator: status=done promotion=true The implementation satisfies the task in substance: `mair agent refresh-capabilities <id>` is a terminal-usable command, routes a refresh prompt to the existing registered agent, parses the returned capability JSON, and persists generated freshness metadata without deleting or recreating the agent. Core, CLI controls, and tmux smoke coverage include the refresh path; MCP coverage verifies freshness metadata remains compatible with registration/listing and live routing surfaces. -> state/artifacts/20260628T235231-capability-refresh-command/evaluator.log

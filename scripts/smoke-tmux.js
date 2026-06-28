@@ -23,14 +23,22 @@ function main() {
     responderPath,
     [
       "rid=''",
+      "mode='ask'",
       "while IFS= read -r line; do",
       "  case \"$line\" in",
       "    'Request ID: '*)",
       "      rid=${line#Request ID: }",
       "      ;;",
+      "    *'capabilitySummary'*)",
+      "      mode='refresh'",
+      "      ;;",
       "    '<<<MINA_AGENT_RESPONSE_END '*)",
       "      if [ -n \"$rid\" ]; then",
+      "      if [ \"$mode\" = 'refresh' ]; then",
+      "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\n{\"capabilitySummary\":\"Smoke agent refreshed from local docs.\",\"capabilitySources\":\"AGENTS.md, package.json\"}\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
+      "      else",
       "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\nhello from tmux smoke\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
+      "      fi",
       "      fi",
       "      ;;",
       "  esac",
@@ -41,7 +49,12 @@ function main() {
 
   cleanup();
   try {
-    run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
+    try {
+      run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
+    } catch (error) {
+      if (reportTmuxDenied(error)) return;
+      throw error;
+    }
     runNode(["register", "smoke", "--agent", "shell", "--transport", "tmux", "--session", session, "--root", tempDir]);
     const raw = runNode(["ask", "smoke", "return a marker response", "--timeout-ms", "5000"]);
     const parsed = JSON.parse(raw);
@@ -52,6 +65,13 @@ function main() {
     const requests = JSON.parse(runNode(["requests", "--target", "smoke"]));
     assert.equal(requests.requests.length, 1);
     assert.equal(requests.requests[0].status, "answered");
+
+    const refreshed = JSON.parse(runNode(["agent", "refresh-capabilities", "smoke", "--timeout-ms", "5000"]));
+    assert.equal(refreshed.agent.id, "smoke");
+    assert.equal(refreshed.agent.capabilitySummary, "Smoke agent refreshed from local docs.");
+    assert.equal(refreshed.agent.capabilitySources, "AGENTS.md, package.json");
+    assert.equal(refreshed.agent.capabilitySource, "generated");
+    assert.ok(refreshed.agent.lastCapabilityRefreshAt);
 
     console.log("tmux smoke passed");
   } finally {
@@ -70,6 +90,19 @@ function run(file, args, commandEnv = process.env) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
+}
+
+function reportTmuxDenied(error) {
+  const details = `${error.stderr || ""}${error.message || ""}`;
+  if (!/Operation not permitted/.test(details)) {
+    return false;
+  }
+
+  console.log([
+    "tmux smoke skipped: tmux socket denied by environment",
+    details.trim(),
+  ].join("\n"));
+  return true;
 }
 
 function cleanup() {

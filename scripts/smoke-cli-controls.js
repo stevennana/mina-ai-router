@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
-const { existsSync, mkdtempSync, readFileSync } = require("node:fs");
+const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -11,6 +11,7 @@ const statePath = join(tempDir, "router-state.json");
 const pidPath = join(tempDir, "mair-server.json");
 const session = `mina-cli-controls-${process.pid}`;
 const liveSession = `${session}-live`;
+const refreshSession = `${session}-refresh`;
 const port = 3400 + (process.pid % 1000);
 const env = {
   ...process.env,
@@ -20,8 +21,32 @@ const env = {
 
 async function main() {
   cleanup();
+  writeRefreshResponder();
 
   try {
+    runNode([
+      "register",
+      "cli-refresh",
+      "--agent",
+      "shell",
+      "--transport",
+      "headless",
+      "--session",
+      "cli-refresh",
+      "--root",
+      tempDir,
+      "--summary",
+      "Manual capability summary.",
+      "--sources",
+      "manual operator note",
+    ]);
+    const refreshed = JSON.parse(runNode(["agent", "refresh-capabilities", "cli-refresh", "--timeout-ms", "5000"]));
+    assert.equal(refreshed.agent.id, "cli-refresh");
+    assert.equal(refreshed.agent.capabilitySummary, "Headless capability refresh for cli-refresh.");
+    assert.equal(refreshed.agent.capabilitySources, "headless transport prompt");
+    assert.equal(refreshed.agent.capabilitySource, "generated");
+    assert.ok(refreshed.agent.lastCapabilityRefreshAt);
+
     const started = JSON.parse(runNode(["server", "start", "--port", String(port)]));
     if (!started.running) {
       if (reportListenerDenied(started)) return;
@@ -259,10 +284,40 @@ function cleanup() {
   }
 
   try {
+    execFileSync("tmux", ["kill-session", "-t", refreshSession], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    // The session may not exist.
+  }
+
+  try {
     runNode(["server", "stop"]);
   } catch {
     // The server may not be running.
   }
+}
+
+function writeRefreshResponder() {
+  writeFileSync(
+    join(tempDir, "refresh-responder.sh"),
+    [
+      "rid=''",
+      "while IFS= read -r line; do",
+      "  case \"$line\" in",
+      "    'Request ID: '*)",
+      "      rid=${line#Request ID: }",
+      "      ;;",
+      "    '<<<MINA_AGENT_RESPONSE_END '*)",
+      "      if [ -n \"$rid\" ]; then",
+      "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\n{\"capabilitySummary\":\"CLI controls refreshed capability.\",\"capabilitySources\":\"AGENTS.md, package.json\"}\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
+      "      fi",
+      "      ;;",
+      "  esac",
+      "done",
+      "",
+    ].join("\n"),
+  );
 }
 
 main().catch((error) => {

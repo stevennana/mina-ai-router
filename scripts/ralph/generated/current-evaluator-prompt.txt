@@ -3,40 +3,41 @@ You are the promotion evaluator for a repository-local Ralph loop.
 Read these documents before deciding:
 - AGENTS.md
 - ARCHITECTURE.md
-- docs/product-specs/request-diagnostics-and-controls.md
-- docs/FRONTEND.md
+- docs/product-specs/agent-capability-refresh.md
 - docs/RELIABILITY.md
-- docs/exec-plans/active/003-request-retry-cancel-archive.md
+- skills/mina-ai-router-agent/SKILL.md
+- docs/exec-plans/active/004-capability-refresh-command.md
 
-Current task id: request-retry-cancel-archive
-Current task title: Request retry cancel archive controls
+Current task id: capability-refresh-command
+Current task title: Capability refresh command
 
 Objective:
-Add reliable request recovery controls after request diagnostics are visible.
+Add a CLI-driven capability refresh path for one registered agent.
 
 Scope:
-- Ensure retry, cancel, archive, and unarchive semantics are explicit in core and API behavior.
-- Show actions in request detail when valid for the current status.
-- Preserve or record lineage when retry creates a new request.
-- Extend smoke coverage for changed request actions.
+- Add metadata needed to track capability freshness.
+- Add a command such as `mair agent refresh-capabilities <id>` or a clearly documented equivalent.
+- Prompt the target agent to inspect local project docs and update its registration.
+- Preserve manual edit semantics.
 
 Out of scope:
-- Team fanout.
-- Capability refresh.
-- Long-term transcript search.
+- Scheduled refresh.
+- Team presets.
+- UI freshness indicators beyond what is needed for API support.
 
 Exit criteria:
-1. Users can recover or clean up requests from UI or CLI without ambiguous state.
-2. Invalid actions fail clearly.
-3. Activity and request detail reflect the updated status.
+1. A user can refresh one agent without deleting or recreating it.
+2. Capability freshness data persists in local state.
+3. CLI controls smoke covers the command or its underlying API.
+4. tmux or MCP smoke proves the refresh path remains compatible with live agent routing.
 
 Evaluator notes:
-Do not promote if request action semantics are only implemented in the UI.
+Promote only when the command is useful from a terminal, not just an internal helper.
 
 Deterministic check summary:
 {
-  "checked_at": "2026-06-28T14:50:29.500Z",
-  "task_id": "request-retry-cancel-archive",
+  "checked_at": "2026-06-28T15:00:44.505Z",
+  "task_id": "capability-refresh-command",
   "commands": [
     {
       "command": "npm run test",
@@ -44,14 +45,19 @@ Deterministic check summary:
       "output": "\n> @minasoft/mina-ai-router@0.1.5 test\n> npm run build && node scripts/core-tests.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 55ms\ncore tests passed\n"
     },
     {
-      "command": "npm run smoke:http",
-      "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:http\n> npm run build && node scripts/smoke-http.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 60ms\nhttp smoke passed\n"
-    },
-    {
       "command": "npm run smoke:cli-controls",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:cli-controls\n> npm run build && node scripts/smoke-cli-controls.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 56ms\ncli controls smoke passed\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:cli-controls\n> npm run build && node scripts/smoke-cli-controls.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 59ms\ncli controls smoke passed\n"
+    },
+    {
+      "command": "npm run smoke:tmux",
+      "ok": true,
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:tmux\n> npm run build && node scripts/smoke-tmux.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 56ms\ntmux smoke passed\n"
+    },
+    {
+      "command": "npm run smoke:mcp",
+      "ok": true,
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:mcp\n> npm run build && node scripts/smoke-mcp.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 55ms\nmcp smoke passed\n"
     }
   ],
   "missing_files": [],
@@ -59,17 +65,21 @@ Deterministic check summary:
 }
 
 Worker handoff summary from the last run:
-Resolved the RCA blocker and returned the queue to `request-retry-cancel-archive`.
+Implemented the capability refresh path and wrote the handoff to `state/last-result.txt`.
 
-Changed [scripts/smoke-cli-controls.js](/Users/stevenna/WebstormProjects/mina-aimesh/scripts/smoke-cli-controls.js:13) so the live cancel smoke uses a separate `sleep 60` tmux session, preventing shell-echoed markers from making the request answer before cancellation is observed. Recorded the RCA evidence in [completed RCA doc](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/completed/request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619.md:78) and the parent log at [003-request-retry-cancel-archive.md](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/active/003-request-retry-cancel-archive.md:91).
+What changed:
+- Added `mair agent refresh-capabilities <id>`.
+- Added persisted freshness fields: `capabilitySource`, `capabilityUpdatedAt`, `lastCapabilityRefreshAt`.
+- Preserved manual edit semantics across CLI/HTTP/MCP registration paths.
+- Added/updated coverage in core tests, CLI controls smoke, tmux smoke, and MCP smoke.
 
 Verification:
-- `npm run smoke:cli-controls` exited 0 with explicit sandbox `listen EPERM` evidence.
-- `node scripts/ralph/evaluate-task.mjs` marked RCA done.
-- `node scripts/ralph/promote-task.mjs` promoted back to `request-retry-cancel-archive`.
-- `state/current-task.txt` now contains `request-retry-cancel-archive`.
+- `npm run test` passed.
+- `npm run smoke:cli-controls` exited 0 and covered refresh before sandbox HTTP `listen EPERM`.
+- `npm run smoke:tmux` exited 0 with explicit sandbox tmux socket denial skip.
+- `npm run smoke:mcp` exited 0 with explicit sandbox tmux socket denial skip.
 
-I also wrote the requested handoff into [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt:1).
+Exit criteria appear satisfied. Full live tmux/MCP proof still needs an environment with tmux socket access.
 
 Your job:
 - inspect the repository and current implementation

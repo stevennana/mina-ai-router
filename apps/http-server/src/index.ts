@@ -400,23 +400,32 @@ function registerAgent(body: Record<string, unknown>): Agent {
     capabilitySources: stringValue(body.capabilitySources) ?? capabilityNotice.sources,
   };
 
-  context.registry.register(agent);
+  const registered = context.registry.register(agent, {
+    capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "generated" : undefined,
+  });
   context.save();
-  return agent;
+  return registered;
 }
 
 function updateAgent(id: string, body: Record<string, unknown>): Agent {
   const current = context.registry.require(id);
+  const capabilitySummary = stringFieldValue(body, "capabilitySummary");
+  const capabilitySources = stringFieldValue(body, "capabilitySources");
   const next: Agent = {
     ...current,
     name: stringValue(body.name) ?? current.name,
-    capabilitySummary: stringFieldValue(body, "capabilitySummary") ?? current.capabilitySummary,
-    capabilitySources: stringFieldValue(body, "capabilitySources") ?? current.capabilitySources,
   };
 
   context.registry.register(next);
+  const updated = capabilitySummary !== undefined || capabilitySources !== undefined
+    ? context.registry.updateCapabilities(id, {
+      summary: capabilitySummary,
+      sources: capabilitySources,
+      source: "manual",
+    })
+    : context.registry.require(id);
   context.save();
-  return next;
+  return updated;
 }
 
 function listDirectories(body: Record<string, unknown>) {

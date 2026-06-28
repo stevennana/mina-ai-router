@@ -5,7 +5,7 @@
   "id": "capability-refresh-command",
   "title": "Capability refresh command",
   "order": 4,
-  "status": "queued",
+  "status": "active",
   "next_task_on_success": "capability-freshness-ui",
   "prompt_docs": [
     "AGENTS.md",
@@ -71,3 +71,5 @@ Promote only when the command is useful from a terminal, not just an internal he
 ## Progress log
 
 - Queue seeded for milestone 0.2 Ralph setup.
+- 2026-06-28T14:52:01.636Z: restored as current task after request-retry-cancel-archive promotion.
+- 2026-06-28T14:59:00Z: added `mair agent refresh-capabilities <id>` to prompt one registered agent through the router, parse a JSON capability notice, and update persisted capability freshness metadata without recreating the agent. Added `capabilitySource`, `capabilityUpdatedAt`, and `lastCapabilityRefreshAt` metadata, with manual CLI/HTTP edits marked manual and MCP/refresh updates marked generated. Extended CLI controls smoke to cover the refresh command, tmux smoke to exercise live refresh when tmux is available, and MCP smoke to assert generated freshness metadata. Required checks run: `npm run test` passed; `npm run smoke:cli-controls` exited 0 after covering refresh and reporting sandbox HTTP `listen EPERM`; `npm run smoke:tmux` and `npm run smoke:mcp` exited 0 with explicit sandbox tmux socket `Operation not permitted` skip evidence.

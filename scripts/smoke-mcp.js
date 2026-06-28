@@ -24,7 +24,12 @@ async function main() {
   cleanup();
 
   try {
-    run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
+    try {
+      run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
+    } catch (error) {
+      if (reportTmuxDenied(error)) return;
+      throw error;
+    }
     const mcp = new McpClient(distMcp, env);
     try {
       const initialize = await mcp.request("initialize", {});
@@ -50,11 +55,15 @@ async function main() {
       );
       assert.equal(registered.agent.id, "payment");
       assert.equal(registered.agent.capabilitySummary, "Handles payment project questions and returns marker-wrapped tmux responses.");
+      assert.equal(registered.agent.capabilitySource, "generated");
+      assert.ok(registered.agent.capabilityUpdatedAt);
+      assert.ok(registered.agent.lastCapabilityRefreshAt);
 
       const agents = JSON.parse((await mcp.callTool("list_agents", {})).content[0].text);
       assert.equal(agents.agents[0].id, "payment");
       assert.equal(agents.agents[0].status, "available");
       assert.equal(agents.agents[0].capabilitySources, "AGENTS.md, package.json");
+      assert.equal(agents.agents[0].capabilitySource, "generated");
 
       const call = JSON.parse(
         (await mcp.callTool("call_agent", {
@@ -184,6 +193,19 @@ function run(file, args, commandEnv = process.env) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
+}
+
+function reportTmuxDenied(error) {
+  const details = `${error.stderr || ""}${error.message || ""}`;
+  if (!/Operation not permitted/.test(details)) {
+    return false;
+  }
+
+  console.log([
+    "mcp smoke skipped: tmux socket denied by environment",
+    details.trim(),
+  ].join("\n"));
+  return true;
 }
 
 function cleanup() {

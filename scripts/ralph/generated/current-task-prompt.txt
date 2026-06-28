@@ -1,55 +1,57 @@
 Read the following repository documents before making changes:
 - AGENTS.md
-- docs/PLANS.md
-- docs/exec-plans/active/003-request-retry-cancel-archive.md
 - ARCHITECTURE.md
-- docs/product-specs/request-diagnostics-and-controls.md
-- docs/FRONTEND.md
+- docs/product-specs/agent-capability-refresh.md
 - docs/RELIABILITY.md
-- docs/exec-plans/active/request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619.md
+- skills/mina-ai-router-agent/SKILL.md
+- docs/exec-plans/active/004-capability-refresh-command.md
 
-Current task id: request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
-Current task title: RCA: Request retry cancel archive controls blocker
+Current task id: capability-refresh-command
+Current task title: Capability refresh command
 
 Objective:
-Resolve the repeated blocker that is preventing `request-retry-cancel-archive` from promoting, then return the queue to the parent task automatically.
+Add a CLI-driven capability refresh path for one registered agent.
 
 Scope:
-- isolate the repeated blocker signature without broadening back into the parent feature
-- restore the failing required command path: npm run smoke:cli-controls
-- update the parent task log and blocker evidence so the return path is explicit
+- Add metadata needed to track capability freshness.
+- Add a command such as `mair agent refresh-capabilities <id>` or a clearly documented equivalent.
+- Prompt the target agent to inspect local project docs and update its registration.
+- Preserve manual edit semantics.
 
 Out of scope:
-- new product scope beyond request-retry-cancel-archive
-- unrelated cleanup outside the blocker signature `deterministic_failure|npm-run-smoke-cli-controls|no-path-details`
-- manual queue edits that bypass the normal promotion return path
+- Scheduled refresh.
+- Team presets.
+- UI freshness indicators beyond what is needed for API support.
 
 Exit criteria:
-1. The repeated blocker is reproduced or conclusively explained with concrete evidence.
-2. npm run smoke:cli-controls pass without the blocker signature recurring.
-3. The RCA task can promote back to `request-retry-cancel-archive` without manual queue surgery.
-4. The parent task log records the blocker resolution before work returns to `request-retry-cancel-archive`.
+1. A user can refresh one agent without deleting or recreating it.
+2. Capability freshness data persists in local state.
+3. CLI controls smoke covers the command or its underlying API.
+4. tmux or MCP smoke proves the refresh path remains compatible with live agent routing.
 
 Required checks:
+- `npm run test`
 - `npm run smoke:cli-controls`
+- `npm run smoke:tmux`
+- `npm run smoke:mcp`
 
 Evaluator notes:
-Promote only when the blocker-specific evidence is explicit and the queue can safely return to `request-retry-cancel-archive`.
+Promote only when the command is useful from a terminal, not just an internal helper.
 
 Required repository artifacts for this task:
-- none
+- apps/cli/src/index.ts
+- packages/core/src/registry.ts
+- packages/mcp/src/provider.ts
 
 Required commands for this task:
+- npm run test
 - npm run smoke:cli-controls
+- npm run smoke:tmux
+- npm run smoke:mcp
 
 Previous known gaps from the last evaluation:
 - none
 
-RCA context:
-- This is an auto-generated blocker RCA task for parent task: request-retry-cancel-archive
-- Blocker kind: deterministic_failure
-- Blocker summary: Repeated required-command failure: npm run smoke:cli-controls
-- Blocker signature: deterministic_failure|npm-run-smoke-cli-controls|no-path-details
 
 
 Rules:
@@ -61,9 +63,7 @@ Rules:
 - Update this task doc's progress log with concrete notes.
 - Keep the repository in a state where the required commands can pass.
 - If the task is not done, leave the next task untouched.
-- Work only on the blocker evidence described above.
-- Do not resume or broaden into parent task request-retry-cancel-archive inside this RCA task.
-- Leave the queue return path to normal promotion back to request-retry-cancel-archive.
+
 
 At the end of the run, write a concise operator handoff summary into state/last-result.txt via your final response:
 - what changed

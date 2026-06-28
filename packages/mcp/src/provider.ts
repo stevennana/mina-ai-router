@@ -39,6 +39,9 @@ const tools: McpTool[] = [
         startupCommand: { type: "string" },
         capabilitySummary: { type: "string" },
         capabilitySources: { type: "string" },
+        capabilitySource: { type: "string" },
+        capabilityUpdatedAt: { type: "string" },
+        lastCapabilityRefreshAt: { type: "string" },
       },
       required: ["id", "agentType", "transport", "sessionId", "projectRoot"],
       additionalProperties: false,
@@ -102,11 +105,13 @@ async function callTool(
     case "register_agent": {
       try {
         const agent = agentFromArgs(args);
-        context.registry.register(agent);
+        const registered = context.registry.register(agent, {
+          capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "generated" : undefined,
+        });
         context.save();
         const agents = await context.router.listAgentStatuses();
         return jsonToolResult({
-          agent,
+          agent: registered,
           agents,
         });
       } catch (error) {
@@ -178,6 +183,9 @@ function agentFromArgs(args: Record<string, JsonValue>): Agent {
     startupCommand: stringValue(args.startupCommand),
     capabilitySummary: stringValue(args.capabilitySummary),
     capabilitySources: stringValue(args.capabilitySources),
+    capabilitySource: capabilitySourceValue(args.capabilitySource),
+    capabilityUpdatedAt: stringValue(args.capabilityUpdatedAt),
+    lastCapabilityRefreshAt: stringValue(args.lastCapabilityRefreshAt),
   };
 }
 
@@ -191,6 +199,10 @@ function requiredString(value: JsonValue | undefined, field: string): string {
 
 function stringValue(value: JsonValue | undefined): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function capabilitySourceValue(value: JsonValue | undefined): Agent["capabilitySource"] | undefined {
+  return value === "manual" || value === "generated" ? value : undefined;
 }
 
 function jsonToolResult(value: unknown): McpToolCallResult {

@@ -58,6 +58,9 @@ export interface Agent {
   startupCommand?: string;
   capabilitySummary?: string;
   capabilitySources?: string;
+  capabilitySource?: "manual" | "generated";
+  capabilityUpdatedAt?: string;
+  lastCapabilityRefreshAt?: string;
 }
 
 export interface AgentRequest {
@@ -102,6 +105,9 @@ export interface AgentStatus {
   projectRoot: string;
   capabilitySummary?: string;
   capabilitySources?: string;
+  capabilitySource?: "manual" | "generated";
+  capabilityUpdatedAt?: string;
+  lastCapabilityRefreshAt?: string;
   status: "available" | "missing" | "unknown" | "busy";
   detail?: string;
   lastRequestStatus?: RequestStatus;
