@@ -109,3 +109,9 @@ Run:
 npm run verify
 git status --short
 ```
+
+## 10. Release
+
+npm releases are published through GitHub Actions and npm Trusted Publishing.
+
+See [RELEASE.md](./RELEASE.md).

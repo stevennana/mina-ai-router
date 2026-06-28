@@ -78,6 +78,7 @@ You can also create agents from the Web UI by right-clicking the `Live Agent Flo
 - [Skill Install Guide](https://github.com/stevennana/mina-ai-router/blob/main/docs/SKILL-INSTALL-GUIDE.md)
 - [HTTP UI and MCP Server](https://github.com/stevennana/mina-ai-router/blob/main/docs/HTTP-UI-MCP.md)
 - [Troubleshooting](https://github.com/stevennana/mina-ai-router/blob/main/docs/TROUBLESHOOTING.md)
+- [Release Guide](https://github.com/stevennana/mina-ai-router/blob/main/docs/RELEASE.md)
 
 ## Development
 
