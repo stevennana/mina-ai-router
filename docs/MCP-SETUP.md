@@ -3,6 +3,7 @@
 Mina Agent Router exposes these MCP tools:
 
 - `list_agents`
+- `register_agent`
 - `call_agent`
 - `get_request_status`
 
@@ -34,23 +35,37 @@ Set the same environment variable in the MCP client configuration:
 MINA_ROUTER_STATE=/Users/stevenna/WebstormProjects/mina-aimesh/data/router-state.json
 ```
 
-## Register a Tmux Helper Agent
+## Register a Tmux Helper Agent Through MCP
+
+The product-style flow is:
+
+1. Start Codex inside tmux for a project.
+2. Ask that Codex session to call Mina MCP `register_agent`.
+3. Mina Router shows that Codex session as an agent.
+
+Example helper session:
 
 ```sh
-tmux new-session -d -s payment -c ~/work/payment
-MINA_ROUTER_STATE=/Users/stevenna/WebstormProjects/mina-aimesh/data/router-state.json \
-  node dist/apps/cli/src/index.js register payment \
-  --agent gemini \
-  --transport tmux \
-  --session payment \
-  --root ~/work/payment
-```
-
-Attach to the helper session and start the desired CLI agent manually:
-
-```sh
+tmux new-session -d -s payment -c ~/work/payment 'codex --no-alt-screen'
 tmux attach -t payment
 ```
+
+Inside Codex, ask:
+
+```text
+Use Mina Agent Router MCP register_agent to register this session.
+
+Use:
+- id: payment
+- name: payment
+- agentType: codex
+- transport: tmux
+- sessionId: payment
+- projectRoot: ~/work/payment
+- startupCommand: codex --no-alt-screen
+```
+
+The CLI `mar register` command remains useful for debugging and non-Codex agents, but the preferred visible Codex flow is self-registration through MCP.
 
 ## Verify MCP Compatibility
 
@@ -58,4 +73,4 @@ tmux attach -t payment
 npm run smoke:mcp
 ```
 
-The smoke test starts a temporary tmux helper session, registers it through the CLI, calls the MCP server over stdio, and verifies that `call_agent` returns the marker-parsed answer.
+The smoke test starts a temporary tmux helper session, registers it through MCP `register_agent`, calls `call_agent`, and verifies that the marker-parsed answer returns.

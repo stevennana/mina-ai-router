@@ -79,7 +79,7 @@ async function main() {
     });
     assert.deepEqual(
       tools.result.tools.map((tool) => tool.name).sort(),
-      ["call_agent", "get_request_status", "list_agents"],
+      ["call_agent", "get_request_status", "list_agents", "register_agent"],
     );
 
     console.log("http smoke passed");

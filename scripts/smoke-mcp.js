@@ -25,20 +25,6 @@ async function main() {
 
   try {
     run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
-    run(process.execPath, [
-      distCli,
-      "register",
-      "payment",
-      "--agent",
-      "shell",
-      "--transport",
-      "tmux",
-      "--session",
-      session,
-      "--root",
-      tempDir,
-    ], env);
-
     const mcp = new McpClient(distMcp, env);
     try {
       const initialize = await mcp.request("initialize", {});
@@ -47,8 +33,20 @@ async function main() {
       const tools = await mcp.request("tools/list", {});
       assert.deepEqual(
         tools.tools.map((tool) => tool.name).sort(),
-        ["call_agent", "get_request_status", "list_agents"],
+        ["call_agent", "get_request_status", "list_agents", "register_agent"],
       );
+
+      const registered = JSON.parse(
+        (await mcp.callTool("register_agent", {
+          id: "payment",
+          name: "payment",
+          agentType: "shell",
+          transport: "tmux",
+          sessionId: session,
+          projectRoot: tempDir,
+        })).content[0].text,
+      );
+      assert.equal(registered.agent.id, "payment");
 
       const agents = JSON.parse((await mcp.callTool("list_agents", {})).content[0].text);
       assert.equal(agents.agents[0].id, "payment");

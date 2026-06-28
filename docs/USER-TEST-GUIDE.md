@@ -6,7 +6,8 @@ The goal is to confirm that:
 
 - the Mina HTTP server is running
 - the UI shows the router-centered diagram
-- two Codex projects are registered as visible agents
+- the router can start with `0 agents`
+- each visible Codex session can register itself through Mina MCP
 - main Codex can call helper Codex through Mina MCP
 - the helper Codex console visibly receives the routed request
 - the UI shows request status and result
@@ -89,30 +90,37 @@ Expected UI:
 
 If agents are missing, continue to the next step.
 
-## 3. Create or Reuse the Two-Codex Demo
+## 3. Connect Codex CLI to Mina MCP
 
-In the UI, click:
+Register the Mina MCP server once:
 
-```text
-Create Two-Codex Demo
+```sh
+codex mcp remove mina-agent-router
+codex mcp add mina-agent-router --url http://127.0.0.1:3333/mcp
+codex mcp get mina-agent-router
 ```
 
 Expected:
 
-- agent `ralph` appears in the diagram
-- `ralph` status becomes `available` if its tmux session exists
-- helper tmux session is created or reused
-
-You can also run the equivalent CLI command:
-
-```sh
-cd /Users/stevenna/WebstormProjects/mina-aimesh
-node dist/apps/cli/src/index.js setup-codex-pair
+```text
+transport: streamable_http
+url: http://127.0.0.1:3333/mcp
 ```
 
-## 4. Confirm Helper Codex Is Visible
+This MCP configuration is used by Codex CLI sessions, including Codex sessions started inside tmux.
 
-Open another terminal:
+## 4. Start Helper Codex in tmux
+
+Start helper Codex in the helper project:
+
+```sh
+tmux new-session -d \
+  -s mina-ralph-codex \
+  -c /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs \
+  'codex --no-alt-screen'
+```
+
+Attach to see the real helper console:
 
 ```sh
 tmux attach -t mina-ralph-codex
@@ -133,37 +141,78 @@ d
 
 Do not kill the tmux session.
 
-## 5. Connect Codex CLI to Mina MCP
+## 5. Register Helper Codex from Inside Helper Codex
 
-Run:
+Inside the helper Codex console, ask Codex:
 
-```sh
-codex mcp remove mina-agent-router
-codex mcp add mina-agent-router --url http://127.0.0.1:3333/mcp
-codex mcp get mina-agent-router
+```text
+Use Mina Agent Router MCP register_agent to register this Codex session.
+
+Use these exact values:
+- id: ralph
+- name: ralph
+- agentType: codex
+- transport: tmux
+- sessionId: mina-ralph-codex
+- projectRoot: /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs
+- startupCommand: codex --no-alt-screen
+
+After registering, call list_agents and confirm ralph is available.
 ```
 
 Expected:
 
-```text
-transport: streamable_http
-url: http://127.0.0.1:3333/mcp
-```
+- Codex calls `mina-agent-router.register_agent`
+- the UI changes from `0 agents` to showing `ralph`
+- `ralph` status is `available`
 
-If the server is not running, Codex may still register the MCP URL, but tool calls will fail until the Mina server starts.
+If Codex asks for tool permission, approve it inside the helper Codex CLI screen.
 
-## 6. Start Main Codex
+## 6. Start Main Codex in tmux
 
-Open another terminal:
+Start main Codex in the main project:
 
 ```sh
-cd /Users/stevenna/WebstormProjects/minasoftai
-codex --no-alt-screen
+tmux new-session -d \
+  -s codex-minasoftai \
+  -c /Users/stevenna/WebstormProjects/minasoftai \
+  'codex --no-alt-screen'
 ```
 
-This is the main Codex session.
+Attach to see the real main console:
 
-## 7. Test MCP Tool Discovery
+```sh
+tmux attach -t codex-minasoftai
+```
+
+This is the main Codex session. Leave it visible while testing.
+
+## 7. Register Main Codex from Inside Main Codex
+
+Inside the main Codex console, ask Codex:
+
+```text
+Use Mina Agent Router MCP register_agent to register this Codex session.
+
+Use these exact values:
+- id: minasoftai
+- name: minasoftai
+- agentType: codex
+- transport: tmux
+- sessionId: codex-minasoftai
+- projectRoot: /Users/stevenna/WebstormProjects/minasoftai
+- startupCommand: codex --no-alt-screen
+
+After registering, call list_agents and confirm both minasoftai and ralph are registered.
+```
+
+Expected:
+
+- Codex calls `mina-agent-router.register_agent`
+- the UI shows both `minasoftai` and `ralph`
+- both agent nodes are visible around the central router
+
+## 8. Test MCP Tool Discovery
 
 In main Codex, ask:
 
@@ -179,7 +228,7 @@ Expected:
 
 If Codex asks for tool permission, approve it inside the main Codex CLI screen.
 
-## 8. Test Main-to-Helper Conversation
+## 9. Test Main-to-Helper Conversation
 
 In main Codex, ask:
 
@@ -201,7 +250,7 @@ Expected visible flow:
 
 You should not need to press Enter in the helper Codex console.
 
-## 9. Inspect the Request in the UI
+## 10. Inspect the Request in the UI
 
 Go back to:
 
@@ -222,7 +271,7 @@ Expected:
   - task
   - answer or error
 
-## 10. Test Operator Controls
+## 11. Test Operator Controls
 
 Click agent `ralph`.
 
@@ -248,7 +297,7 @@ tmux attach -t mina-ralph-codex
 
 Use `Restart Session` carefully. It kills and recreates the tmux session for that agent.
 
-## 11. CLI Inspection
+## 12. CLI Inspection
 
 From the Mina repo:
 
@@ -265,7 +314,7 @@ Expected:
 - `ralph` is listed
 - recent requests targeting `ralph` are visible
 
-## 12. Stop the Test
+## 13. Stop the Test
 
 Stop the Mina HTTP server with `Ctrl-c` in the server terminal.
 

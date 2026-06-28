@@ -7,6 +7,15 @@ It serves both:
 - management UI: `http://127.0.0.1:3333/`
 - streamable HTTP MCP endpoint: `http://127.0.0.1:3333/mcp`
 
+## MCP Tools
+
+The HTTP MCP endpoint exposes:
+
+- `list_agents`
+- `register_agent`
+- `call_agent`
+- `get_request_status`
+
 ## Start
 
 ```sh

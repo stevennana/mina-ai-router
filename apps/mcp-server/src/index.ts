@@ -2,7 +2,7 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { appendFileSync } from "node:fs";
-import { AgentRegistry, AgentRouter, FileState, RequestStore } from "../../../packages/core/src";
+import { AgentRegistry, AgentRouter, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
 import { DefaultTransportRegistry, HeadlessTransport, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type {
   JsonValue,
@@ -144,6 +144,25 @@ async function createProvider(): Promise<McpRuntimeProvider> {
       },
     },
     {
+      name: "register_agent",
+      description: "Register or update an agent in Mina Agent Router. Use this from a visible project Codex session to connect itself to the router.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          agentType: { type: "string" },
+          transport: { type: "string" },
+          sessionId: { type: "string" },
+          projectRoot: { type: "string" },
+          tmuxTarget: { type: "string" },
+          startupCommand: { type: "string" },
+        },
+        required: ["id", "agentType", "transport", "sessionId", "projectRoot"],
+        additionalProperties: false,
+      },
+    },
+    {
       name: "call_agent",
       description: "Send a task to a registered helper agent and wait for a marker-wrapped response.",
       inputSchema: {
@@ -195,6 +214,20 @@ async function callTool(name: string, args: Record<string, JsonValue>): Promise<
       const agents = await context.router.listAgentStatuses();
       return jsonToolResult({ agents });
     }
+    case "register_agent": {
+      try {
+        const agent = agentFromArgs(args);
+        context.registry.register(agent);
+        context.save();
+        const agents = await context.router.listAgentStatuses();
+        return jsonToolResult({ agent, agents });
+      } catch (error) {
+        return {
+          kind: "invalid_params",
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
     case "call_agent": {
       const target = typeof args.target === "string" ? args.target : "";
       const task = typeof args.task === "string" ? args.task : "";
@@ -239,6 +272,32 @@ async function callTool(name: string, args: Record<string, JsonValue>): Promise<
     default:
       return { kind: "not_found", message: `Unknown tool "${name}".` };
   }
+}
+
+function agentFromArgs(args: Record<string, JsonValue>): Agent {
+  const id = requiredString(args.id, "id");
+  return {
+    id,
+    name: stringValue(args.name) ?? id,
+    agentType: requiredString(args.agentType, "agentType"),
+    transport: requiredString(args.transport, "transport") as TransportType,
+    sessionId: requiredString(args.sessionId, "sessionId"),
+    projectRoot: requiredString(args.projectRoot, "projectRoot"),
+    tmuxTarget: stringValue(args.tmuxTarget),
+    startupCommand: stringValue(args.startupCommand),
+  };
+}
+
+function requiredString(value: JsonValue | undefined, field: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`register_agent requires string ${field}.`);
+  }
+
+  return value.trim();
+}
+
+function stringValue(value: JsonValue | undefined): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function jsonToolResult(value: unknown): McpToolCallResult {
