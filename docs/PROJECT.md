@@ -23,6 +23,7 @@ Setup and operation docs:
 
 - [MCP-SETUP.md](./MCP-SETUP.md)
 - [HTTP-UI-MCP.md](./HTTP-UI-MCP.md)
+- [USER-TEST-GUIDE.md](./USER-TEST-GUIDE.md)
 - [TWO-CODEX-TEST.md](./TWO-CODEX-TEST.md)
 - [TMUX-SMOKE.md](./TMUX-SMOKE.md)
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
