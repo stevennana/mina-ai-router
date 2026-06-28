@@ -160,9 +160,7 @@
         gap: 1rem;
       }
 
-      .map-panel,
-      .side-panel,
-      .bottom-panel {
+      .map-panel {
         background: rgba(251, 252, 248, 0.94);
         border: 1px solid var(--line);
         border-radius: 0.5rem;
@@ -170,7 +168,7 @@
       }
 
       .map-panel {
-        min-height: 34rem;
+        min-height: calc(100vh - 12rem);
         overflow: hidden;
         position: relative;
       }
@@ -396,17 +394,6 @@
         background: rgba(105, 115, 134, 0.08);
       }
 
-      .side-panel {
-        overflow: hidden;
-      }
-
-      .side-body,
-      .bottom-body {
-        padding: 1rem;
-        display: grid;
-        gap: 1rem;
-      }
-
       .detail-grid,
       .form-grid {
         display: grid;
@@ -548,6 +535,85 @@
         gap: 0.45rem;
       }
 
+      .context-menu {
+        position: fixed;
+        z-index: 20;
+        width: min(18rem, calc(100vw - 2rem));
+        padding: 0.45rem;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: rgba(251, 252, 248, 0.98);
+        box-shadow: 0 1.25rem 3rem rgba(24, 35, 28, 0.18);
+      }
+
+      .context-menu button {
+        width: 100%;
+        justify-content: flex-start;
+        background: transparent;
+        border-color: transparent;
+        color: var(--ink);
+        text-align: left;
+      }
+
+      .context-menu button:hover {
+        background: var(--panel-2);
+        border-color: var(--line);
+      }
+
+      .context-menu .danger {
+        color: var(--bad);
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(23, 32, 27, 0.34);
+      }
+
+      .modal {
+        width: min(46rem, 100%);
+        max-height: min(44rem, calc(100vh - 2rem));
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 0.6rem;
+        background: var(--panel);
+        box-shadow: 0 1.5rem 4rem rgba(24, 35, 28, 0.24);
+        overflow: hidden;
+      }
+
+      .modal-head {
+        min-height: 4rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .modal-body {
+        overflow: auto;
+        padding: 1rem;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .guide-steps {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .guide-steps code {
+        display: block;
+        padding: 0.75rem;
+        overflow-wrap: anywhere;
+      }
+
       @keyframes flowPulse {
         0%,
         100% {
@@ -571,17 +637,6 @@
         .form-grid,
         .detail-grid {
           grid-template-columns: 1fr 1fr;
-        }
-      }
-
-      @media (min-width: 64rem) {
-        .layout {
-          grid-template-columns: minmax(0, 1fr) 24rem;
-          align-items: start;
-        }
-
-        .bottom-panel {
-          grid-column: 1 / -1;
         }
       }
 
@@ -619,11 +674,12 @@
         <div class="topbar">
           <div>
             <h1>Mina Agent Router</h1>
-            <p class="subtitle">MCP router centered view for visible Codex agents</p>
+            <p class="subtitle">Agent-to-agent flow map for visible CLI sessions</p>
           </div>
           <div class="toolbar">
+            <button id="showConnectGuide" class="secondary">Connect Agent</button>
+            <button id="showDevTools" class="secondary">Developer Tools</button>
             <button id="refresh" class="secondary">Refresh</button>
-            <button id="showRegister">Register Agent</button>
           </div>
         </div>
         <div class="meta-row">
@@ -638,8 +694,8 @@
         <section class="map-panel">
           <div class="map-head">
             <div>
-              <h2>Live Diagram</h2>
-              <p class="subtitle">Click an agent to inspect or control it</p>
+              <h2>Live Agent Flow</h2>
+              <p class="subtitle">Click an agent for details, history, controls, or removal</p>
             </div>
             <span class="chip" id="agent-count">0 agents</span>
           </div>
@@ -657,75 +713,22 @@
             </div>
           </div>
         </section>
-
-        <aside class="side-panel">
-          <div class="side-head">
-            <h2 id="detailTitle">Router</h2>
-            <span class="status unknown" id="detailStatus">ready</span>
-          </div>
-          <div class="side-body">
-            <div id="agentDetail" class="empty">Select an agent node to see session, root, status, and controls.</div>
-
-            <form id="askForm" class="hidden detail-grid">
-              <label class="hidden">Target<input id="askTarget" /></label>
-              <label style="grid-column: 1 / -1">Ask selected agent<textarea id="askTask">현재 프로젝트 목적을 짧게 요약해줘.</textarea></label>
-              <div class="actions" style="grid-column: 1 / -1">
-                <button type="submit">Ask via Router</button>
-                <button type="button" class="secondary" id="copyAttach">Copy Attach</button>
-                <button type="button" class="secondary" id="restartAgent">Restart Session</button>
-                <button type="button" class="danger" id="deleteAgent">Delete Agent</button>
-              </div>
-              <pre id="askOutput" style="grid-column: 1 / -1"></pre>
-            </form>
-
-            <div id="requestDetail" class="flow-detail hidden"></div>
-          </div>
-        </aside>
-
-        <section class="bottom-panel">
-          <div class="map-head">
-            <div>
-              <h2>Register & Requests</h2>
-              <p class="subtitle">Create visible tmux agents, then watch requests move through the router</p>
-            </div>
-            <div class="actions">
-              <button id="archiveStale" class="secondary">Archive Stale</button>
-              <button id="setupPair" class="secondary">Create Two-Codex Demo</button>
-            </div>
-          </div>
-          <div class="bottom-body">
-            <form id="registerForm" class="form-grid hidden">
-              <label>ID<input id="agentId" value="ralph" /></label>
-              <label>Name<input id="agentName" value="ralph" /></label>
-              <label>Type<select id="agentType"><option>codex</option><option>gemini</option><option>claude</option><option>shell</option></select></label>
-              <label>Transport<select id="agentTransport"><option>tmux</option><option>headless</option><option>mock</option></select></label>
-              <label>tmux session<input id="agentSession" value="mina-ralph-codex" /></label>
-              <label>tmux target<input id="agentTarget" placeholder="optional pane target" /></label>
-              <label style="grid-column: 1 / -1">Project root<input id="agentRoot" value="/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs" /></label>
-              <label style="grid-column: 1 / -1">Startup command<input id="agentCommand" value="codex --no-alt-screen" /></label>
-              <label style="grid-column: 1 / -1">Capability summary<textarea id="agentCapability" placeholder="What this agent can help with. Usually filled by the agent during MCP self-registration."></textarea></label>
-              <label style="grid-column: 1 / -1">Capability sources<input id="agentCapabilitySources" placeholder="CLAUDE.md, AGENTS.md, README.md, package.json" /></label>
-              <div class="actions" style="grid-column: 1 / -1">
-                <button type="submit">Save Agent</button>
-                <button type="button" class="secondary" id="hideRegister">Close</button>
-              </div>
-            </form>
-
-            <pre id="setupOutput" class="hidden"></pre>
-            <div class="request-tools">
-              <input id="requestSearch" placeholder="Search requests by id, target, status, or task" />
-              <div class="filter-row" id="requestFilters">
-                <button type="button" class="filter-button selected" data-filter="all">All</button>
-                <button type="button" class="filter-button" data-filter="waiting">Waiting</button>
-                <button type="button" class="filter-button" data-filter="failed">Failed</button>
-                <button type="button" class="filter-button" data-filter="answered">Answered</button>
-                <button type="button" class="filter-button" data-filter="archived">Archived</button>
-              </div>
-            </div>
-            <div class="request-list" id="requests"></div>
-          </div>
-        </section>
       </main>
+    </div>
+
+    <div id="agentMenu" class="context-menu hidden"></div>
+
+    <div id="modalBackdrop" class="modal-backdrop hidden">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head">
+          <div>
+            <h2 id="modalTitle">Details</h2>
+            <p class="subtitle" id="modalSubtitle"></p>
+          </div>
+          <button id="closeModal" class="secondary" type="button">Close</button>
+        </div>
+        <div id="modalBody" class="modal-body"></div>
+      </section>
     </div>
 
     <script>
@@ -735,8 +738,6 @@
       let selectedAgentId = "";
       let selectedRequestId = "";
       let lastAskOutput = "";
-      let requestFilter = "all";
-      let requestSearch = "";
 
       async function api(path, options = {}) {
         const res = await fetch(path, {
@@ -767,9 +768,9 @@
         $("agent-count").textContent = `${currentState.agents.length} agent${currentState.agents.length === 1 ? "" : "s"}`;
         $("routerSummary").textContent = `${answeredCount()} answered / ${waitingCount()} waiting`;
         renderDiagram(currentState.agents || []);
-        renderDetail(selectedAgent());
-        renderRequestDetail(selectedRequest());
-        renderRequests(currentState.requests || []);
+        if (!selectedAgent()) {
+          hideAgentMenu();
+        }
       }
 
       function renderDiagram(agents) {
@@ -800,13 +801,14 @@
             <div class="node-meta request-summary">${escapeHtml(shortCapability(agent))}</div>
             <div class="node-meta request-summary">${escapeHtml(lastRequestLabel(agent, latest))}</div>
           `;
-          node.onclick = () => {
+          node.onclick = (event) => {
             if (selectedAgentId !== agent.id) {
               lastAskOutput = "";
             }
             selectedAgentId = agent.id;
             selectedRequestId = latest?.id || "";
             render();
+            showAgentMenu(agent, event.clientX, event.clientY);
           };
           diagram.appendChild(node);
         });
@@ -859,104 +861,150 @@
         };
       }
 
-      function renderDetail(agent) {
-        if (!agent) {
-          $("detailTitle").textContent = "Router";
-          $("detailStatus").textContent = "ready";
-          $("detailStatus").className = "status unknown";
-          $("agentDetail").className = "empty";
-          $("agentDetail").innerHTML = "Select an agent node to see session, root, status, and controls.";
-          $("askForm").classList.add("hidden");
-          return;
-        }
-
-        $("detailTitle").textContent = agent.id;
-        $("detailStatus").textContent = agent.status;
-        $("detailStatus").className = `status ${agent.status}`;
-        $("agentDetail").className = "detail-grid";
-        $("agentDetail").innerHTML = `
-          <div class="notice" style="grid-column: 1 / -1">${escapeHtml(healthMessage(agent))}</div>
-          ${kv("Name", agent.name || agent.id)}
-          ${kv("Type", `${agent.agentType} / ${agent.transport}`)}
-          ${kv("Session", agent.sessionId || "-")}
-          ${kv("Project root", agent.projectRoot || "-")}
-          ${kv("Capabilities", agent.capabilitySummary || "No capability notice registered yet.")}
-          ${kv("Capability sources", agent.capabilitySources || "-")}
-          ${kv("Detail", agent.detail || "-")}
-          ${kv("Last request", agent.lastRequestStatus || "-")}
-          ${kv("Attach command", attachCommand(agent))}
-          ${kv("Open root", `cd ${agent.projectRoot || "."}`)}
-        `;
-        $("askTarget").value = agent.id;
-        $("askOutput").textContent = lastAskOutput;
-        $("askForm").classList.remove("hidden");
-      }
-
       function kv(label, value) {
         return `<div class="kv"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
       }
 
-      function renderRequests(requests) {
-        const recent = filterRequests(requests).slice().reverse().slice(0, 12);
-        $("requests").innerHTML = recent.length
-          ? recent.map((request) => `
-              <button type="button" class="request-item ${request.id === selectedRequestId ? "selected" : ""}" data-request-id="${escapeAttr(request.id)}">
-                <div class="request-top">
-                  <strong>${escapeHtml(request.id)}</strong>
-                  <span class="status ${escapeAttr(request.status)}">${escapeHtml(request.status)}</span>
-                </div>
-                <div><code>${escapeHtml(request.sourceAgent || "main")}</code> -> <code>${escapeHtml(request.targetAgent)}</code></div>
-                <div class="muted">${escapeHtml(request.task)}</div>
-              </button>
-            `).join("")
-          : '<div class="empty">No requests yet.</div>';
-        document.querySelectorAll(".request-item").forEach((item) => {
-          item.onclick = () => {
-            selectedRequestId = item.dataset.requestId || "";
-            const request = selectedRequest();
-            selectedAgentId = request?.targetAgent || selectedAgentId;
-            lastAskOutput = "";
-            render();
-          };
+      function showAgentMenu(agent, x, y) {
+        const menu = $("agentMenu");
+        menu.innerHTML = `
+          <button type="button" data-agent-action="details">Status & Details</button>
+          <button type="button" data-agent-action="history">Request History</button>
+          <button type="button" data-agent-action="ask">Ask This Agent</button>
+          <button type="button" data-agent-action="copy">Copy Attach Command</button>
+          <button type="button" data-agent-action="restart">Restart Session</button>
+          <button type="button" class="danger" data-agent-action="delete">Delete Agent</button>
+        `;
+        menu.classList.remove("hidden");
+        const left = Math.min(x + 8, window.innerWidth - menu.offsetWidth - 16);
+        const top = Math.min(y + 8, window.innerHeight - menu.offsetHeight - 16);
+        menu.style.left = `${Math.max(16, left)}px`;
+        menu.style.top = `${Math.max(16, top)}px`;
+        menu.querySelectorAll("[data-agent-action]").forEach((button) => {
+          button.onclick = () => handleAgentAction(button.dataset.agentAction, agent.id);
         });
       }
 
-      function renderRequestDetail(request) {
-        const detail = $("requestDetail");
-        if (!request) {
-          detail.classList.add("hidden");
-          detail.innerHTML = "";
-          return;
-        }
+      function hideAgentMenu() {
+        $("agentMenu").classList.add("hidden");
+      }
 
-        detail.classList.remove("hidden");
-        detail.innerHTML = `
-          <div class="request-top">
-            <h3>Selected Request</h3>
-            <span class="status ${escapeAttr(request.status)}">${escapeHtml(request.status)}</span>
+      function handleAgentAction(action, agentId) {
+        const agent = currentState.agents.find((candidate) => candidate.id === agentId);
+        if (!agent) return;
+        selectedAgentId = agent.id;
+        hideAgentMenu();
+        if (action === "details") showAgentDetails(agent);
+        if (action === "history") showAgentHistory(agent);
+        if (action === "ask") showAskAgent(agent);
+        if (action === "copy") copyAttach(agent);
+        if (action === "restart") restartAgent(agent);
+        if (action === "delete") deleteAgent(agent);
+      }
+
+      function showAgentDetails(agent) {
+        showModal(agent.id, `${agent.agentType} / ${agent.transport}`, `
+          <div class="detail-grid">
+            <div class="notice" style="grid-column: 1 / -1">${escapeHtml(healthMessage(agent))}</div>
+            ${kv("Status", agent.status)}
+            ${kv("Session", agent.sessionId || "-")}
+            ${kv("Project root", agent.projectRoot || "-")}
+            ${kv("Capabilities", agent.capabilitySummary || "No capability notice registered yet.")}
+            ${kv("Capability sources", agent.capabilitySources || "-")}
+            ${kv("Detail", agent.detail || "-")}
+            ${kv("Last request", agent.lastRequestStatus || "-")}
+            ${kv("Attach command", attachCommand(agent))}
+            ${kv("Open root", `cd ${agent.projectRoot || "."}`)}
           </div>
-          <div class="flow-path">
-            <code>${escapeHtml(request.sourceAgent || "main")}</code>
-            <span class="muted">-></span>
-            <code>MCP Router</code>
-            <span class="muted">-></span>
-            <code>${escapeHtml(request.targetAgent)}</code>
+        `);
+      }
+
+      function showAgentHistory(agent) {
+        const requests = agentRequests(agent.id).slice().reverse();
+        showModal(`${agent.id} history`, `${requests.length} routed request${requests.length === 1 ? "" : "s"}`, requests.length
+          ? `<div class="request-list">${requests.map(requestCard).join("")}</div>`
+          : '<div class="empty">No requests for this agent yet.</div>');
+        $("modalBody").querySelectorAll(".request-item").forEach((item) => {
+          item.onclick = () => showRequestDetail(item.dataset.requestId || "");
+        });
+      }
+
+      function showRequestDetail(requestId) {
+        const request = currentState.requests.find((candidate) => candidate.id === requestId);
+        if (!request) return;
+        showModal(request.id, `${displaySource(request.sourceAgent)} -> ${request.targetAgent}`, `
+          <div class="flow-detail">
+            <div class="request-top">
+              <h3>Request</h3>
+              <span class="status ${escapeAttr(request.status)}">${escapeHtml(request.status)}</span>
+            </div>
+            <div class="flow-path">
+              <code>${escapeHtml(displaySource(request.sourceAgent))}</code>
+              <span class="muted">-></span>
+              <code>MCP Router</code>
+              <span class="muted">-></span>
+              <code>${escapeHtml(request.targetAgent)}</code>
+            </div>
+            <div class="kv"><span>Task</span><strong>${escapeHtml(request.task)}</strong></div>
+            ${request.answer ? `<div class="kv"><span>Answer</span><pre>${escapeHtml(request.answer)}</pre></div>` : ""}
+            ${request.error ? `<div class="kv"><span>Error</span><pre>${escapeHtml(request.error)}</pre></div>` : ""}
+            <div class="actions">
+              <button type="button" data-request-action="retry" data-request-id="${escapeAttr(request.id)}">Retry</button>
+              <button type="button" class="secondary" data-request-action="cancel" data-request-id="${escapeAttr(request.id)}">Cancel</button>
+              <button type="button" class="secondary" data-request-action="archive" data-request-id="${escapeAttr(request.id)}">Archive</button>
+            </div>
           </div>
-          <div class="kv"><span>Request ID</span><strong>${escapeHtml(request.id)}</strong></div>
-          <div class="kv"><span>Task</span><strong>${escapeHtml(request.task)}</strong></div>
-          ${request.answer ? `<div class="kv"><span>Answer</span><pre>${escapeHtml(request.answer)}</pre></div>` : ""}
-          ${request.error ? `<div class="kv"><span>Error</span><pre>${escapeHtml(request.error)}</pre></div>` : ""}
-          <div class="actions">
-            <button type="button" data-request-action="retry" data-request-id="${escapeAttr(request.id)}">Retry</button>
-            <button type="button" class="secondary" data-request-action="cancel" data-request-id="${escapeAttr(request.id)}">Cancel</button>
-            <button type="button" class="secondary" data-request-action="archive" data-request-id="${escapeAttr(request.id)}">Archive</button>
-          </div>
+        `);
+        bindRequestActions();
+      }
+
+      function showAskAgent(agent) {
+        showModal(`Ask ${agent.id}`, "Route a direct task through MCP", `
+          <form id="askForm" class="detail-grid">
+            <label style="grid-column: 1 / -1">Task<textarea id="askTask">현재 프로젝트 목적을 짧게 요약해줘.</textarea></label>
+            <div class="actions" style="grid-column: 1 / -1">
+              <button type="submit">Send</button>
+            </div>
+            <pre id="askOutput" style="grid-column: 1 / -1">${escapeHtml(lastAskOutput)}</pre>
+          </form>
+        `);
+        $("askForm").onsubmit = (event) => withBusy(async () => {
+          event.preventDefault();
+          const result = await api("/api/ask", {
+            method: "POST",
+            body: JSON.stringify({
+              target: agent.id,
+              task: $("askTask").value,
+              timeoutMs: 300000,
+            }),
+          });
+          lastAskOutput = JSON.stringify(result.result || result, null, 2);
+          $("askOutput").textContent = lastAskOutput;
+          currentState = result.state;
+          render();
+        });
+      }
+
+      function requestCard(request) {
+        return `
+          <button type="button" class="request-item" data-request-id="${escapeAttr(request.id)}">
+            <div class="request-top">
+              <strong>${escapeHtml(request.id)}</strong>
+              <span class="status ${escapeAttr(request.status)}">${escapeHtml(request.status)}</span>
+            </div>
+            <div><code>${escapeHtml(displaySource(request.sourceAgent))}</code> -> <code>${escapeHtml(request.targetAgent)}</code></div>
+            <div class="muted">${escapeHtml(request.task)}</div>
+          </button>
         `;
-        detail.querySelectorAll("[data-request-action]").forEach((button) => {
+      }
+
+      function bindRequestActions() {
+        $("modalBody").querySelectorAll("[data-request-action]").forEach((button) => {
           button.onclick = () => withBusy(async () => {
             const action = button.dataset.requestAction;
             const id = button.dataset.requestId;
             if (!action || !id) return;
+            const original = currentState.requests.find((request) => request.id === id);
             if (action === "cancel" && !confirm(`Mark request "${id}" as cancelled?`)) return;
             if (action === "archive" && !confirm(`Archive request "${id}"?`)) return;
             const result = await api(`/api/requests/${encodeURIComponent(id)}/${action}`, { method: "POST" });
@@ -966,7 +1014,110 @@
               lastAskOutput = JSON.stringify(result.result, null, 2);
             }
             render();
+            const targetId = result.result?.targetAgent || original?.targetAgent || selectedAgentId;
+            const agent = currentState.agents.find((candidate) => candidate.id === targetId);
+            if (agent) showAgentHistory(agent);
           });
+        });
+      }
+
+      function showModal(title, subtitle, body) {
+        $("modalTitle").textContent = title;
+        $("modalSubtitle").textContent = subtitle || "";
+        $("modalBody").innerHTML = body;
+        $("modalBackdrop").classList.remove("hidden");
+      }
+
+      function closeModal() {
+        $("modalBackdrop").classList.add("hidden");
+        $("modalBody").innerHTML = "";
+      }
+
+      function showConnectGuide() {
+        showModal("Connect an agent", "Start a visible CLI session and let the agent self-register through MCP", `
+          <div class="guide-steps">
+            <div class="notice">Use these commands from the project directory you want to expose as an agent. The CLI sends a short self-registration prompt, and the agent fills capabilitySummary from project docs or structure.</div>
+            ${kv("Start Codex agent", "cd /path/to/project && mar codex")}
+            ${kv("Start Claude agent", "cd /path/to/project && mar claude")}
+            ${kv("Manual prompt inside the CLI", "Register this session with Mina Agent Router.")}
+            <div class="kv"><span>Codex MCP command</span><code>codex mcp add mina-agent-router --url ${escapeHtml(currentState.mcpUrl || "http://127.0.0.1:3333/mcp")}</code></div>
+          </div>
+        `);
+      }
+
+      function showDeveloperTools() {
+        const recent = currentState.requests.slice().reverse().slice(0, 12);
+        showModal("Developer tools", "Hidden diagnostics and POC helpers", `
+          <div class="actions">
+            <button type="button" id="setupPair">Create Two-Codex Demo</button>
+            <button type="button" class="secondary" id="archiveStale">Archive Stale</button>
+          </div>
+          <pre id="setupOutput" class="hidden"></pre>
+          <div>
+            <h3>Recent router requests</h3>
+            ${recent.length ? `<div class="request-list">${recent.map(requestCard).join("")}</div>` : '<div class="empty">No requests yet.</div>'}
+          </div>
+        `);
+        $("setupPair").onclick = () => withBusy(async () => {
+          const result = await api("/api/setup-codex-pair", {
+            method: "POST",
+            body: JSON.stringify({
+              helperRoot: "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs",
+              helperId: "ralph",
+              sessionId: "mina-ralph-codex",
+            }),
+          });
+          $("setupOutput").classList.remove("hidden");
+          $("setupOutput").textContent = JSON.stringify(result, null, 2);
+          selectedAgentId = result.helper.id;
+          await refresh();
+        });
+        $("archiveStale").onclick = () => withBusy(async () => {
+          if (!confirm("Archive stale created/sent/waiting requests older than 30 minutes?")) return;
+          const result = await api("/api/requests/archive-stale", {
+            method: "POST",
+            body: JSON.stringify({ olderThanMs: 30 * 60 * 1000 }),
+          });
+          currentState = result.state;
+          lastAskOutput = `Archived ${result.archived.length} stale request(s).`;
+          render();
+          showDeveloperTools();
+        });
+        $("modalBody").querySelectorAll(".request-item").forEach((item) => {
+          item.onclick = () => showRequestDetail(item.dataset.requestId || "");
+        });
+      }
+
+      function copyAttach(agent) {
+        withBusy(async () => {
+          await copyText(attachCommand(agent));
+          lastAskOutput = `Copied: ${attachCommand(agent)}`;
+        });
+      }
+
+      function restartAgent(agent) {
+        withBusy(async () => {
+          if (agent.transport !== "tmux") {
+            alert(`Agent "${agent.id}" does not use tmux.`);
+            return;
+          }
+          if (!confirm(`Restart tmux session "${agent.sessionId}" for agent "${agent.id}"?`)) return;
+          const result = await api(`/api/agents/${encodeURIComponent(agent.id)}/restart`, { method: "POST" });
+          currentState = result.state;
+          lastAskOutput = `Restarted tmux session: ${agent.sessionId}`;
+          render();
+        });
+      }
+
+      function deleteAgent(agent) {
+        withBusy(async () => {
+          if (!confirm(`Delete agent "${agent.id}" from the router registry?`)) return;
+          const result = await api(`/api/agents/${encodeURIComponent(agent.id)}`, { method: "DELETE" });
+          currentState = result.state;
+          selectedAgentId = "";
+          lastAskOutput = "";
+          closeModal();
+          render();
         });
       }
 
@@ -991,121 +1142,23 @@
         lastAskOutput = `Copied: ${command}`;
         render();
       });
-      $("showRegister").onclick = () => $("registerForm").classList.toggle("hidden");
-      $("hideRegister").onclick = () => $("registerForm").classList.add("hidden");
-      $("requestSearch").oninput = (event) => {
-        requestSearch = event.target.value;
-        renderRequests(currentState.requests || []);
+      $("showConnectGuide").onclick = showConnectGuide;
+      $("showDevTools").onclick = showDeveloperTools;
+      $("closeModal").onclick = closeModal;
+      $("modalBackdrop").onclick = (event) => {
+        if (event.target.id === "modalBackdrop") closeModal();
       };
-      document.querySelectorAll("[data-filter]").forEach((button) => {
-        button.onclick = () => {
-          requestFilter = button.dataset.filter || "all";
-          document.querySelectorAll("[data-filter]").forEach((candidate) => {
-            candidate.classList.toggle("selected", candidate.dataset.filter === requestFilter);
-          });
-          renderRequests(currentState.requests || []);
-        };
-      });
-
-      $("registerForm").onsubmit = (event) => withBusy(async () => {
-        event.preventDefault();
-        const result = await api("/api/register", {
-          method: "POST",
-          body: JSON.stringify({
-            id: $("agentId").value,
-            name: $("agentName").value,
-            agentType: $("agentType").value,
-            transport: $("agentTransport").value,
-            sessionId: $("agentSession").value,
-            tmuxTarget: $("agentTarget").value,
-            projectRoot: $("agentRoot").value,
-            startupCommand: $("agentCommand").value,
-            capabilitySummary: $("agentCapability").value,
-            capabilitySources: $("agentCapabilitySources").value,
-          }),
-        });
-        selectedAgentId = result.agent.id;
-        currentState = result.state;
-        $("registerForm").classList.add("hidden");
-        render();
-      });
-
-      $("setupPair").onclick = () => withBusy(async () => {
-        const result = await api("/api/setup-codex-pair", {
-          method: "POST",
-          body: JSON.stringify({
-            mainRoot: "/Users/stevenna/WebstormProjects/minasoftai",
-            helperRoot: "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs",
-            helperId: "ralph",
-            sessionId: "mina-ralph-codex",
-          }),
-        });
-        $("setupOutput").classList.remove("hidden");
-        $("setupOutput").textContent = JSON.stringify(result, null, 2);
-        selectedAgentId = result.helper.id;
-        await refresh();
-      });
-
-      $("archiveStale").onclick = () => withBusy(async () => {
-        if (!confirm("Archive stale created/sent/waiting requests older than 30 minutes?")) return;
-        const result = await api("/api/requests/archive-stale", {
-          method: "POST",
-          body: JSON.stringify({ olderThanMs: 30 * 60 * 1000 }),
-        });
-        currentState = result.state;
-        lastAskOutput = `Archived ${result.archived.length} stale request(s).`;
-        render();
-      });
-
-      $("askForm").onsubmit = (event) => withBusy(async () => {
-        event.preventDefault();
-        const result = await api("/api/ask", {
-          method: "POST",
-          body: JSON.stringify({
-            target: $("askTarget").value,
-            task: $("askTask").value,
-            timeoutMs: 300000,
-          }),
-        });
-        lastAskOutput = JSON.stringify(result.result || result, null, 2);
-        $("askOutput").textContent = lastAskOutput;
-        currentState = result.state;
-        render();
-      });
-
-      $("copyAttach").onclick = () => withBusy(async () => {
-        const agent = selectedAgent();
-        if (!agent) return;
-        await copyText(attachCommand(agent));
-        lastAskOutput = `Copied: ${attachCommand(agent)}`;
-        render();
-      });
-
-      $("restartAgent").onclick = () => withBusy(async () => {
-        const agent = selectedAgent();
-        if (!agent) return;
-        if (agent.transport !== "tmux") {
-          alert(`Agent "${agent.id}" does not use tmux.`);
-          return;
+      document.addEventListener("click", (event) => {
+        if (!event.target.closest(".agent-node") && !event.target.closest("#agentMenu")) {
+          hideAgentMenu();
         }
-        if (!confirm(`Restart tmux session "${agent.sessionId}" for agent "${agent.id}"?`)) return;
-        const result = await api(`/api/agents/${encodeURIComponent(agent.id)}/restart`, { method: "POST" });
-        currentState = result.state;
-        lastAskOutput = `Restarted tmux session: ${agent.sessionId}`;
-        render();
       });
-
-      $("deleteAgent").onclick = () => withBusy(async () => {
-        const agent = selectedAgent();
-        if (!agent) return;
-        if (!confirm(`Delete agent "${agent.id}" from the router registry?`)) return;
-        const result = await api(`/api/agents/${encodeURIComponent(agent.id)}`, { method: "DELETE" });
-        currentState = result.state;
-        selectedAgentId = "";
-        lastAskOutput = "";
-        render();
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          hideAgentMenu();
+          closeModal();
+        }
       });
-
       window.addEventListener("resize", drawLinks);
       setInterval(() => refresh().catch(() => undefined), 5000);
 
@@ -1124,6 +1177,14 @@
           .find((request) => request.targetAgent === agentId);
       }
 
+      function agentRequests(agentId) {
+        return currentState.requests.filter((request) => request.targetAgent === agentId || request.sourceAgent === agentId);
+      }
+
+      function displaySource(sourceAgent) {
+        return !sourceAgent || sourceAgent === "main" ? "direct" : sourceAgent;
+      }
+
       function requestForLine(agentId) {
         const selected = selectedRequest();
         if (selected?.targetAgent === agentId) {
@@ -1131,32 +1192,6 @@
         }
 
         return latestRequestFor(agentId);
-      }
-
-      function filterRequests(requests) {
-        const query = requestSearch.trim().toLowerCase();
-        return requests.filter((request) => {
-          const statusGroup = requestFilter === "failed"
-            ? ["failed", "timeout", "cancelled"].includes(request.status)
-            : requestFilter === "all" || request.status === requestFilter;
-          if (!statusGroup) {
-            return false;
-          }
-
-          if (!query) {
-            return true;
-          }
-
-          return [
-            request.id,
-            request.sourceAgent,
-            request.targetAgent,
-            request.status,
-            request.task,
-            request.answer,
-            request.error,
-          ].some((value) => String(value || "").toLowerCase().includes(query));
-        });
       }
 
       function attachCommand(agent) {

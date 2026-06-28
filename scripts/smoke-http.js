@@ -32,8 +32,10 @@ async function main() {
 
     const html = await text(`${baseUrl}/`);
     assert.match(html, /Mina Agent Router/);
+    assert.match(html, /Live Agent Flow/);
+    assert.match(html, /Connect Agent/);
+    assert.match(html, /Developer Tools/);
     assert.match(html, /Restart Session/);
-    assert.match(html, /Selected Request/);
     assert.match(html, /Archive Stale/);
     assert.match(html, /Copy MCP Command/);
 

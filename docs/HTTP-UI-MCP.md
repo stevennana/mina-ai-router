@@ -63,19 +63,14 @@ http://127.0.0.1:3333/
 
 The page shows:
 
-- registered agents
-- each agent's capability notice and source files
-- tmux session status
-- request history
-- request retry, cancel, archive, and stale cleanup controls
-- request status filtering and search
-- agent attach command copy
-- tmux session restart controls
-- health summary
-- MCP URL and Codex registration command
-- quick two-Codex setup for `minasoftai` and `mina-ralph-loop-bootstrap-nextjs`
-- manual agent registration
-- manual ask flow
+- a router-centered agent flow diagram
+- registered agents as clickable nodes around the router
+- each agent's short capability notice on the node
+- agent status, project root, capability details, and tmux metadata in a modal
+- per-agent request history in a modal opened from the agent context menu
+- agent controls in the context menu: details, history, ask, copy attach command, restart session, delete agent
+- a `Connect Agent` guide instead of manual UI registration
+- hidden `Developer Tools` for POC helpers such as the two-Codex demo and stale request cleanup
 
 ## Health
 
@@ -129,10 +124,12 @@ npm run smoke:http
 
 ## Current Test Flow
 
-1. Start HTTP server with `mar serve --port 3333`.
+1. Start HTTP server with `mar server start --port 3333`.
 2. Open the UI.
-3. Click `Create tmux Session & Register`.
-4. Confirm `ralph` appears as available.
+3. Click `Connect Agent` for the registration command guide.
+4. Start an agent from its project directory with `mar codex` or `mar claude`.
+5. Confirm the agent appears in the flow diagram.
+6. Click the agent node and use the context menu to inspect details, view history, or delete it.
 5. Run `codex mcp add mina-agent-router --url http://127.0.0.1:3333/mcp`.
 6. Restart main Codex in `/Users/stevenna/WebstormProjects/minasoftai`.
 7. Ask main Codex to call `call_agent` with `target=ralph`.
