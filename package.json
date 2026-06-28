@@ -1,6 +1,6 @@
 {
   "name": "@minasoft/mina-ai-router",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Local MCP router and Web UI for visible tmux-backed AI agents.",
   "homepage": "https://github.com/stevennana/mina-ai-router#readme",
   "repository": {

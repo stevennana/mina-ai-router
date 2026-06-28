@@ -65,11 +65,16 @@ function writeResponder(path, answer) {
   writeFileSync(
     path,
     [
+      "rid=''",
       "while IFS= read -r line; do",
       "  case \"$line\" in",
       "    'Request ID: '*)",
       "      rid=${line#Request ID: }",
+      "      ;;",
+      "    '<<<MINA_AGENT_RESPONSE_END '*)",
+      "      if [ -n \"$rid\" ]; then",
       `      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\n${answer}\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' "$rid" "$rid"`,
+      "      fi",
       "      ;;",
       "  esac",
       "done",
