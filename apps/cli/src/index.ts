@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { basename, dirname, join } from "node:path";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 import {
   AgentRegistry,
@@ -110,9 +110,10 @@ function startServer(flags: Record<string, string>): void {
   const serverPath = join(__dirname, "../../http-server/src/index.js");
   mkdirSync(dirname(serverPidPath), { recursive: true });
   const logPath = flags.log ?? join(dirname(serverPidPath), "mair-server.log");
+  const logFd = openSync(logPath, "a");
   const child = spawn(process.execPath, [serverPath], {
     detached: true,
-    stdio: "ignore",
+    stdio: ["ignore", logFd, logFd],
     env: {
       ...process.env,
       PORT: port,
@@ -120,6 +121,7 @@ function startServer(flags: Record<string, string>): void {
       MINA_ROUTER_STATE: process.env.MINA_ROUTER_STATE ?? statePath,
     },
   });
+  closeSync(logFd);
   child.unref();
   const pid = child.pid;
   if (!pid) {
@@ -553,6 +555,10 @@ async function runRequestAction(
   action: string,
   context: ReturnType<typeof createContext>,
 ): Promise<void> {
+  if (isRequestAction(action) && await runServerRequestAction(requestId, action)) {
+    return;
+  }
+
   const request = context.router.getRequest(requestId);
 
   switch (action) {
@@ -593,6 +599,47 @@ async function runRequestAction(
     default:
       throw new Error(`Unsupported request action "${action}". Use retry, cancel, archive, or unarchive.`);
   }
+}
+
+function isRequestAction(action: string): action is "retry" | "cancel" | "archive" | "unarchive" {
+  return action === "retry" || action === "cancel" || action === "archive" || action === "unarchive";
+}
+
+async function runServerRequestAction(requestId: string, action: string): Promise<boolean> {
+  const status = serverStatus();
+  if (!status.running || !status.host || !status.port || !status.statePath) {
+    return false;
+  }
+
+  if (resolvePath(status.statePath) !== resolvePath(statePath)) {
+    return false;
+  }
+
+  const url = `http://${status.host}:${status.port}/api/requests/${encodeURIComponent(requestId)}/${encodeURIComponent(action)}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+  } catch (error) {
+    throw new Error(
+      `Mina server is running for this state file, but ${action} could not reach ${url}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const body = await response.json() as { result?: unknown; error?: string };
+  if (!response.ok) {
+    throw new Error(body.error ?? `Request action ${action} failed with HTTP ${response.status}.`);
+  }
+
+  printJson(body.result);
+  return true;
+}
+
+function resolvePath(value: string): string {
+  return resolve(value);
 }
 
 function parseFlags(args: string[]): Record<string, string> {
@@ -689,7 +736,7 @@ Commands:
   mair serve [--port 3333]
   mair ask <target> "question"
   mair requests [--target <id>]
-  mair request <request-id>
+  mair request <request-id> [retry|cancel|archive|unarchive]
 
 Example:
   mair register payment --agent gemini --transport headless --session payment --root ./payment

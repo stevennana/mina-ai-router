@@ -53,3 +53,182 @@
 - worker-summary: Implemented the cancellation lifecycle fix.
 - evaluator: started
 - evaluator: status=not_done promotion=false Core, HTTP API, UI request detail, lineage fields, and smoke coverage are largely implemented, and the provided required checks passed. I would not promote yet because CLI and UI/API semantics can diverge for active requests: the HTTP server keeps an in-memory RequestStore, while CLI request actions mutate the persisted state through a separate context. A CLI cancel/archive of an in-flight request owned by a running HTTP/router process can be overwritten by that server's later in-memory completion save, so recovery controls are not reliably equivalent across UI and CLI. -> state/artifacts/20260628T225754-request-retry-cancel-archive/evaluator.log
+- commit: commit: created
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxx
+- cycle: finished
+
+### cycle 2026-06-28T23:04:34+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T230434-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T230434-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Implemented the remaining request recovery gaps.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T230434-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=1 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:10:20+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T231020-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T231020-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Implemented and recorded the handoff in `state/last-result.txt`.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T231020-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=2 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:13:06+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T231306-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T231306-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Verified the current task state and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt). I also appended the latest verification note to [003-request-retry-cancel-archive.md](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/active/003-request-retry-cancel-archive.md).
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T231306-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=3 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- blocker: auto-branched signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- backlog: rendered current=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- health: ooxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:16:22+09:00 task=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- artifacts: state/artifacts/20260628T231622-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T231622-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/worker.jsonl
+- worker-summary: Handled the RCA scope and wrote the handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt).
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T231622-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=1 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:22:08+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T232208-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T232208-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Updated the task progress log and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt).
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T232208-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=2 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:24:53+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T232453-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T232453-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Verified the current task state and wrote the operator handoff to `state/last-result.txt`.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T232453-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=3 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- blocker: auto-branched signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- backlog: rendered current=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- health: ooxxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:27:09+09:00 task=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- artifacts: state/artifacts/20260628T232709-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T232709-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/worker.jsonl
+- worker-summary: Handled the RCA scope.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T232709-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=1 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- health: ooxxxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:30:47+09:00 task=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- artifacts: state/artifacts/20260628T233047-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T233047-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/worker.jsonl
+- worker-summary: Handled the RCA pass.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T233047-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=2 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- health: ooxxxxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:33:55+09:00 task=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- artifacts: state/artifacts/20260628T233355-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T233355-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/worker.jsonl
+- worker-summary: Handled the RCA and returned the queue to `request-retry-cancel-archive`.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T233355-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=1 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxxxxxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:39:11+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T233911-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T233911-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Completed the task handoff and final verification.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T233911-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=2 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- promote: Task request-retry-cancel-archive not eligible for promotion.
+- backlog: rendered current=request-retry-cancel-archive
+- health: ooxxxxxxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:42:27+09:00 task=request-retry-cancel-archive
+- artifacts: state/artifacts/20260628T234227-request-retry-cancel-archive
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T234227-request-retry-cancel-archive/worker.jsonl
+- worker-summary: Verified the current task implementation and found no remaining gaps for retry, cancel, archive, unarchive, invalid-action errors, activity/detail status reflection, or retry lineage.
+- evaluator: started
+- evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T234227-request-retry-cancel-archive/evaluator.log
+- commit: commit: skipped (deterministic checks not passing)
+- blocker: signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details repeat=3 kind=evaluation Repeated required-command failure: npm run smoke:cli-controls
+- blocker: auto-branched signature=deterministic_failure|npm-run-smoke-cli-controls|no-path-details -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- backlog: rendered current=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- health: ooxxxxxxxxxxxxx
+- cycle: finished
+
+### cycle 2026-06-28T23:45:13+09:00 task=request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- artifacts: state/artifacts/20260628T234513-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260628T234513-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/worker.jsonl
+- worker-summary: Resolved the RCA blocker and returned the queue to `request-retry-cancel-archive`.
+- evaluator: started
+- evaluator: status=done promotion=true Core RequestStore now owns retry, cancel, archive, and unarchive validation; HTTP and CLI paths delegate to those semantics; request detail shows valid actions and lineage/status fields; smoke coverage exercises HTTP and CLI action behavior including invalid cancel and retry lineage. Required checks are reported passing for the parent task. -> state/artifacts/20260628T234513-request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619/evaluator.log

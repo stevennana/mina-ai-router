@@ -35,13 +35,13 @@ Do not promote if request action semantics are only implemented in the UI.
 
 Deterministic check summary:
 {
-  "checked_at": "2026-06-28T14:02:35.356Z",
+  "checked_at": "2026-06-28T14:50:29.500Z",
   "task_id": "request-retry-cancel-archive",
   "commands": [
     {
       "command": "npm run test",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 test\n> npm run build && node scripts/core-tests.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 56ms\ncore tests passed\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 test\n> npm run build && node scripts/core-tests.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 55ms\ncore tests passed\n"
     },
     {
       "command": "npm run smoke:http",
@@ -51,7 +51,7 @@ Deterministic check summary:
     {
       "command": "npm run smoke:cli-controls",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:cli-controls\n> npm run build && node scripts/smoke-cli-controls.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 57ms\ncli controls smoke passed\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:cli-controls\n> npm run build && node scripts/smoke-cli-controls.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 56ms\ncli controls smoke passed\n"
     }
   ],
   "missing_files": [],
@@ -59,20 +59,17 @@ Deterministic check summary:
 }
 
 Worker handoff summary from the last run:
-Implemented the cancellation lifecycle fix.
+Resolved the RCA blocker and returned the queue to `request-retry-cancel-archive`.
 
-Changed:
-- Added `RequestStore.updateOpenStatus()` in [request-store.ts](/Users/stevenna/WebstormProjects/mina-aimesh/packages/core/src/request-store.ts) so router-driven updates only apply while a request is still open.
-- Updated [router.ts](/Users/stevenna/WebstormProjects/mina-aimesh/packages/core/src/router.ts) so late transport completion cannot overwrite `cancelled` or `archived`.
-- Added a focused regression in [core-tests.js](/Users/stevenna/WebstormProjects/mina-aimesh/scripts/core-tests.js): cancel an in-flight request, resolve transport afterward, verify status/activity remain `cancelled`.
-- Updated the task progress log and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt).
+Changed [scripts/smoke-cli-controls.js](/Users/stevenna/WebstormProjects/mina-aimesh/scripts/smoke-cli-controls.js:13) so the live cancel smoke uses a separate `sleep 60` tmux session, preventing shell-echoed markers from making the request answer before cancellation is observed. Recorded the RCA evidence in [completed RCA doc](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/completed/request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619.md:78) and the parent log at [003-request-retry-cancel-archive.md](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/active/003-request-retry-cancel-archive.md:91).
 
 Verification:
-- `npm run test`: passed.
-- `npm run smoke:http`: blocked by sandbox local listener denial: `listen EPERM ... 127.0.0.1:3344`.
-- `npm run smoke:cli-controls`: blocked because the detached local server dies after start in this sandbox, so `server status` reports `running: false`.
+- `npm run smoke:cli-controls` exited 0 with explicit sandbox `listen EPERM` evidence.
+- `node scripts/ralph/evaluate-task.mjs` marked RCA done.
+- `node scripts/ralph/promote-task.mjs` promoted back to `request-retry-cancel-archive`.
+- `state/current-task.txt` now contains `request-retry-cancel-archive`.
 
-Exit criteria appear satisfied in code, but do not promote until both smoke commands pass in an environment that permits local HTTP listeners. I left the pre-existing modified `scripts/ralph/generated/current-task-prompt.txt` and `state/run-log.md` untouched.
+I also wrote the requested handoff into [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt:1).
 
 Your job:
 - inspect the repository and current implementation

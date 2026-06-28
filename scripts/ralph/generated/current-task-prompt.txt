@@ -1,54 +1,55 @@
 Read the following repository documents before making changes:
 - AGENTS.md
+- docs/PLANS.md
+- docs/exec-plans/active/003-request-retry-cancel-archive.md
 - ARCHITECTURE.md
 - docs/product-specs/request-diagnostics-and-controls.md
 - docs/FRONTEND.md
 - docs/RELIABILITY.md
-- docs/exec-plans/active/003-request-retry-cancel-archive.md
+- docs/exec-plans/active/request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619.md
 
-Current task id: request-retry-cancel-archive
-Current task title: Request retry cancel archive controls
+Current task id: request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619
+Current task title: RCA: Request retry cancel archive controls blocker
 
 Objective:
-Add reliable request recovery controls after request diagnostics are visible.
+Resolve the repeated blocker that is preventing `request-retry-cancel-archive` from promoting, then return the queue to the parent task automatically.
 
 Scope:
-- Ensure retry, cancel, archive, and unarchive semantics are explicit in core and API behavior.
-- Show actions in request detail when valid for the current status.
-- Preserve or record lineage when retry creates a new request.
-- Extend smoke coverage for changed request actions.
+- isolate the repeated blocker signature without broadening back into the parent feature
+- restore the failing required command path: npm run smoke:cli-controls
+- update the parent task log and blocker evidence so the return path is explicit
 
 Out of scope:
-- Team fanout.
-- Capability refresh.
-- Long-term transcript search.
+- new product scope beyond request-retry-cancel-archive
+- unrelated cleanup outside the blocker signature `deterministic_failure|npm-run-smoke-cli-controls|no-path-details`
+- manual queue edits that bypass the normal promotion return path
 
 Exit criteria:
-1. Users can recover or clean up requests from UI or CLI without ambiguous state.
-2. Invalid actions fail clearly.
-3. Activity and request detail reflect the updated status.
+1. The repeated blocker is reproduced or conclusively explained with concrete evidence.
+2. npm run smoke:cli-controls pass without the blocker signature recurring.
+3. The RCA task can promote back to `request-retry-cancel-archive` without manual queue surgery.
+4. The parent task log records the blocker resolution before work returns to `request-retry-cancel-archive`.
 
 Required checks:
-- `npm run test`
-- `npm run smoke:http`
 - `npm run smoke:cli-controls`
 
 Evaluator notes:
-Do not promote if request action semantics are only implemented in the UI.
+Promote only when the blocker-specific evidence is explicit and the queue can safely return to `request-retry-cancel-archive`.
 
 Required repository artifacts for this task:
-- packages/core/src/request-store.ts
-- apps/http-server/ui/src/features/RequestDetail.tsx
+- none
 
 Required commands for this task:
-- npm run test
-- npm run smoke:http
 - npm run smoke:cli-controls
 
 Previous known gaps from the last evaluation:
-- Cancel semantics are not terminal or enforced in the active router lifecycle; a cancelled waiting request can be overwritten by the still-running callAgent completion path.
-- No focused test appears to prove cancelling an open/in-flight request remains cancelled and is reflected in activity after the transport later resolves.
+- none
 
+RCA context:
+- This is an auto-generated blocker RCA task for parent task: request-retry-cancel-archive
+- Blocker kind: deterministic_failure
+- Blocker summary: Repeated required-command failure: npm run smoke:cli-controls
+- Blocker signature: deterministic_failure|npm-run-smoke-cli-controls|no-path-details
 
 
 Rules:
@@ -60,7 +61,9 @@ Rules:
 - Update this task doc's progress log with concrete notes.
 - Keep the repository in a state where the required commands can pass.
 - If the task is not done, leave the next task untouched.
-
+- Work only on the blocker evidence described above.
+- Do not resume or broaden into parent task request-retry-cancel-archive inside this RCA task.
+- Leave the queue return path to normal promotion back to request-retry-cancel-archive.
 
 At the end of the run, write a concise operator handoff summary into state/last-result.txt via your final response:
 - what changed

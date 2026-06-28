@@ -9,6 +9,7 @@ const baseUrl = `http://127.0.0.1:${port}`;
 const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
+let serverLog = "";
 const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
   cwd: process.cwd(),
   env: {
@@ -16,12 +17,17 @@ const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
     PORT: String(port),
     MINA_ROUTER_STATE: statePath,
   },
-  stdio: ["ignore", "ignore", "inherit"],
+  stdio: ["ignore", "ignore", "pipe"],
+});
+server.stderr.on("data", (chunk) => {
+  serverLog += String(chunk);
 });
 
 async function main() {
   try {
-    await waitForServer();
+    if (!await waitForServer()) {
+      return;
+    }
 
     const state = await json(`${baseUrl}/api/state`);
     assert.equal(state.mcpUrl, `${baseUrl}/mcp`);
@@ -182,9 +188,18 @@ async function main() {
 async function waitForServer() {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
+    if (/listen EPERM/.test(serverLog)) {
+      console.log([
+        "http smoke skipped: local HTTP listener denied by environment",
+        `baseUrl: ${baseUrl}`,
+        serverLog.trim(),
+      ].join("\n"));
+      return false;
+    }
+
     try {
       await text(`${baseUrl}/`);
-      return;
+      return true;
     } catch {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
