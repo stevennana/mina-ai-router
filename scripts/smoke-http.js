@@ -33,17 +33,9 @@ async function main() {
 
     const html = await text(`${baseUrl}/`);
     assert.match(html, /Mina AI Router/);
-    assert.match(html, /Live Agent Flow/);
-    assert.match(html, /Connect Agent/);
-    assert.match(html, /Developer Tools/);
-    assert.match(html, /Create tmux Agent/);
-    assert.match(html, /Open Terminal/);
-    assert.match(html, /Save Capabilities/);
-    assert.match(html, /Attach Commands/);
-    assert.match(html, /Browse Directory/);
-    assert.match(html, /Restart Session/);
-    assert.match(html, /Archive Stale/);
-    assert.match(html, /Copy MCP Command/);
+    assert.match(html, /<div id="root"><\/div>/);
+    assert.match(html, /type="module"[^>]+\/assets\/index-.*\.js/);
+    assert.match(html, /rel="stylesheet"[^>]+\/assets\/index-.*\.css/);
 
     const directories = await postJson(`${baseUrl}/api/fs/directories`, {
       path: tempDir,
