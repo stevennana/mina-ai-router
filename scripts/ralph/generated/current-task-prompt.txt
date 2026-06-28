@@ -46,8 +46,8 @@ Required commands for this task:
 - npm run smoke:docs
 
 Previous known gaps from the last evaluation:
-- Actual rendered visual sanity verification for desktop and mobile inspector/activity layout is still missing.
-- HTTP smoke passed through the EPERM listener-skip path, so live UI/API exposure was not verified in that run; only built assets and static fixture strings were checked.
+- Rendered desktop and mobile visual sanity for the floating inspector and activity layout is still unproven.
+- No screenshot or real DOM overflow measurement verifies the UI does not overflow in the actual browser console.
 
 
 
