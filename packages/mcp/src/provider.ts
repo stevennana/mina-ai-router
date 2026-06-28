@@ -152,6 +152,9 @@ async function callTool(
           requestId: found.id,
           status: found.status,
           error: found.error,
+          diagnosticStatus: found.diagnosticStatus,
+          parserDiagnostics: found.parserDiagnostics,
+          rawEvidence: found.rawEvidence,
         });
       } catch {
         return { kind: "not_found", message: `Request "${requestId}" was not found.` };

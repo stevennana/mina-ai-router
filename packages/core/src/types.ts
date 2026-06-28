@@ -12,6 +12,41 @@ export type RequestStatus =
   | "cancelled"
   | "archived";
 
+export type RequestDiagnosticStatus =
+  | "pending"
+  | "answered"
+  | "timeout"
+  | "cancelled"
+  | "archived"
+  | "parse_failure"
+  | "transport_failure"
+  | "unknown_failure";
+
+export type ResponseParserDiagnosticKind =
+  | "parsed"
+  | "missing_markers"
+  | "missing_start_marker"
+  | "placeholder_only";
+
+export interface ResponseParserDiagnostics {
+  kind: ResponseParserDiagnosticKind;
+  requestId: string;
+  message: string;
+  startMarkerFound: boolean;
+  endMarkerFound: boolean;
+  candidateCount: number;
+  placeholderCount: number;
+  answerLength?: number;
+}
+
+export interface RequestRawEvidence {
+  kind: "transport_capture";
+  capturedAt: string;
+  characterCount: number;
+  excerpt: string;
+  truncated: boolean;
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -35,6 +70,9 @@ export interface AgentRequest {
   updatedAt: string;
   error?: string;
   answer?: string;
+  diagnosticStatus?: RequestDiagnosticStatus;
+  parserDiagnostics?: ResponseParserDiagnostics;
+  rawEvidence?: RequestRawEvidence;
 }
 
 export interface AgentResponse {

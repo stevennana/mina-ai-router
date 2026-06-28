@@ -1,9 +1,17 @@
 import { createRequestId } from "./ids";
 import { buildPromptEnvelope } from "./prompt-envelope";
-import { parseMarkedResponse } from "./response-parser";
-import type { AgentRequest, AgentResponse, CallAgentInput, TransportRegistry } from "./types";
+import { inspectMarkedResponse, ResponseParseError } from "./response-parser";
+import type {
+  AgentRequest,
+  AgentResponse,
+  CallAgentInput,
+  RequestRawEvidence,
+  TransportRegistry,
+} from "./types";
 import { AgentRegistry } from "./registry";
 import { RequestStore } from "./request-store";
+
+const rawEvidenceExcerptLimit = 4_000;
 
 export interface AgentRouterOptions {
   registry: AgentRegistry;
@@ -93,6 +101,7 @@ export class AgentRouter {
 
     const transport = this.transports.get(target.transport);
     const prompt = buildPromptEnvelope(request, target);
+    let output = "";
 
     try {
       await transport.send(target, prompt, request.id);
@@ -101,13 +110,24 @@ export class AgentRouter {
       this.requestStore.updateStatus(request.id, "waiting");
       this.persistState();
 
-      const output = await transport.waitForResponse(
+      output = await transport.waitForResponse(
         target,
         request.id,
         input.timeoutMs ?? this.defaultTimeoutMs,
       );
-      const answer = parseMarkedResponse(output, request.id);
-      this.requestStore.updateStatus(request.id, "answered", { answer });
+      const parsed = inspectMarkedResponse(output, request.id);
+
+      if (!parsed.ok) {
+        throw new ResponseParseError(parsed.diagnostics);
+      }
+
+      const answer = parsed.answer;
+      this.requestStore.updateStatus(request.id, "answered", {
+        answer,
+        diagnosticStatus: "answered",
+        parserDiagnostics: parsed.diagnostics,
+        rawEvidence: rawEvidenceFromOutput(output),
+      });
       this.persistState();
 
       return {
@@ -118,7 +138,13 @@ export class AgentRouter {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = /time(?:d)?\s*out|timeout/i.test(message) ? "timeout" : "failed";
-      this.requestStore.updateStatus(request.id, status, { error: message });
+      const capturedOutput = output || extractLastCapture(message);
+      this.requestStore.updateStatus(request.id, status, {
+        error: message,
+        diagnosticStatus: diagnosticStatusForError(error, status),
+        parserDiagnostics: error instanceof ResponseParseError ? error.diagnostics : undefined,
+        rawEvidence: capturedOutput ? rawEvidenceFromOutput(capturedOutput) : undefined,
+      });
       this.persistState();
       throw error;
     } finally {
@@ -129,4 +155,41 @@ export class AgentRouter {
   private persistState(): void {
     this.onStateChanged?.();
   }
+}
+
+function diagnosticStatusForError(
+  error: unknown,
+  status: "failed" | "timeout",
+): AgentRequest["diagnosticStatus"] {
+  if (status === "timeout") {
+    return "timeout";
+  }
+
+  if (error instanceof ResponseParseError) {
+    return "parse_failure";
+  }
+
+  return "transport_failure";
+}
+
+function rawEvidenceFromOutput(output: string): RequestRawEvidence {
+  const excerpt = output.slice(-rawEvidenceExcerptLimit);
+  return {
+    kind: "transport_capture",
+    capturedAt: new Date().toISOString(),
+    characterCount: output.length,
+    excerpt,
+    truncated: output.length > excerpt.length,
+  };
+}
+
+function extractLastCapture(message: string): string | undefined {
+  const marker = "Last capture:\n";
+  const index = message.indexOf(marker);
+
+  if (index === -1) {
+    return undefined;
+  }
+
+  return message.slice(index + marker.length);
 }

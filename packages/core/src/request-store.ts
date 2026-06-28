@@ -1,4 +1,4 @@
-import type { AgentRequest, RequestStatus } from "./types";
+import type { AgentRequest, RequestDiagnosticStatus, RequestStatus } from "./types";
 
 export class RequestStore {
   private readonly requests = new Map<string, AgentRequest>();
@@ -40,6 +40,7 @@ export class RequestStore {
       ...current,
       ...patch,
       status,
+      diagnosticStatus: patch.diagnosticStatus ?? diagnosticStatusFor(status),
       updatedAt: new Date().toISOString(),
     };
     this.requests.set(id, updated);
@@ -55,5 +56,26 @@ export class RequestStore {
     };
     this.requests.set(id, updated);
     return updated;
+  }
+}
+
+function diagnosticStatusFor(status: RequestStatus): RequestDiagnosticStatus {
+  switch (status) {
+    case "created":
+    case "sent":
+    case "waiting":
+      return "pending";
+    case "answered":
+      return "answered";
+    case "timeout":
+      return "timeout";
+    case "cancelled":
+      return "cancelled";
+    case "archived":
+      return "archived";
+    case "failed":
+      return "unknown_failure";
+    default:
+      return "unknown_failure";
   }
 }

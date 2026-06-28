@@ -1,0 +1,90 @@
+You are the promotion evaluator for a repository-local Ralph loop.
+
+Read these documents before deciding:
+- AGENTS.md
+- ARCHITECTURE.md
+- docs/PRODUCT_SENSE.md
+- docs/RELIABILITY.md
+- docs/product-specs/request-diagnostics-and-controls.md
+- docs/design-docs/collaboration-reliability.md
+- docs/exec-plans/active/001-request-protocol-diagnostics-foundation.md
+
+Current task id: request-protocol-diagnostics-foundation
+Current task title: Request protocol diagnostics foundation
+
+Objective:
+Add the core request diagnostics foundation needed for reliable agent-to-agent debugging before changing UI surfaces.
+
+Scope:
+- Review request lifecycle fields, prompt envelope creation, response parsing, and request persistence.
+- Add narrow fields for parser diagnostics, raw evidence pointers, or failure classification where the current model cannot distinguish failure modes.
+- Preserve existing `call_agent`, `get_request_status`, and smoke behavior.
+- Add focused core coverage for timeout, parse failure, answered, and archived/request status behavior where practical.
+
+Out of scope:
+- UI request detail layout.
+- Retry/cancel/archive action redesign.
+- Capability refresh.
+- Long-term transcript search or export.
+
+Exit criteria:
+1. Core state can represent enough diagnostic information for UI/API request detail to explain answered, failed, timeout, cancelled, archived, and parse-related failures when available.
+2. Existing MCP and tmux smoke flows still pass.
+3. The added diagnostics do not require users to inspect `data/router-state.json` to understand basic failure class.
+4. New or updated tests protect the diagnostic fields or parser classification.
+
+Evaluator notes:
+Promote only if this is a core/protocol foundation. Do not implement retry controls or capability refresh in this task.
+
+Deterministic check summary:
+{
+  "checked_at": "2026-06-28T13:40:54.889Z",
+  "task_id": "request-protocol-diagnostics-foundation",
+  "commands": [
+    {
+      "command": "npm run test",
+      "ok": true,
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 test\n> npm run build && node scripts/core-tests.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CEhd8YGG.css   15.19 kB │ gzip:  4.02 kB\ndist/apps/http-server/src/public/assets/index-Be0tne90.js   228.42 kB │ gzip: 69.84 kB\n\n✓ built in 100ms\ncore tests passed\n"
+    },
+    {
+      "command": "npm run smoke:tmux",
+      "ok": true,
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:tmux\n> npm run build && node scripts/smoke-tmux.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CEhd8YGG.css   15.19 kB │ gzip:  4.02 kB\ndist/apps/http-server/src/public/assets/index-Be0tne90.js   228.42 kB │ gzip: 69.84 kB\n\n✓ built in 64ms\ntmux smoke passed\n"
+    },
+    {
+      "command": "npm run smoke:mcp",
+      "ok": true,
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:mcp\n> npm run build && node scripts/smoke-mcp.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CEhd8YGG.css   15.19 kB │ gzip:  4.02 kB\ndist/apps/http-server/src/public/assets/index-Be0tne90.js   228.42 kB │ gzip: 69.84 kB\n\n✓ built in 63ms\nmcp smoke passed\n"
+    }
+  ],
+  "missing_files": [],
+  "pass": true
+}
+
+Worker handoff summary from the last run:
+Implemented the core request diagnostics foundation.
+
+Changed:
+- Added `diagnosticStatus`, `parserDiagnostics`, and bounded `rawEvidence` to core request state in [types.ts](/Users/stevenna/WebstormProjects/mina-aimesh/packages/core/src/types.ts).
+- Added structured parser diagnostics while preserving `parseMarkedResponse` behavior in [response-parser.ts](/Users/stevenna/WebstormProjects/mina-aimesh/packages/core/src/response-parser.ts).
+- Router now classifies answered, parse failure, timeout, and transport failure paths in [router.ts](/Users/stevenna/WebstormProjects/mina-aimesh/packages/core/src/router.ts).
+- `RequestStore.updateStatus` now derives diagnostics for cancelled/archived states.
+- MCP `get_request_status` now returns diagnostic fields.
+- Added focused coverage in [core-tests.js](/Users/stevenna/WebstormProjects/mina-aimesh/scripts/core-tests.js).
+- Updated the active task progress log and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt).
+
+Checks:
+- `npm run test`: passed.
+- `npm run smoke:tmux`: blocked by sandbox tmux permission error.
+- `npm run smoke:mcp`: blocked by the same tmux permission error during setup.
+
+Exit criteria appear satisfied at the core/protocol level, but I would not promote yet because the required tmux/MCP smoke gates need to be rerun in an environment where tmux can connect to its socket.
+
+Your job:
+- inspect the repository and current implementation
+- determine whether the current task is actually complete
+- mark `done` only if the exit criteria are satisfied in substance, not just approximately
+- prefer conservative decisions
+- recommend promotion only if the task is truly ready
+
+Return JSON only using the provided schema.
