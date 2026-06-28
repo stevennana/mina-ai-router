@@ -13,6 +13,12 @@ import { RequestStore } from "./request-store";
 
 const rawEvidenceExcerptLimit = 4_000;
 
+class RequestNoLongerOpenError extends Error {
+  constructor(readonly request: AgentRequest) {
+    super(`Request "${request.id}" is ${request.status} and can no longer be updated by the active router call.`);
+  }
+}
+
 export interface AgentRouterOptions {
   registry: AgentRegistry;
   requestStore: RequestStore;
@@ -106,9 +112,9 @@ export class AgentRouter {
 
     try {
       await transport.send(target, prompt, request.id);
-      this.requestStore.updateStatus(request.id, "sent");
+      this.updateOpenRequestStatus(request.id, "sent");
       this.persistState();
-      this.requestStore.updateStatus(request.id, "waiting");
+      this.updateOpenRequestStatus(request.id, "waiting");
       this.persistState();
 
       output = await transport.waitForResponse(
@@ -123,7 +129,7 @@ export class AgentRouter {
       }
 
       const answer = parsed.answer;
-      this.requestStore.updateStatus(request.id, "answered", {
+      this.updateOpenRequestStatus(request.id, "answered", {
         answer,
         diagnosticStatus: "answered",
         parserDiagnostics: parsed.diagnostics,
@@ -137,20 +143,41 @@ export class AgentRouter {
         answer,
       };
     } catch (error) {
+      if (error instanceof RequestNoLongerOpenError) {
+        this.persistState();
+        throw error;
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       const status = /time(?:d)?\s*out|timeout/i.test(message) ? "timeout" : "failed";
       const capturedOutput = output || extractLastCapture(message);
-      this.requestStore.updateStatus(request.id, status, {
+      const updated = this.requestStore.updateOpenStatus(request.id, status, {
         error: message,
         diagnosticStatus: diagnosticStatusForError(error, status),
         parserDiagnostics: error instanceof ResponseParseError ? error.diagnostics : undefined,
         rawEvidence: capturedOutput ? rawEvidenceFromOutput(capturedOutput) : undefined,
       });
+      if (!updated) {
+        throw new RequestNoLongerOpenError(this.requestStore.require(request.id));
+      }
       this.persistState();
       throw error;
     } finally {
       this.busyAgents.delete(target.id);
     }
+  }
+
+  private updateOpenRequestStatus(
+    requestId: string,
+    status: AgentRequest["status"],
+    patch: Partial<AgentRequest> = {},
+  ): AgentRequest {
+    const updated = this.requestStore.updateOpenStatus(requestId, status, patch);
+    if (!updated) {
+      throw new RequestNoLongerOpenError(this.requestStore.require(requestId));
+    }
+
+    return updated;
   }
 
   private persistState(): void {

@@ -69,3 +69,4 @@ Do not promote if request action semantics are only implemented in the UI.
 - Queue seeded for milestone 0.2 Ralph setup.
 - 2026-06-28T13:49:35.651Z: restored as current task after request-detail-diagnostics promotion.
 - 2026-06-28T13:54:57.000Z: implemented core request action validation for retry, cancel, archive, and unarchive; wired HTTP and CLI actions through core semantics; added retry/archive lineage fields and smoke coverage.
+- 2026-06-28T14:00:48.300Z: fixed active router lifecycle so cancelled or archived open requests cannot be overwritten by later transport completion; added focused core coverage proving a cancelled in-flight request stays cancelled and remains visible in agent activity. `npm run test` passed. `npm run smoke:http` and `npm run smoke:cli-controls` were blocked by sandbox local listener denial (`listen EPERM` on 127.0.0.1).

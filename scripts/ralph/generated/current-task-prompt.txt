@@ -46,7 +46,8 @@ Required commands for this task:
 - npm run smoke:cli-controls
 
 Previous known gaps from the last evaluation:
-- none
+- Cancel semantics are not terminal or enforced in the active router lifecycle; a cancelled waiting request can be overwritten by the still-running callAgent completion path.
+- No focused test appears to prove cancelling an open/in-flight request remains cancelled and is reflected in activity after the transport later resolves.
 
 
 

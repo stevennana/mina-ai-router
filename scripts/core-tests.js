@@ -14,6 +14,7 @@ async function main() {
   testPromptEnvelope();
   testRequestStoreDiagnostics();
   await testRouterLifecycle();
+  await testRouterCancelStaysTerminal();
   await testRouterParseFailure();
   await testRouterTimeout();
   console.log("core tests passed");
@@ -163,6 +164,55 @@ async function testRouterLifecycle() {
   assert.equal(retryRequest.retryOfRequestId, request.id);
 }
 
+async function testRouterCancelStaysTerminal() {
+  const transport = new DeferredResponseTransport();
+  const registry = new AgentRegistry([
+    {
+      id: "payment",
+      name: "payment",
+      agentType: "gemini",
+      projectRoot: "/tmp/payment",
+      transport: "test",
+      sessionId: "payment",
+    },
+  ]);
+  const requestStore = new RequestStore();
+  const transports = new DefaultTransportRegistry().register("test", transport);
+  const router = new AgentRouter({
+    registry,
+    requestStore,
+    transports,
+  });
+
+  const pending = router.callAgent({
+    target: "payment",
+    task: "cancel race",
+    timeoutMs: 1_000,
+  });
+
+  await transport.waitStarted;
+  const request = router.listRequests()[0];
+  requestStore.cancel(request.id, "Cancelled during transport wait.");
+  transport.resolve([
+    `<<<MINA_AGENT_RESPONSE_START ${request.id}>>>`,
+    "late answer",
+    `<<<MINA_AGENT_RESPONSE_END ${request.id}>>>`,
+  ].join("\n"));
+
+  await assert.rejects(
+    pending,
+    /Request "mar-[^"]+" is cancelled and can no longer be updated/,
+  );
+
+  const cancelled = router.getRequest(request.id);
+  assert.equal(cancelled.status, "cancelled");
+  assert.equal(cancelled.diagnosticStatus, "cancelled");
+  assert.equal(cancelled.answer, undefined);
+
+  const [agentStatus] = await router.listAgentStatuses();
+  assert.equal(agentStatus.lastRequestStatus, "cancelled");
+}
+
 async function testRouterParseFailure() {
   const router = buildRouterWithTransport(new MalformedResponseTransport());
 
@@ -231,6 +281,29 @@ class TimeoutTransport {
   }
   async waitForResponse() {
     throw new Error("Timed out waiting for response markers for mair-test. Last capture:\npartial terminal capture");
+  }
+}
+
+class DeferredResponseTransport {
+  constructor() {
+    this.waitStarted = new Promise((resolve) => {
+      this.markWaitStarted = resolve;
+    });
+    this.response = new Promise((resolve) => {
+      this.resolveResponse = resolve;
+    });
+  }
+
+  async send() {}
+  async capture() {
+    return "";
+  }
+  async waitForResponse() {
+    this.markWaitStarted();
+    return this.response;
+  }
+  resolve(output) {
+    this.resolveResponse(output);
   }
 }
 

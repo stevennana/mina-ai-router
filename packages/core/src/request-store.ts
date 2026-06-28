@@ -51,6 +51,15 @@ export class RequestStore {
     return updated;
   }
 
+  updateOpenStatus(id: string, status: RequestStatus, patch: Partial<AgentRequest> = {}): AgentRequest | undefined {
+    const current = this.require(id);
+    if (!openStatuses.has(current.status)) {
+      return undefined;
+    }
+
+    return this.updateStatus(id, status, patch);
+  }
+
   cancel(id: string, reason = "Cancelled by operator."): AgentRequest {
     const current = this.require(id);
     this.assertActionAllowed(current, "cancel");
