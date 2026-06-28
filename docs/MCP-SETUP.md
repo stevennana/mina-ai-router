@@ -43,29 +43,39 @@ The product-style flow is:
 2. Ask that Codex session to call Mina MCP `register_agent`.
 3. Mina Router shows that Codex session as an agent.
 
-Example helper session:
+Example helper session using the dedicated command:
 
 ```sh
-tmux new-session -d -s payment -c ~/work/payment 'codex --no-alt-screen'
-tmux attach -t payment
+cd ~/work/payment
+mar codex --id payment --session codex-payment
 ```
 
-Inside Codex, ask:
+The command starts tmux, launches Codex, sends a short self-registration prompt, and attaches to the session.
+
+If automatic registration did not run, ask Codex:
 
 ```text
-Use Mina Agent Router MCP register_agent to register this session.
-
-Use:
-- id: payment
-- name: payment
-- agentType: codex
-- transport: tmux
-- sessionId: payment
-- projectRoot: ~/work/payment
-- startupCommand: codex --no-alt-screen
+Register this session with Mina Agent Router.
 ```
 
 The CLI `mar register` command remains useful for debugging and non-Codex agents, but the preferred visible Codex flow is self-registration through MCP.
+
+## Agent Registration Skill
+
+This repo includes a skill at:
+
+```text
+skills/mina-agent-router-agent/SKILL.md
+```
+
+The skill tells Codex or Claude to infer:
+
+- project root from `pwd`
+- tmux session from `tmux display-message -p '#S'`
+- agent id from the project directory name
+- agent type from the current CLI
+
+Then it calls MCP `register_agent`.
 
 ## Verify MCP Compatibility
 

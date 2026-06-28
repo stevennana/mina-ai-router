@@ -3,7 +3,9 @@ declare const process: {
   argv: string[];
   env: Record<string, string | undefined>;
   cwd(): string;
+  pid: number;
   exitCode?: number;
+  kill(pid: number, signal?: string | number): void;
   stdin: {
     on(event: "data", listener: (chunk: Buffer) => void): void;
   };
@@ -36,6 +38,7 @@ declare module "node:fs" {
   export function mkdirSync(path: string, options?: { recursive?: boolean }): void;
   export function readFileSync(path: string, encoding: "utf8"): string;
   export function renameSync(oldPath: string, newPath: string): void;
+  export function unlinkSync(path: string): void;
   export function writeFileSync(path: string, data: string): void;
 }
 
@@ -63,6 +66,7 @@ declare module "node:http" {
 }
 
 declare module "node:path" {
+  export function basename(path: string): string;
   export function dirname(path: string): string;
   export function join(...paths: string[]): string;
 }
@@ -102,17 +106,25 @@ declare module "node:child_process" {
     options?: {
       encoding?: "utf8";
       input?: string;
-      stdio?: readonly ["ignore" | "pipe", "pipe", "pipe"] | readonly ["pipe", "pipe", "pipe"];
+      stdio?:
+        | "inherit"
+        | readonly ["ignore" | "pipe", "pipe", "pipe"]
+        | readonly ["pipe", "pipe", "pipe"]
+        | readonly ["ignore", "ignore", "ignore"];
     },
   ): string;
   export function spawn(
     file: string,
     args?: readonly string[],
     options?: {
+      cwd?: string;
+      detached?: boolean;
       env?: Record<string, string | undefined>;
-      stdio?: "inherit";
+      stdio?: "inherit" | "ignore";
     },
   ): {
     on(event: "exit", listener: (code: number | null) => void): void;
+    unref(): void;
+    pid?: number;
   };
 }

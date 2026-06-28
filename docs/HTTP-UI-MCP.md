@@ -21,13 +21,21 @@ The HTTP MCP endpoint exposes:
 ```sh
 cd /Users/stevenna/WebstormProjects/mina-aimesh
 npm run build
-node dist/apps/cli/src/index.js serve --port 3333
+node dist/apps/cli/src/index.js server start --port 3333
+node dist/apps/cli/src/index.js server status
 ```
 
 Or, after `npm link`:
 
 ```sh
-mar serve --port 3333
+mar server start --port 3333
+mar server status
+```
+
+Stop:
+
+```sh
+mar server stop
 ```
 
 ## Connect Codex CLI
@@ -82,6 +90,32 @@ The CLI exposes the same operator view:
 mar health
 mar version
 mar verify
+```
+
+## Visible Agent Commands
+
+Start a visible Codex agent in the current directory:
+
+```sh
+mar codex
+```
+
+This derives the agent id and tmux session from the current directory. For example, from `/Users/stevenna/WebstormProjects/minasoftai`, it uses:
+
+- agent id: `minasoftai`
+- tmux session: `codex-minasoftai`
+- project root: current directory
+
+Start a visible Claude agent:
+
+```sh
+mar claude
+```
+
+Override values when needed:
+
+```sh
+mar codex --id ralph --session mina-ralph-codex --root /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs
 ```
 
 ## Verify

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 import {
   AgentRegistry,
@@ -13,6 +14,7 @@ import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport,
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
 const version = "0.1.0";
+const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mar-server.json");
 
 async function main(argv: string[]): Promise<void> {
   const command = argv[2];
@@ -35,6 +37,15 @@ async function main(argv: string[]): Promise<void> {
       break;
     case "verify":
       runVerify();
+      break;
+    case "server":
+      handleServerCommand(argv.slice(3));
+      break;
+    case "codex":
+      startVisibleAgent("codex", "codex --no-alt-screen", argv.slice(3), context);
+      break;
+    case "claude":
+      startVisibleAgent("claude", "claude", argv.slice(3), context);
       break;
     case "register":
       registerAgent(argv.slice(3), context);
@@ -66,6 +77,199 @@ async function main(argv: string[]): Promise<void> {
     default:
       throw new Error(`Unknown command "${command}". Run "mar help".`);
   }
+}
+
+function handleServerCommand(args: string[]): void {
+  const action = args[0] ?? "status";
+  const flags = parseFlags(args.slice(1));
+
+  switch (action) {
+    case "start":
+      startServer(flags);
+      break;
+    case "stop":
+      stopServer();
+      break;
+    case "status":
+      printJson(serverStatus());
+      break;
+    default:
+      throw new Error("Usage: mar server <start|stop|status> [--port 3333] [--host 127.0.0.1]");
+  }
+}
+
+function startServer(flags: Record<string, string>): void {
+  const current = serverStatus();
+  if (current.running) {
+    printJson(current);
+    return;
+  }
+
+  const port = flags.port ?? process.env.MINA_HTTP_PORT ?? "3333";
+  const host = flags.host ?? process.env.MINA_HTTP_HOST ?? "127.0.0.1";
+  const serverPath = join(__dirname, "../../http-server/src/index.js");
+  mkdirSync(dirname(serverPidPath), { recursive: true });
+  const logPath = flags.log ?? join(dirname(serverPidPath), "mar-server.log");
+  const command = [
+    `PORT=${shellQuote(port)}`,
+    `HOST=${shellQuote(host)}`,
+    `MINA_ROUTER_STATE=${shellQuote(process.env.MINA_ROUTER_STATE ?? statePath)}`,
+    "nohup",
+    shellQuote(process.execPath),
+    shellQuote(serverPath),
+    ">",
+    shellQuote(logPath),
+    "2>&1",
+    "&",
+    "echo $!",
+  ].join(" ");
+  const pid = Number(execFileSync("/bin/sh", ["-c", command], { encoding: "utf8" }).trim());
+  sleep(500);
+
+  writeFileSync(serverPidPath, `${JSON.stringify({
+    pid,
+    port,
+    host,
+    statePath: process.env.MINA_ROUTER_STATE ?? statePath,
+    logPath,
+    uiUrl: `http://${host}:${port}/`,
+    mcpUrl: `http://${host}:${port}/mcp`,
+    startedAt: new Date().toISOString(),
+  }, null, 2)}\n`);
+
+  printJson(serverStatus());
+}
+
+function stopServer(): void {
+  const status = serverStatus();
+  if (!status.pid) {
+    printJson({ ok: true, running: false, message: "No Mina server pid file found." });
+    return;
+  }
+
+  if (status.running) {
+    process.kill(status.pid, "SIGTERM");
+  }
+
+  try {
+    unlinkSync(serverPidPath);
+  } catch {
+    // pid file may already be gone
+  }
+
+  printJson({ ok: true, running: false, stoppedPid: status.pid });
+}
+
+function serverStatus() {
+  if (!existsSync(serverPidPath)) {
+    return {
+      running: false,
+      pidPath: serverPidPath,
+    };
+  }
+
+  const saved = JSON.parse(readFileSync(serverPidPath, "utf8")) as {
+    pid?: number;
+    port?: string;
+    host?: string;
+    statePath?: string;
+    logPath?: string;
+    uiUrl?: string;
+    mcpUrl?: string;
+    startedAt?: string;
+  };
+  const running = saved.pid ? isProcessRunning(saved.pid) : false;
+
+  return {
+    ...saved,
+    running,
+    pidPath: serverPidPath,
+  };
+}
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function startVisibleAgent(
+  agentType: "codex" | "claude",
+  defaultCommand: string,
+  args: string[],
+  context: ReturnType<typeof createContext>,
+): void {
+  assertCommandAvailable("tmux");
+
+  const flags = parseFlags(args);
+  const root = flags.root ?? process.cwd();
+  const projectName = flags.name ?? basename(root);
+  const id = flags.id ?? sanitizeName(projectName);
+  const sessionId = flags.session ?? `${agentType}-${sanitizeName(projectName)}`;
+  const startupCommand = flags.command ?? defaultCommand;
+  assertCommandAvailable(startupCommand.split(/\s+/)[0]);
+  const shouldAttach = flags.attach !== "false" && flags["no-attach"] !== "true";
+  const shouldPromptRegister = flags.register !== "false" && flags["no-register"] !== "true";
+  const registerDelayMs = flags["register-delay-ms"] ? Number(flags["register-delay-ms"]) : 4_000;
+  const agent: Agent = {
+    id,
+    name: id,
+    agentType,
+    transport: "tmux",
+    sessionId,
+    projectRoot: root,
+    startupCommand,
+  };
+  const tmux = new TmuxClient();
+  const existed = tmux.hasSession(sessionId);
+  tmux.ensureSession(agent);
+
+  if (shouldPromptRegister && !context.registry.get(id)) {
+    sleep(registerDelayMs);
+    const prompt = buildSelfRegistrationPrompt(agent);
+    if (agentType === "codex") {
+      tmux.sendCodexText(sessionId, prompt);
+    } else {
+      tmux.sendText(sessionId, prompt);
+    }
+  }
+
+  const summary = {
+    agent,
+    existed,
+    attach: `tmux attach -t ${sessionId}`,
+    registration: shouldPromptRegister && !context.registry.get(id)
+      ? "registration prompt sent to agent"
+      : "registration prompt skipped",
+  };
+
+  if (!shouldAttach) {
+    printJson(summary);
+    return;
+  }
+
+  console.log(JSON.stringify(summary, null, 2));
+  execFileSync("tmux", ["attach", "-t", sessionId], {
+    stdio: "inherit",
+  });
+}
+
+function buildSelfRegistrationPrompt(agent: Agent): string {
+  return [
+    "Use Mina Agent Router MCP register_agent to register this visible CLI session.",
+    "Collect any missing context yourself when possible, but use these values as authoritative:",
+    `- id: ${agent.id}`,
+    `- name: ${agent.name}`,
+    `- agentType: ${agent.agentType}`,
+    `- transport: ${agent.transport}`,
+    `- sessionId: ${agent.sessionId}`,
+    `- projectRoot: ${agent.projectRoot}`,
+    `- startupCommand: ${agent.startupCommand ?? ""}`,
+    "After registering, call list_agents and confirm this agent is available.",
+  ].join("\n");
 }
 
 async function showHealth(context: ReturnType<typeof createContext>): Promise<void> {
@@ -371,6 +575,22 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
+function sanitizeName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "agent";
+}
+
+function sleep(milliseconds: number): void {
+  if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+    return;
+  }
+
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
 function taskFromArgs(args: string[]): string {
   const taskTokens: string[] = [];
 
@@ -394,6 +614,11 @@ Commands:
   mar version
   mar health
   mar verify
+  mar server start [--port 3333] [--host 127.0.0.1]
+  mar server stop
+  mar server status
+  mar codex [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
+  mar claude [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
   mar register <id> --agent <type> --transport <headless|mock|tmux|zmux> --session <session> --root <path>
   mar agents
   mar agent <id>
@@ -409,6 +634,9 @@ Example:
   mar register payment --agent gemini --transport tmux --session payment --root ~/work/payment
   mar setup-codex-pair
   mar serve
+  mar server start --port 3333
+  mar codex
+  mar claude
   mar ask payment "현재 payment flow를 요약해줘."
 
 State:

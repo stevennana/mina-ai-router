@@ -2,6 +2,7 @@
 /out-tsc
 /dist
 /data/*.json
+/data/*.log
 .DS_Store
 .idea/*
 

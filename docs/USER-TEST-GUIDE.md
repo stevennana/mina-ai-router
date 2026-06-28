@@ -59,17 +59,16 @@ In the Mina repo:
 ```sh
 cd /Users/stevenna/WebstormProjects/mina-aimesh
 npm run build
-node dist/apps/cli/src/index.js serve --port 3333
+node dist/apps/cli/src/index.js server start --port 3333
+node dist/apps/cli/src/index.js server status
 ```
-
-Keep this terminal open.
 
 Expected output:
 
 ```text
-Mina Agent Router HTTP server
-UI:  http://127.0.0.1:3333/
-MCP: http://127.0.0.1:3333/mcp
+running: true
+uiUrl: http://127.0.0.1:3333/
+mcpUrl: http://127.0.0.1:3333/mcp
 ```
 
 ## 2. Open the UI
@@ -114,50 +113,33 @@ This MCP configuration is used by Codex CLI sessions, including Codex sessions s
 Start helper Codex in the helper project:
 
 ```sh
-tmux new-session -d \
-  -s mina-ralph-codex \
-  -c /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs \
-  'codex --no-alt-screen'
+cd /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs
+node /Users/stevenna/WebstormProjects/mina-aimesh/dist/apps/cli/src/index.js codex --id ralph --session mina-ralph-codex
 ```
 
-Attach to see the real helper console:
+This command:
 
-```sh
-tmux attach -t mina-ralph-codex
-```
+- creates or reuses tmux session `mina-ralph-codex`
+- starts `codex --no-alt-screen`
+- sends a short Mina self-registration prompt into Codex when `ralph` is not registered
+- attaches to the tmux session automatically
 
 Expected:
 
-- you see Codex CLI
-- directory is `/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs`
-- Codex is idle or ready for input
+- you see the real helper Codex console
+- Codex receives a short registration request automatically
+- after approval, Codex calls `register_agent`
 
-Detach without closing the session:
-
-```text
-Ctrl-b
-d
-```
+Detach without closing the session with `Ctrl-b`, then `d`.
 
 Do not kill the tmux session.
 
 ## 5. Register Helper Codex from Inside Helper Codex
 
-Inside the helper Codex console, ask Codex:
+If automatic registration did not run, ask the helper Codex console:
 
 ```text
-Use Mina Agent Router MCP register_agent to register this Codex session.
-
-Use these exact values:
-- id: ralph
-- name: ralph
-- agentType: codex
-- transport: tmux
-- sessionId: mina-ralph-codex
-- projectRoot: /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs
-- startupCommand: codex --no-alt-screen
-
-After registering, call list_agents and confirm ralph is available.
+Register this session with Mina Agent Router.
 ```
 
 Expected:
@@ -173,37 +155,22 @@ If Codex asks for tool permission, approve it inside the helper Codex CLI screen
 Start main Codex in the main project:
 
 ```sh
-tmux new-session -d \
-  -s codex-minasoftai \
-  -c /Users/stevenna/WebstormProjects/minasoftai \
-  'codex --no-alt-screen'
+cd /Users/stevenna/WebstormProjects/minasoftai
+node /Users/stevenna/WebstormProjects/mina-aimesh/dist/apps/cli/src/index.js codex
 ```
 
-Attach to see the real main console:
+By default this derives:
 
-```sh
-tmux attach -t codex-minasoftai
-```
-
-This is the main Codex session. Leave it visible while testing.
+- `id`: `minasoftai`
+- `sessionId`: `codex-minasoftai`
+- `projectRoot`: current directory
 
 ## 7. Register Main Codex from Inside Main Codex
 
-Inside the main Codex console, ask Codex:
+If automatic registration did not run, ask the main Codex console:
 
 ```text
-Use Mina Agent Router MCP register_agent to register this Codex session.
-
-Use these exact values:
-- id: minasoftai
-- name: minasoftai
-- agentType: codex
-- transport: tmux
-- sessionId: codex-minasoftai
-- projectRoot: /Users/stevenna/WebstormProjects/minasoftai
-- startupCommand: codex --no-alt-screen
-
-After registering, call list_agents and confirm both minasoftai and ralph are registered.
+Register this session with Mina Agent Router.
 ```
 
 Expected:
@@ -316,7 +283,12 @@ Expected:
 
 ## 13. Stop the Test
 
-Stop the Mina HTTP server with `Ctrl-c` in the server terminal.
+Stop the Mina HTTP server:
+
+```sh
+cd /Users/stevenna/WebstormProjects/mina-aimesh
+node dist/apps/cli/src/index.js server stop
+```
 
 Optionally leave tmux Codex sessions running for the next test.
 
