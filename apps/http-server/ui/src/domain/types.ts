@@ -53,6 +53,10 @@ export type RouterRequest = {
   status: RequestStatus;
   answer?: string;
   error?: string;
+  retryOfRequestId?: string;
+  retriedByRequestId?: string;
+  archivedAt?: string;
+  archivedFromStatus?: RequestStatus;
   diagnosticStatus?: RequestDiagnosticStatus;
   parserDiagnostics?: ResponseParserDiagnostics;
   rawEvidence?: RequestRawEvidence;

@@ -1,5 +1,9 @@
 import type { AgentRequest, RequestDiagnosticStatus, RequestStatus } from "./types";
 
+export type RequestAction = "retry" | "cancel" | "archive" | "unarchive";
+
+const openStatuses = new Set<RequestStatus>(["created", "sent", "waiting"]);
+
 export class RequestStore {
   private readonly requests = new Map<string, AgentRequest>();
 
@@ -45,6 +49,62 @@ export class RequestStore {
     };
     this.requests.set(id, updated);
     return updated;
+  }
+
+  cancel(id: string, reason = "Cancelled by operator."): AgentRequest {
+    const current = this.require(id);
+    this.assertActionAllowed(current, "cancel");
+    return this.updateStatus(id, "cancelled", {
+      error: reason,
+    });
+  }
+
+  archive(id: string, reason?: string): AgentRequest {
+    const current = this.require(id);
+    this.assertActionAllowed(current, "archive");
+    return this.updateStatus(id, "archived", {
+      archivedAt: new Date().toISOString(),
+      archivedFromStatus: current.status,
+      error: current.error ?? reason,
+    });
+  }
+
+  unarchive(id: string): AgentRequest {
+    const current = this.require(id);
+    this.assertActionAllowed(current, "unarchive");
+    const restoredStatus = current.archivedFromStatus ?? "answered";
+    return this.updateStatus(id, restoredStatus, {
+      archivedAt: undefined,
+      archivedFromStatus: undefined,
+    });
+  }
+
+  recordRetry(originalRequestId: string, retryRequestId: string): AgentRequest {
+    const original = this.require(originalRequestId);
+    return this.patch(original.id, {
+      retriedByRequestId: retryRequestId,
+    });
+  }
+
+  assertActionAllowed(request: AgentRequest, action: RequestAction): void {
+    const validActions = this.validActions(request);
+    if (!validActions.includes(action)) {
+      throw new Error(
+        `Cannot ${action} request "${request.id}" while it is ${request.status}. Valid actions: ${validActions.join(", ") || "none"}.`,
+      );
+    }
+  }
+
+  validActions(request: AgentRequest): RequestAction[] {
+    if (request.status === "archived") {
+      return ["retry", "unarchive"];
+    }
+
+    if (openStatuses.has(request.status)) {
+      return ["cancel"];
+    }
+
+    return ["retry", "archive"];
   }
 
   patch(id: string, patch: Partial<AgentRequest>): AgentRequest {

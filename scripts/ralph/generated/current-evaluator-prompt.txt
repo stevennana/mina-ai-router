@@ -3,56 +3,55 @@ You are the promotion evaluator for a repository-local Ralph loop.
 Read these documents before deciding:
 - AGENTS.md
 - ARCHITECTURE.md
-- docs/PRODUCT_SENSE.md
+- docs/product-specs/request-diagnostics-and-controls.md
 - docs/FRONTEND.md
 - docs/RELIABILITY.md
-- docs/product-specs/request-diagnostics-and-controls.md
-- docs/design-docs/collaboration-reliability.md
-- docs/exec-plans/active/002-request-detail-diagnostics.md
+- docs/exec-plans/active/003-request-retry-cancel-archive.md
 
-Current task id: request-detail-diagnostics
-Current task title: Request detail diagnostics
+Current task id: request-retry-cancel-archive
+Current task title: Request retry cancel archive controls
 
 Objective:
-Upgrade request detail so a user can understand what happened during a routed agent request without reading raw state files.
+Add reliable request recovery controls after request diagnostics are visible.
 
 Scope:
-- Review current request detail modal and API/UI request shape after the protocol diagnostics foundation task.
-- Surface source, target, status, task, timestamps, answer, error, parser diagnostics, and raw evidence pointers when available.
-- Add parsed/raw answer sections using fields created by the foundation task.
-- Add focused HTTP smoke coverage for request detail data returned by APIs where practical.
-- Keep the activity panel and existing request actions working.
+- Ensure retry, cancel, archive, and unarchive semantics are explicit in core and API behavior.
+- Show actions in request detail when valid for the current status.
+- Preserve or record lineage when retry creates a new request.
+- Extend smoke coverage for changed request actions.
 
 Out of scope:
-- Core diagnostic model changes beyond small UI type alignment.
-- Retry/cancel/archive action redesign.
+- Team fanout.
 - Capability refresh.
-- Agent heartbeat status.
-- Transcript search.
+- Long-term transcript search.
 
 Exit criteria:
-1. Request detail clearly distinguishes answered, failed, timeout, cancelled, archived, and parse-related failures when data is available.
-2. The UI gives enough evidence and diagnostics to debug a bad route without opening `data/router-state.json`.
-3. Existing HTTP smoke still passes and covers request detail data returned by APIs where practical.
-4. `npm run test` and `npm run smoke:http` pass.
+1. Users can recover or clean up requests from UI or CLI without ambiguous state.
+2. Invalid actions fail clearly.
+3. Activity and request detail reflect the updated status.
 
 Evaluator notes:
-Promote only if this is a narrow UI/API diagnostics slice. Do not promote core routing, retry, or capability refresh work under this task.
+Do not promote if request action semantics are only implemented in the UI.
 
 Deterministic check summary:
 {
-  "checked_at": "2026-06-28T13:48:23.071Z",
-  "task_id": "request-detail-diagnostics",
+  "checked_at": "2026-06-28T13:56:16.602Z",
+  "task_id": "request-retry-cancel-archive",
   "commands": [
     {
       "command": "npm run test",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 test\n> npm run build && node scripts/core-tests.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-wn_QQ0ae.js   231.12 kB │ gzip: 70.53 kB\n\n✓ built in 85ms\ncore tests passed\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 test\n> npm run build && node scripts/core-tests.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 87ms\ncore tests passed\n"
     },
     {
       "command": "npm run smoke:http",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:http\n> npm run build && node scripts/smoke-http.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-wn_QQ0ae.js   231.12 kB │ gzip: 70.53 kB\n\n✓ built in 65ms\nhttp smoke passed\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:http\n> npm run build && node scripts/smoke-http.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 56ms\nhttp smoke passed\n"
+    },
+    {
+      "command": "npm run smoke:cli-controls",
+      "ok": true,
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:cli-controls\n> npm run build && node scripts/smoke-cli-controls.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-Ch7yMqUj.css   16.07 kB │ gzip:  4.16 kB\ndist/apps/http-server/src/public/assets/index-CzS1uX4I.js   231.94 kB │ gzip: 70.72 kB\n\n✓ built in 57ms\ncli controls smoke passed\n"
     }
   ],
   "missing_files": [],
@@ -60,20 +59,23 @@ Deterministic check summary:
 }
 
 Worker handoff summary from the last run:
-Implemented the request detail diagnostics slice and wrote the handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt).
+Implemented request recovery controls and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt).
 
 Changed:
-- [RequestDetail.tsx](/Users/stevenna/WebstormProjects/mina-aimesh/apps/http-server/ui/src/features/RequestDetail.tsx) now shows route, lifecycle, timestamps, task, parsed answer, error, parser diagnostics, and raw evidence excerpt.
-- [types.ts](/Users/stevenna/WebstormProjects/mina-aimesh/apps/http-server/ui/src/domain/types.ts) now aligns the UI request shape with core diagnostic fields.
-- [components.css](/Users/stevenna/WebstormProjects/mina-aimesh/apps/http-server/ui/src/foundation/components.css) adds bounded/wrapping diagnostic sections and failure pill styling.
-- [smoke-http.js](/Users/stevenna/WebstormProjects/mina-aimesh/scripts/smoke-http.js) now asserts `/api/state` carries answered and archived request detail diagnostics.
+- Added core transition validation for retry, cancel, archive, and unarchive in [request-store.ts](/Users/stevenna/WebstormProjects/mina-aimesh/packages/core/src/request-store.ts).
+- Wired HTTP and CLI request actions through those core semantics.
+- Added retry lineage fields and archive restoration fields.
+- Updated request detail to show only valid actions and display lineage.
+- Extended core, HTTP smoke, and CLI controls smoke coverage.
 - Updated the active task progress log.
 
 Checks:
 - `npm run test`: passed.
-- `npm run smoke:http`: blocked by this sandbox’s loopback bind restriction, failing with `listen EPERM: operation not permitted 127.0.0.1:3344`. A minimal Node HTTP server bind reproduces the same EPERM, so this did not reach app logic.
+- `npm run smoke:http`: blocked by sandbox listener restriction, `listen EPERM: operation not permitted 127.0.0.1:3344`.
+- `npm run smoke:cli-controls`: blocked at server-start assertion for the same local listener restriction.
+- Manual non-server CLI request-control path passed for archive, unarchive, invalid cancel, retry, and retry lineage.
 
-Exit criteria appear implemented, but I would not promote until `npm run smoke:http` passes in an environment that permits local HTTP listeners.
+Exit criteria appear implemented, but do not promote until both smoke commands pass in an environment that permits local HTTP listeners.
 
 Your job:
 - inspect the repository and current implementation

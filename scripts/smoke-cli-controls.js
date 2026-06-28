@@ -45,6 +45,47 @@ function main() {
     assert.equal(visible.registration, "registration prompt skipped");
     run("tmux", ["has-session", "-t", session]);
 
+    const registered = JSON.parse(runNode([
+      "register",
+      "cli-helper",
+      "--agent",
+      "shell",
+      "--transport",
+      "headless",
+      "--session",
+      "cli-helper",
+      "--root",
+      tempDir,
+    ]));
+    assert.equal(registered.agent.id, "cli-helper");
+
+    const asked = JSON.parse(runNode(["ask", "cli-helper", "CLI recovery request"]));
+    assert.equal(asked.target, "cli-helper");
+
+    const request = JSON.parse(runNode(["request", asked.requestId]));
+    assert.equal(request.status, "answered");
+    assert.equal(request.task, "CLI recovery request");
+
+    const archived = JSON.parse(runNode(["request", asked.requestId, "archive"]));
+    assert.equal(archived.status, "archived");
+    assert.equal(archived.archivedFromStatus, "answered");
+
+    const unarchived = JSON.parse(runNode(["request", asked.requestId, "unarchive"]));
+    assert.equal(unarchived.status, "answered");
+
+    const invalidCancel = expectNodeFailure(["request", asked.requestId, "cancel"]);
+    assert.match(invalidCancel, /Cannot cancel request/);
+
+    const retried = JSON.parse(runNode(["request", asked.requestId, "retry"]));
+    assert.equal(retried.target, "cli-helper");
+    assert.notEqual(retried.requestId, asked.requestId);
+
+    const originalAfterRetry = JSON.parse(runNode(["request", asked.requestId]));
+    const retryRequest = JSON.parse(runNode(["request", retried.requestId]));
+    assert.equal(originalAfterRetry.retriedByRequestId, retried.requestId);
+    assert.equal(retryRequest.retryOfRequestId, asked.requestId);
+    assert.equal(retryRequest.status, "answered");
+
     const stopped = JSON.parse(runNode(["server", "stop"]));
     assert.equal(stopped.running, false);
 
@@ -56,6 +97,16 @@ function main() {
 
 function runNode(args) {
   return run(process.execPath, [distCli, ...args], env);
+}
+
+function expectNodeFailure(args) {
+  try {
+    runNode(args);
+  } catch (error) {
+    return `${error.stderr || ""}${error.stdout || ""}${error.message || ""}`;
+  }
+
+  throw new Error(`Expected command to fail: ${args.join(" ")}`);
 }
 
 function run(file, args, commandEnv = process.env) {

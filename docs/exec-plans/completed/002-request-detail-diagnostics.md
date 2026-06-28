@@ -5,7 +5,7 @@
   "id": "request-detail-diagnostics",
   "title": "Request detail diagnostics",
   "order": 2,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "request-retry-cancel-archive",
   "prompt_docs": [
     "AGENTS.md",
@@ -30,7 +30,8 @@
     "The UI hides request failure reasons instead of surfacing them",
     "Request diagnostics require opening data/router-state.json",
     "The task broadens into retry or capability refresh work"
-  ]
+  ],
+  "completed_at": "2026-06-28T13:49:35.651Z"
 }
 ```
 
@@ -76,3 +77,4 @@ Promote only if this is a narrow UI/API diagnostics slice. Do not promote core r
 - 2026-06-28T13:42:43.899Z: restored as current task after request-protocol-diagnostics-foundation promotion.
 - 2026-06-28T13:46:25Z: aligned UI request types with diagnosticStatus, parserDiagnostics, and rawEvidence; expanded request detail to show lifecycle, parsed answer, parser diagnostics, raw evidence, error, and timestamps.
 - 2026-06-28T13:46:25Z: added HTTP smoke assertions that /api/state carries answered and archived request detail diagnostics for routed requests.
+- 2026-06-28T13:49:35.651Z: automatically promoted after deterministic checks and evaluator approval.

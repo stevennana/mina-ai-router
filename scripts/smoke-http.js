@@ -112,12 +112,34 @@ async function main() {
     const archived = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/archive`, {});
     assert.equal(archived.result.status, "archived");
     assert.equal(archived.result.diagnosticStatus, "archived");
+    assert.equal(archived.result.archivedFromStatus, "answered");
     const archivedRequest = findRequest(archived.state, asked.result.requestId);
     assert.equal(archivedRequest.status, "archived");
     assert.equal(archivedRequest.diagnosticStatus, "archived");
+    assert.equal(archivedRequest.archivedFromStatus, "answered");
     assert.match(archivedRequest.answer, /Headless response from http-smoke/);
     assert.equal(archivedRequest.parserDiagnostics.kind, "parsed");
     assert.equal(archivedRequest.rawEvidence.kind, "transport_capture");
+
+    const unarchived = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/unarchive`, {});
+    assert.equal(unarchived.result.status, "answered");
+    assert.equal(unarchived.result.diagnosticStatus, "answered");
+
+    const invalidCancel = await expectPostJsonFailure(`${baseUrl}/api/requests/${asked.result.requestId}/cancel`, {});
+    assert.equal(invalidCancel.status, 400);
+    assert.match(invalidCancel.body.error, /Cannot cancel request/);
+
+    const retried = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/retry`, {});
+    assert.equal(retried.result.target, "http-smoke");
+    assert.notEqual(retried.result.requestId, asked.result.requestId);
+    const originalAfterRetry = findRequest(retried.state, asked.result.requestId);
+    const retryRequest = findRequest(retried.state, retried.result.requestId);
+    assert.equal(originalAfterRetry.retriedByRequestId, retried.result.requestId);
+    assert.equal(retryRequest.retryOfRequestId, asked.result.requestId);
+    assert.equal(retryRequest.status, "answered");
+
+    const rearchived = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/archive`, {});
+    assert.equal(findRequest(rearchived.state, asked.result.requestId).status, "archived");
 
     const stale = await postJson(`${baseUrl}/api/requests/archive-stale`, { olderThanMs: 0 });
     assert.ok(Array.isArray(stale.archived));
@@ -200,6 +222,19 @@ async function postJson(url, body) {
   });
   if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
   return response.json();
+}
+
+async function expectPostJsonFailure(url, body) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  assert.equal(response.ok, false);
+  return {
+    status: response.status,
+    body: await response.json(),
+  };
 }
 
 async function patchJson(url, body) {

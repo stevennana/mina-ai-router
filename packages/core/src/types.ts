@@ -70,6 +70,10 @@ export interface AgentRequest {
   updatedAt: string;
   error?: string;
   answer?: string;
+  retryOfRequestId?: string;
+  retriedByRequestId?: string;
+  archivedAt?: string;
+  archivedFromStatus?: RequestStatus;
   diagnosticStatus?: RequestDiagnosticStatus;
   parserDiagnostics?: ResponseParserDiagnostics;
   rawEvidence?: RequestRawEvidence;
@@ -86,6 +90,7 @@ export interface CallAgentInput {
   target: string;
   task: string;
   timeoutMs?: number;
+  retryOfRequestId?: string;
 }
 
 export interface AgentStatus {

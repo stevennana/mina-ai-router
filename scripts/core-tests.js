@@ -76,7 +76,17 @@ function testRequestStoreDiagnostics() {
   ]);
 
   assert.equal(store.updateStatus("store-test", "cancelled").diagnosticStatus, "cancelled");
-  assert.equal(store.updateStatus("store-test", "archived").diagnosticStatus, "archived");
+  assert.deepEqual(store.validActions(store.require("store-test")), ["retry", "archive"]);
+  const archived = store.archive("store-test");
+  assert.equal(archived.status, "archived");
+  assert.equal(archived.diagnosticStatus, "archived");
+  assert.equal(archived.archivedFromStatus, "cancelled");
+  assert.deepEqual(store.validActions(archived), ["retry", "unarchive"]);
+  const unarchived = store.unarchive("store-test");
+  assert.equal(unarchived.status, "cancelled");
+  assert.equal(unarchived.diagnosticStatus, "cancelled");
+  assert.throws(() => store.cancel("store-test"), /Cannot cancel request/);
+  assert.equal(store.recordRetry("store-test", "retry-test").retriedByRequestId, "retry-test");
 }
 
 function testPromptEnvelope() {
@@ -142,6 +152,15 @@ async function testRouterLifecycle() {
   assert.equal(request.rawEvidence.kind, "transport_capture");
   assert.equal(request.task, "question with --literal flag text");
   assert.ok(persisted >= 4);
+
+  const retry = await router.callAgent({
+    target: "payment",
+    task: request.task,
+    retryOfRequestId: request.id,
+    timeoutMs: 1_000,
+  });
+  const retryRequest = router.getRequest(retry.requestId);
+  assert.equal(retryRequest.retryOfRequestId, request.id);
 }
 
 async function testRouterParseFailure() {

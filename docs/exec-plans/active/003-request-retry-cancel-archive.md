@@ -5,7 +5,7 @@
   "id": "request-retry-cancel-archive",
   "title": "Request retry cancel archive controls",
   "order": 3,
-  "status": "queued",
+  "status": "active",
   "next_task_on_success": "capability-refresh-command",
   "prompt_docs": [
     "AGENTS.md",
@@ -67,3 +67,5 @@ Do not promote if request action semantics are only implemented in the UI.
 ## Progress log
 
 - Queue seeded for milestone 0.2 Ralph setup.
+- 2026-06-28T13:49:35.651Z: restored as current task after request-detail-diagnostics promotion.
+- 2026-06-28T13:54:57.000Z: implemented core request action validation for retry, cancel, archive, and unarchive; wired HTTP and CLI actions through core semantics; added retry/archive lineage fields and smoke coverage.

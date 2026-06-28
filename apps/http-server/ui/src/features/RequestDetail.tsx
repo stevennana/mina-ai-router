@@ -6,15 +6,18 @@ import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
 import { Icon } from "../primitives/Icon";
 
+export type RequestDetailAction = "retry" | "cancel" | "archive" | "unarchive";
+
 export function RequestDetail({
   request,
   onAction,
 }: {
   request: RouterRequest;
-  onAction: (action: "retry" | "cancel" | "archive", requestId: string) => void;
+  onAction: (action: RequestDetailAction, requestId: string) => void;
 }) {
   const parser = request.parserDiagnostics;
   const rawEvidence = request.rawEvidence;
+  const actions = validActions(request.status);
 
   return (
     <div className="section request-detail">
@@ -40,6 +43,10 @@ export function RequestDetail({
         <Kv label="Lifecycle">{describeLifecycle(request)}</Kv>
         <Kv label="Created">{formatTimestamp(request.createdAt)}</Kv>
         <Kv label="Updated">{formatTimestamp(request.updatedAt)}</Kv>
+        {request.retryOfRequestId ? <Kv label="Retry of">{request.retryOfRequestId}</Kv> : null}
+        {request.retriedByRequestId ? <Kv label="Retried by">{request.retriedByRequestId}</Kv> : null}
+        {request.archivedFromStatus ? <Kv label="Archived from">{request.archivedFromStatus}</Kv> : null}
+        {request.archivedAt ? <Kv label="Archived">{formatTimestamp(request.archivedAt)}</Kv> : null}
       </div>
 
       <Kv label="Task">{request.task}</Kv>
@@ -89,9 +96,10 @@ export function RequestDetail({
       )}
 
       <div className="actions">
-        <Button onClick={() => onAction("retry", request.id)}><Icon name="restart_alt" />Retry</Button>
-        <Button tone="secondary" onClick={() => onAction("cancel", request.id)}><Icon name="delete" />Cancel</Button>
-        <Button tone="secondary" onClick={() => onAction("archive", request.id)}><Icon name="archive" />Archive</Button>
+        {actions.includes("retry") ? <Button onClick={() => onAction("retry", request.id)}><Icon name="restart_alt" />Retry</Button> : null}
+        {actions.includes("cancel") ? <Button tone="secondary" onClick={() => onAction("cancel", request.id)}><Icon name="delete" />Cancel</Button> : null}
+        {actions.includes("archive") ? <Button tone="secondary" onClick={() => onAction("archive", request.id)}><Icon name="archive" />Archive</Button> : null}
+        {actions.includes("unarchive") ? <Button tone="secondary" onClick={() => onAction("unarchive", request.id)}><Icon name="unarchive" />Unarchive</Button> : null}
       </div>
     </div>
   );
@@ -127,6 +135,18 @@ function describeLifecycle(request: RouterRequest): string {
     default:
       return request.status;
   }
+}
+
+function validActions(status: RouterRequest["status"]): RequestDetailAction[] {
+  if (status === "archived") {
+    return ["retry", "unarchive"];
+  }
+
+  if (["created", "sent", "waiting"].includes(status)) {
+    return ["cancel"];
+  }
+
+  return ["retry", "archive"];
 }
 
 function formatTimestamp(value?: string): string {

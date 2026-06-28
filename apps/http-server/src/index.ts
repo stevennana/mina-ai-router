@@ -194,12 +194,19 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
-  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive)$/);
+  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive|unarchive)$/);
   if (requestActionMatch && request.method === "POST") {
     const requestId = decodeURIComponent(requestActionMatch[1]);
     const action = requestActionMatch[2];
-    const result = await handleRequestAction(requestId, action);
-    sendJson(response, 200, { result, state: await getUiState() });
+    try {
+      const result = await handleRequestAction(requestId, action);
+      sendJson(response, 200, { result, state: await getUiState() });
+    } catch (error) {
+      sendJson(response, 400, {
+        error: error instanceof Error ? error.message : String(error),
+        state: await getUiState(),
+      });
+    }
     return;
   }
 
@@ -237,6 +244,8 @@ function archiveStaleRequests(olderThanMs: number) {
     }
 
     archived.push(context.requestStore.updateStatus(request.id, "archived", {
+      archivedAt: new Date().toISOString(),
+      archivedFromStatus: request.status,
       error: request.error ?? "Archived as stale by operator.",
     }));
   }
@@ -252,23 +261,32 @@ async function handleRequestAction(requestId: string, action: string) {
   const request = context.requestStore.require(requestId);
 
   if (action === "retry") {
-    return context.router.callAgent({
+    context.requestStore.assertActionAllowed(request, "retry");
+    const result = await context.router.callAgent({
       sourceAgent: request.sourceAgent,
       target: request.targetAgent,
       task: request.task,
+      retryOfRequestId: request.id,
     });
+    context.requestStore.recordRetry(request.id, result.requestId);
+    context.save();
+    return result;
   }
 
   if (action === "cancel") {
-    const updated = context.requestStore.updateStatus(requestId, "cancelled", {
-      error: "Cancelled by operator from Mina AI Router UI.",
-    });
+    const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router UI.");
     context.save();
     return updated;
   }
 
   if (action === "archive") {
-    const updated = context.requestStore.updateStatus(requestId, "archived");
+    const updated = context.requestStore.archive(requestId);
+    context.save();
+    return updated;
+  }
+
+  if (action === "unarchive") {
+    const updated = context.requestStore.unarchive(requestId);
     context.save();
     return updated;
   }

@@ -1,55 +1,49 @@
 Read the following repository documents before making changes:
 - AGENTS.md
 - ARCHITECTURE.md
-- docs/PRODUCT_SENSE.md
+- docs/product-specs/request-diagnostics-and-controls.md
 - docs/FRONTEND.md
 - docs/RELIABILITY.md
-- docs/product-specs/request-diagnostics-and-controls.md
-- docs/design-docs/collaboration-reliability.md
-- docs/exec-plans/active/002-request-detail-diagnostics.md
+- docs/exec-plans/active/003-request-retry-cancel-archive.md
 
-Current task id: request-detail-diagnostics
-Current task title: Request detail diagnostics
+Current task id: request-retry-cancel-archive
+Current task title: Request retry cancel archive controls
 
 Objective:
-Upgrade request detail so a user can understand what happened during a routed agent request without reading raw state files.
+Add reliable request recovery controls after request diagnostics are visible.
 
 Scope:
-- Review current request detail modal and API/UI request shape after the protocol diagnostics foundation task.
-- Surface source, target, status, task, timestamps, answer, error, parser diagnostics, and raw evidence pointers when available.
-- Add parsed/raw answer sections using fields created by the foundation task.
-- Add focused HTTP smoke coverage for request detail data returned by APIs where practical.
-- Keep the activity panel and existing request actions working.
+- Ensure retry, cancel, archive, and unarchive semantics are explicit in core and API behavior.
+- Show actions in request detail when valid for the current status.
+- Preserve or record lineage when retry creates a new request.
+- Extend smoke coverage for changed request actions.
 
 Out of scope:
-- Core diagnostic model changes beyond small UI type alignment.
-- Retry/cancel/archive action redesign.
+- Team fanout.
 - Capability refresh.
-- Agent heartbeat status.
-- Transcript search.
+- Long-term transcript search.
 
 Exit criteria:
-1. Request detail clearly distinguishes answered, failed, timeout, cancelled, archived, and parse-related failures when data is available.
-2. The UI gives enough evidence and diagnostics to debug a bad route without opening `data/router-state.json`.
-3. Existing HTTP smoke still passes and covers request detail data returned by APIs where practical.
-4. `npm run test` and `npm run smoke:http` pass.
+1. Users can recover or clean up requests from UI or CLI without ambiguous state.
+2. Invalid actions fail clearly.
+3. Activity and request detail reflect the updated status.
 
 Required checks:
 - `npm run test`
 - `npm run smoke:http`
+- `npm run smoke:cli-controls`
 
 Evaluator notes:
-Promote only if this is a narrow UI/API diagnostics slice. Do not promote core routing, retry, or capability refresh work under this task.
+Do not promote if request action semantics are only implemented in the UI.
 
 Required repository artifacts for this task:
+- packages/core/src/request-store.ts
 - apps/http-server/ui/src/features/RequestDetail.tsx
-- apps/http-server/ui/src/domain/types.ts
-- packages/core/src/types.ts
-- scripts/smoke-http.js
 
 Required commands for this task:
 - npm run test
 - npm run smoke:http
+- npm run smoke:cli-controls
 
 Previous known gaps from the last evaluation:
 - none

@@ -1,8 +1,8 @@
 # Backlog
 
 - [x] request-protocol-diagnostics-foundation — Request protocol diagnostics foundation
-- [ ] request-detail-diagnostics — Request detail diagnostics ← current
-- [ ] request-retry-cancel-archive — Request retry cancel archive controls
+- [x] request-detail-diagnostics — Request detail diagnostics
+- [ ] request-retry-cancel-archive — Request retry cancel archive controls ← current
 - [ ] capability-refresh-command — Capability refresh command
 - [ ] capability-freshness-ui — Capability freshness UI
 - [ ] agent-health-core-api — Agent health core and API

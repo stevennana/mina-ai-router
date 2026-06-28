@@ -96,6 +96,7 @@ export class AgentRouter {
       status: "created",
       createdAt: now,
       updatedAt: now,
+      retryOfRequestId: input.retryOfRequestId,
     });
     this.persistState();
 

@@ -72,7 +72,7 @@ async function main(argv: string[]): Promise<void> {
       listRequests(argv.slice(3), context);
       break;
     case "request":
-      showRequest(argv.slice(3), context);
+      await handleRequest(argv.slice(3), context);
       break;
     default:
       throw new Error(`Unknown command "${command}". Run "mair help".`);
@@ -533,13 +533,66 @@ function listRequests(args: string[], context: ReturnType<typeof createContext>)
   printJson({ requests });
 }
 
-function showRequest(args: string[], context: ReturnType<typeof createContext>): void {
+async function handleRequest(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
   const requestId = args[0];
   if (!requestId) {
-    throw new Error("Usage: mair request <request-id>");
+    throw new Error("Usage: mair request <request-id> [retry|cancel|archive|unarchive]");
+  }
+
+  const action = args[1];
+  if (action) {
+    await runRequestAction(requestId, action, context);
+    return;
   }
 
   printJson(context.router.getRequest(requestId));
+}
+
+async function runRequestAction(
+  requestId: string,
+  action: string,
+  context: ReturnType<typeof createContext>,
+): Promise<void> {
+  const request = context.router.getRequest(requestId);
+
+  switch (action) {
+    case "retry": {
+      context.requestStore.assertActionAllowed(request, "retry");
+      try {
+        const result = await context.router.callAgent({
+          sourceAgent: request.sourceAgent,
+          target: request.targetAgent,
+          task: request.task,
+          retryOfRequestId: request.id,
+        });
+        context.requestStore.recordRetry(request.id, result.requestId);
+        printJson(result);
+      } finally {
+        context.save();
+      }
+      return;
+    }
+    case "cancel": {
+      const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router CLI.");
+      context.save();
+      printJson(updated);
+      return;
+    }
+    case "archive": {
+      const updated = context.requestStore.archive(requestId);
+      context.save();
+      printJson(updated);
+      return;
+    }
+    case "unarchive": {
+      const updated = context.requestStore.unarchive(requestId);
+      context.save();
+      printJson(updated);
+      return;
+    }
+    default:
+      throw new Error(`Unsupported request action "${action}". Use retry, cancel, archive, or unarchive.`);
+  }
 }
 
 function parseFlags(args: string[]): Record<string, string> {

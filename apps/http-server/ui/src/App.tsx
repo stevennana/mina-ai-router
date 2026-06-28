@@ -315,9 +315,13 @@ export function App() {
         <RequestDetail request={request} onAction={(action, requestId) => void run(async () => {
           if (action === "cancel" && !confirm(`Mark request "${requestId}" as cancelled?`)) return;
           if (action === "archive" && !confirm(`Archive request "${requestId}"?`)) return;
+          if (action === "unarchive" && !confirm(`Unarchive request "${requestId}"?`)) return;
           const result = await routerApi.requestAction(requestId, action);
           setState(result.state);
-          if (action === "retry" && result.result?.requestId) setSelectedRequestId(result.result.requestId);
+          if (action === "retry" && result.result?.requestId) {
+            setSelectedRequestId(result.result.requestId);
+            setModal({ kind: "request", requestId: result.result.requestId });
+          }
         })} />
       </Modal>;
     }
