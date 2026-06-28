@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { AgentRegistry, AgentRouter, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
@@ -85,6 +85,17 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   if (url.pathname === "/" && request.method === "GET") {
     sendHtml(response, renderAppHtml());
+    return;
+  }
+
+  if (url.pathname.startsWith("/assets/") && request.method === "GET") {
+    sendStaticAsset(response, url.pathname);
+    return;
+  }
+
+  if (url.pathname === "/favicon.ico" && request.method === "GET") {
+    response.statusCode = 204;
+    response.end();
     return;
   }
 
@@ -862,10 +873,35 @@ function setCors(response: ServerResponse): void {
 }
 
 function renderAppHtml(): string {
-  const builtPath = join(__dirname, "ui.html");
-  if (existsSync(builtPath)) {
-    return readFileSync(builtPath, "utf8");
+  const builtPath = join(__dirname, "public", "index.html");
+  if (!existsSync(builtPath)) {
+    throw new Error("React UI build is missing. Run `npm run build:ui` before starting the HTTP server.");
   }
 
-  return readFileSync(join(process.cwd(), "apps", "http-server", "src", "ui.html"), "utf8");
+  return readFileSync(builtPath, "utf8");
+}
+
+function sendStaticAsset(response: ServerResponse, pathname: string): void {
+  const publicRoot = join(__dirname, "public");
+  const filePath = resolve(publicRoot, `.${pathname}`);
+
+  if (!filePath.startsWith(publicRoot) || !existsSync(filePath) || !statSync(filePath).isFile()) {
+    sendJson(response, 404, { error: "Asset not found" });
+    return;
+  }
+
+  response.statusCode = 200;
+  response.setHeader("content-type", contentTypeFor(filePath));
+  response.end(readFileSync(filePath));
+}
+
+function contentTypeFor(filePath: string): string {
+  const ext = extname(filePath);
+  if (ext === ".js") return "text/javascript; charset=utf-8";
+  if (ext === ".css") return "text/css; charset=utf-8";
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".woff2") return "font/woff2";
+  return "application/octet-stream";
 }

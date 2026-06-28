@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mina AI Router Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600&amp;family=Work+Sans:wght@400&amp;family=JetBrains+Mono:wght@400;500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+
+        @keyframes pulse-line {
+            0% { stroke-opacity: 0.2; stroke-width: 2; }
+            50% { stroke-opacity: 0.8; stroke-width: 3; stroke: #9af1f1; }
+            100% { stroke-opacity: 0.2; stroke-width: 2; }
+        }
+
+        .pulse-path {
+            animation: pulse-line 2s infinite ease-in-out;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "background": "#fcf9f8",
+                        "on-surface": "#1c1b1b",
+                        "secondary-fixed": "#9af1f1",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e5e2e1",
+                        "surface-tint": "#3b665c",
+                        "tertiary": "#3d3e3c",
+                        "surface-container-high": "#eae7e7",
+                        "surface-container": "#f0eded",
+                        "secondary-fixed-dim": "#7ed5d4",
+                        "surface-container-low": "#f6f3f2",
+                        "on-primary": "#ffffff",
+                        "on-background": "#1c1b1b",
+                        "surface-bright": "#fcf9f8",
+                        "primary": "#18443b",
+                        "surface-container-highest": "#e5e2e1",
+                        "primary-fixed-dim": "#a2d0c3",
+                        "surface-dim": "#dcd9d9",
+                        "inverse-on-surface": "#f3f0ef",
+                        "tertiary-fixed-dim": "#c7c6c4",
+                        "on-secondary-fixed-variant": "#004f50",
+                        "on-secondary-fixed": "#002020",
+                        "on-primary-container": "#a5d2c6",
+                        "on-tertiary-container": "#cacac7",
+                        "inverse-surface": "#313030",
+                        "tertiary-fixed": "#e3e2e0",
+                        "primary-container": "#315c52",
+                        "outline-variant": "#c0c8c5",
+                        "error-container": "#ffdad6",
+                        "secondary": "#006a6a",
+                        "error": "#ba1a1a",
+                        "outline": "#717976",
+                        "primary-fixed": "#beecdf",
+                        "tertiary-container": "#545553",
+                        "on-primary-fixed": "#00201a",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#006e6e",
+                        "on-primary-fixed-variant": "#234e45",
+                        "secondary-container": "#97eeee",
+                        "on-tertiary-fixed-variant": "#464745",
+                        "on-surface-variant": "#404846",
+                        "on-tertiary-fixed": "#1a1c1a",
+                        "inverse-primary": "#a2d0c3",
+                        "surface": "#fcf9f8",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "component-gap": "8px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "stack-tight": "4px",
+                        "container-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Hanken Grotesk"],
+                        "mono-label": ["JetBrains Mono"],
+                        "display-sm": ["Hanken Grotesk"],
+                        "body-sm": ["Work Sans"],
+                        "body-md": ["Work Sans"],
+                        "mono-code": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "display-sm": ["30px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "mono-code": ["13px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="text-on-background font-body-md h-screen flex flex-col overflow-hidden relative">
+<!-- Background Shader Canvas -->
+<canvas class="fixed inset-0 w-full h-full -z-10" id="bg-canvas"></canvas>
+<!-- TopNavBar -->
+<header class="bg-surface/90 backdrop-blur-sm text-primary font-headline-md text-headline-md flex justify-between items-center w-full px-container-padding h-14 z-50 border-b border-outline-variant/20">
+<div class="flex items-center gap-gutter">
+<span class="font-headline-md text-headline-md font-bold text-primary-container">Mina AI Router</span>
+<div class="flex items-center gap-unit px-2 py-1 bg-primary-container/10 rounded-DEFAULT border border-primary-container/20">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="font-mono-label text-mono-label text-primary-container">Local server online</span>
+</div>
+<div class="font-mono-label text-mono-label text-on-surface-variant flex gap-4">
+<span>Port: 3333</span>
+<span>MCP: http://127.0.0.1:3333/mcp</span>
+</div>
+</div>
+<div class="flex items-center gap-component-gap">
+<button class="px-3 py-1.5 font-mono-label text-mono-label border border-outline-variant/50 rounded-DEFAULT text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+            Refresh
+        </button>
+<button class="px-3 py-1.5 font-mono-label text-mono-label border border-secondary text-secondary rounded-DEFAULT hover:bg-secondary/5 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">terminal</span>
+            Create tmux Agent
+        </button>
+<button class="px-3 py-1.5 font-mono-label text-mono-label bg-primary-container text-on-primary rounded-DEFAULT hover:opacity-90 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">add</span>
+            Connect Agent
+        </button>
+<div class="flex items-center gap-2 ml-4 pl-4 border-l border-outline-variant/20">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary-container transition-colors">settings</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary-container transition-colors">notifications</span>
+</div>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden relative z-0">
+<!-- Side Rail -->
+<nav class="w-[72px] bg-surface/80 backdrop-blur-md border-r border-outline-variant/20 flex flex-col items-center py-6 gap-6 z-10 shrink-0">
+<button class="w-10 h-10 rounded-xl bg-secondary/10 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined">dashboard</span>
+</button>
+<button class="w-10 h-10 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined">hub</span>
+</button>
+<button class="w-10 h-10 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined">dns</span>
+</button>
+<button class="w-10 h-10 rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors flex items-center justify-center mt-auto">
+<span class="material-symbols-outlined">help</span>
+</button>
+</nav>
+<!-- Canvas -->
+<main class="flex-1 relative overflow-hidden">
+<!-- SVG Connections -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1;">
+<!-- Line to Codex (Top Left) -->
+<path d="M 50% 50% Q 40% 30% 30% 35%" fill="none" stroke="#c0c8c5" stroke-dasharray="4 4" stroke-width="2"></path>
+<!-- Line to Data Ingest (Top Right) -->
+<path d="M 50% 50% Q 65% 45% 70% 30%" fill="none" stroke="#c0c8c5" stroke-width="2"></path>
+<!-- Line to Payment Flow (Bottom) - Pulsing -->
+<path class="pulse-path" d="M 50% 50% Q 60% 70% 45% 75%" fill="none" stroke="#c0c8c5"></path>
+</svg>
+<!-- Nodes Container -->
+<div class="absolute inset-0 w-full h-full" style="z-index: 2;">
+<!-- Router Node (Center) -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 bg-surface border-2 border-primary-container rounded-xl p-4 shadow-sm flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 flex items-center justify-center text-primary-container mb-1">
+<span class="material-symbols-outlined">router</span>
+</div>
+<span class="font-headline-md text-[16px] text-on-surface font-semibold">Router Core</span>
+<span class="font-mono-label text-on-surface-variant">Active connections: 3</span>
+</div>
+<!-- Agent Node 1: Codex -->
+<div class="absolute top-[25%] left-[20%] w-48 bg-surface border border-secondary rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-secondary">code</span>
+<span class="font-mono-label font-bold text-on-surface">Codex mina-aimesh</span>
+</div>
+<div class="flex items-center gap-1.5 text-secondary text-[11px] font-mono-label">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                    Processing tasks...
+                </div>
+</div>
+<!-- Context Menu (Near Codex) -->
+<div class="absolute top-[28%] left-[38%] w-40 bg-surface border border-outline-variant/30 rounded-xl shadow-lg overflow-hidden py-1 z-50">
+<button class="w-full text-left px-3 py-2 text-body-sm hover:bg-surface-container flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">terminal</span> Attach Console
+                </button>
+<button class="w-full text-left px-3 py-2 text-body-sm hover:bg-surface-container flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span> Restart Agent
+                </button>
+<div class="h-px w-full bg-outline-variant/20 my-1"></div>
+<button class="w-full text-left px-3 py-2 text-body-sm hover:bg-error-container text-error flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">stop_circle</span> Stop
+                </button>
+</div>
+<!-- Agent Node 2: Data Ingest -->
+<div class="absolute top-[20%] left-[65%] w-48 bg-surface border border-outline-variant rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer opacity-80">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-on-surface-variant">database</span>
+<span class="font-mono-label font-bold text-on-surface">Data Ingest</span>
+</div>
+<div class="flex items-center gap-1.5 text-on-surface-variant text-[11px] font-mono-label">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+                    Idle
+                </div>
+</div>
+<!-- Agent Node 3: Payment Flow -->
+<div class="absolute top-[70%] left-[35%] w-48 bg-surface border border-outline-variant rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-on-surface-variant">payments</span>
+<span class="font-mono-label font-bold text-on-surface">Payment-Flow</span>
+</div>
+<div class="flex items-center gap-1.5 text-on-surface-variant text-[11px] font-mono-label">
+<span class="w-1.5 h-1.5 rounded-full bg-[#f59e0b] animate-pulse"></span>
+                    Waiting for input...
+                </div>
+</div>
+</div>
+</main>
+<!-- Right Panel -->
+<aside class="w-80 bg-surface/90 backdrop-blur-md border-l border-outline-variant/20 flex flex-col z-10 shrink-0">
+<div class="p-4 border-b border-outline-variant/20">
+<h2 class="font-headline-md text-[18px] text-on-surface mb-1">Agent Details</h2>
+<p class="font-body-sm text-on-surface-variant">Codex mina-aimesh</p>
+</div>
+<div class="p-4 flex flex-col gap-4 overflow-y-auto">
+<div>
+<label class="font-mono-label text-[10px] text-on-surface-variant uppercase tracking-wider mb-1 block">Status</label>
+<div class="flex items-center gap-2 text-secondary font-mono-label">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> Active
+                </div>
+</div>
+<div>
+<label class="font-mono-label text-[10px] text-on-surface-variant uppercase tracking-wider mb-1 block">Uptime</label>
+<div class="font-mono-code text-on-surface">02h 15m 43s</div>
+</div>
+<div>
+<label class="font-mono-label text-[10px] text-on-surface-variant uppercase tracking-wider mb-1 block">Connection</label>
+<div class="font-mono-code text-[11px] text-on-surface break-all bg-surface-container p-2 rounded-xl border border-outline-variant/30">
+                    ws://127.0.0.1:3333/agent/codex
+                </div>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/20">
+<label class="font-mono-label text-[10px] text-on-surface-variant uppercase tracking-wider mb-2 block">Quick Action</label>
+<div class="bg-inverse-surface rounded-xl p-3">
+<p class="font-mono-label text-[11px] text-inverse-on-surface mb-2">Attach to session via tmux:</p>
+<div class="bg-black/30 rounded p-2 flex items-center justify-between">
+<code class="font-mono-code text-[11px] text-[#9af1f1]">tmux a -t codex_mesh</code>
+<button class="text-inverse-on-surface hover:text-[#9af1f1] transition-colors">
+<span class="material-symbols-outlined text-[14px]">content_copy</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</aside>
+</div>
+<!-- Bottom Panel -->
+<div class="h-56 bg-surface/95 backdrop-blur-md border-t border-outline-variant/20 z-20 flex flex-col shrink-0">
+<div class="flex items-center px-4 py-2 border-b border-outline-variant/20 bg-surface-container-low">
+<span class="font-mono-label text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">System Logs</span>
+<div class="ml-auto flex gap-2">
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[16px]">filter_list</span></button>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[16px]">delete_sweep</span></button>
+</div>
+</div>
+<div class="flex-1 overflow-auto p-2 font-mono-code text-[12px]">
+<table class="w-full text-left border-collapse">
+<tbody>
+<tr class="hover:bg-surface-container/50 border-b border-outline-variant/10">
+<td class="py-1.5 px-2 text-on-surface-variant w-24">14:32:01</td>
+<td class="py-1.5 px-2 text-secondary w-20">[INFO]</td>
+<td class="py-1.5 px-2 text-on-surface">Router core heartbeat acknowledged.</td>
+</tr>
+<tr class="hover:bg-surface-container/50 border-b border-outline-variant/10">
+<td class="py-1.5 px-2 text-on-surface-variant">14:31:55</td>
+<td class="py-1.5 px-2 text-secondary">[INFO]</td>
+<td class="py-1.5 px-2 text-on-surface">Agent <span class="text-primary-container font-semibold">Codex mina-aimesh</span> successfully attached to MCP port 3333.</td>
+</tr>
+<tr class="hover:bg-surface-container/50 border-b border-outline-variant/10">
+<td class="py-1.5 px-2 text-on-surface-variant">14:30:12</td>
+<td class="py-1.5 px-2 text-[#f59e0b]">[WARN]</td>
+<td class="py-1.5 px-2 text-on-surface">Payment-Flow agent is waiting for external input event.</td>
+</tr>
+<tr class="hover:bg-surface-container/50">
+<td class="py-1.5 px-2 text-on-surface-variant">14:28:40</td>
+<td class="py-1.5 px-2 text-secondary">[INFO]</td>
+<td class="py-1.5 px-2 text-on-surface">Local server initialized on 127.0.0.1.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<script id="bg-shader" type="x-shader/x-fragment">
+<!-- STITCH_SHADER_START:ANIMATION_13 class="" -->
+<div class="" style="display:block;width:100%;height:100%;min-height:200px;">
+<canvas id="shader-canvas-ANIMATION_13" style="display:block;width:100%;height:100%"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_13');
+
+  // Sync the WebGL drawing-buffer size with the CSS-driven layout size.
+  // This fires on initial layout and whenever the element is resized.
+  function syncSize() {
+    const w = canvas.clientWidth  || 1280;
+    const h = canvas.clientHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+  const fs = `precision highp float;
+varying vec2 v_texCoord;
+uniform float u_time;
+uniform vec2 u_resolution;
+
+// Noise function for subtle grain
+float noise(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void main() {
+    vec2 uv = v_texCoord;
+    
+    // Base color: Warm off-white / light neutral
+    vec3 color = vec3(0.98, 0.97, 0.96);
+    
+    // Subtle gradient to add depth
+    float grad = 1.0 - length(uv - 0.5) * 0.2;
+    color *= grad;
+    
+    // Very faint moving "nodes" or "data flow" effect in the background
+    float flow = sin(uv.x * 10.0 + u_time * 0.5) * cos(uv.y * 10.0 - u_time * 0.3);
+    color += flow * 0.005;
+    
+    // Grain overlay for "paper" texture
+    float n = noise(uv * 500.0);
+    color -= n * 0.02;
+
+    gl_FragColor = vec4(color, 1.0);
+}`;
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  // u_mouse is in pixel coordinates matching u_resolution (ShaderToy convention).
+  // Shaders that need normalized coords should use: u_mouse / u_resolution.
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+</div>
+<!-- STITCH_SHADER_END:ANIMATION_13 -->
+</script>
+<script>
+    // Minimal WebGL setup to run the background shader
+    const canvas = document.getElementById('bg-canvas');
+    const gl = canvas.getContext('webgl');
+
+    if (gl) {
+        // Vertex shader (simple full-screen quad)
+        const vsSource = `
+            attribute vec4 a_position;
+            varying vec2 v_texCoord;
+            void main() {
+                gl_Position = a_position;
+                v_texCoord = a_position.xy * 0.5 + 0.5;
+            }
+        `;
+        
+        // Fragment shader from template
+        const fsSource = document.getElementById('bg-shader').textContent;
+
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
+        }
+
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        gl.useProgram(program);
+
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        const positions = [
+            -1.0, -1.0,
+             1.0, -1.0,
+            -1.0,  1.0,
+            -1.0,  1.0,
+             1.0, -1.0,
+             1.0,  1.0,
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+        const positionLocation = gl.getAttribLocation(program, "a_position");
+        gl.enableVertexAttribArray(positionLocation);
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+        const timeLocation = gl.getUniformLocation(program, "u_time");
+        const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+
+        function render(time) {
+            time *= 0.001; // convert to seconds
+            
+            // Resize canvas to match display size
+            const displayWidth  = canvas.clientWidth;
+            const displayHeight = canvas.clientHeight;
+            if (canvas.width  !== displayWidth || canvas.height !== displayHeight) {
+                canvas.width  = displayWidth;
+                canvas.height = displayHeight;
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            }
+
+            gl.uniform1f(timeLocation, time);
+            gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+            requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
+    }
+</script>
+</body></html>

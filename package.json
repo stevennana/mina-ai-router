@@ -38,7 +38,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:ui && tsc",
+    "build:ui": "vite build --config apps/http-server/ui/vite.config.ts",
+    "dev:ui": "vite --config apps/http-server/ui/vite.config.ts",
     "test": "npm run build && node scripts/core-tests.js",
     "mair": "node dist/apps/cli/src/index.js",
     "mcp": "node dist/apps/mcp-server/src/index.js",
@@ -52,10 +54,16 @@
     "verify": "npm run test && npm run smoke:http && npm run smoke:cli-controls && npm run smoke:tmux && npm run smoke:mcp && npm run smoke:multi"
   },
   "dependencies": {
-    "@minasoft/mcp-runtime": "^0.1.6"
+    "@minasoft/mcp-runtime": "^0.1.6",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
   },
   "devDependencies": {
-    "typescript": "^5.5.3"
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^5.5.3",
+    "vite": "^8.1.0"
   },
   "publishConfig": {
     "access": "public"

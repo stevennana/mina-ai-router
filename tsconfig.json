@@ -8,5 +8,6 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "src/**/*.d.ts"]
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "src/**/*.d.ts"],
+  "exclude": ["apps/http-server/ui"]
 }

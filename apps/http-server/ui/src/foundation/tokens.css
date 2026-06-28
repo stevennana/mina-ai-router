@@ -1,0 +1,75 @@
+:root {
+  color-scheme: light;
+  --bg: #fcf9f8;
+  --surface: #ffffff;
+  --surface-low: #f6f3f2;
+  --surface-container: #f0eded;
+  --surface-high: #eae7e7;
+  --ink: #1c1b1b;
+  --muted: #404846;
+  --muted-2: #717976;
+  --outline: #c0c8c5;
+  --outline-soft: rgba(64, 72, 70, 0.14);
+  --primary: #18443b;
+  --primary-container: #315c52;
+  --primary-soft: #beecdf;
+  --secondary: #006a6a;
+  --success: #16815f;
+  --warning: #a65f14;
+  --danger: #ba1a1a;
+  --terminal: #151716;
+  --terminal-ink: #dff5ea;
+  --radius-sm: 0.25rem;
+  --radius: 0.375rem;
+  --radius-lg: 0.5rem;
+  --shadow-menu: 0 1rem 2rem rgba(30, 45, 39, 0.14);
+  --font-ui: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-head: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 0;
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% 10%, rgba(49, 92, 82, 0.08), transparent 26rem),
+    radial-gradient(circle at 92% 18%, rgba(0, 106, 106, 0.06), transparent 24rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 18rem),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-head);
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
