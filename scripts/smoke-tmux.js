@@ -22,11 +22,16 @@ function main() {
   writeFileSync(
     responderPath,
     [
+      "rid=''",
       "while IFS= read -r line; do",
       "  case \"$line\" in",
       "    'Request ID: '*)",
       "      rid=${line#Request ID: }",
+      "      ;;",
+      "    '<<<MINA_AGENT_RESPONSE_END '*)",
+      "      if [ -n \"$rid\" ]; then",
       "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\nhello from tmux smoke\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
+      "      fi",
       "      ;;",
       "  esac",
       "done",
