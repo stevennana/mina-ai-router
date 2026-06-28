@@ -302,6 +302,98 @@ function assertUiFreshnessSurfaceContent(script, stylesheet) {
   assert.match(stylesheet, /max-height:72vh/);
   assert.match(stylesheet, /activity-body/);
   assert.match(stylesheet, /overflow:auto/);
+  assertStaticVisualFixture(stylesheet);
+}
+
+function assertStaticVisualFixture(stylesheet) {
+  const desktopWidth = 1280;
+  const mobileWidth = 390;
+  const desktopInspectorWidth = Math.min(24 * 16, desktopWidth - 2 * 16);
+  const mobileInspectorWidth = mobileWidth;
+  assert.ok(desktopInspectorWidth <= desktopWidth, "desktop inspector should fit within viewport");
+  assert.ok(mobileInspectorWidth <= mobileWidth, "mobile inspector should fit within viewport");
+  assert.match(stylesheet, /flex-wrap:wrap/);
+  assert.match(stylesheet, /flex:(1 1 )?10rem/);
+  assert.match(stylesheet, /overflow-wrap:anywhere/);
+  assert.match(stylesheet, /min-width:48rem/);
+  assert.match(stylesheet, /activity-body\{[^}]*overflow:auto/);
+
+  const visualFixturePath = join(tempDir, "capability-freshness-visual-fixture.html");
+  writeFileSync(visualFixturePath, buildStaticVisualFixture(stylesheet), "utf8");
+  const fixture = readFileSync(visualFixturePath, "utf8");
+  assert.match(fixture, /data-viewport="desktop"/);
+  assert.match(fixture, /data-viewport="mobile"/);
+  assert.match(fixture, /data-capability-state="missing"/);
+  assert.match(fixture, /data-capability-state="stale"/);
+  assert.match(fixture, /data-capability-state="fresh"/);
+  assert.match(fixture, /data-capability-state="manual"/);
+  assert.match(fixture, /Copy Refresh Command/);
+  assert.match(fixture, /Edit Capabilities/);
+  assert.match(fixture, /activity-table/);
+  console.log(`visual fixture: ${visualFixturePath}`);
+}
+
+function buildStaticVisualFixture(stylesheet) {
+  const cards = [
+    ["missing", "Missing", "unknown source", "No capability notice registered yet.", "No sources recorded."],
+    ["stale", "Stale", "agent-generated", "Stale generated capability notice.", "AGENTS.md"],
+    ["fresh", "Fresh", "agent-generated", "Fresh generated capability notice.", "README.md"],
+    ["manual", "Manual", "manual edit", "Operator-curated capability notice.", "operator notes"],
+  ].map(([state, label, source, summary, sources]) => `
+    <div class="capability-card capability-${state}" data-capability-state="${state}" data-capability-source="${source}">
+      <div class="capability-card-head">
+        <span class="status capability-status ${state}">${label}</span>
+        <span class="subtitle">${source}</span>
+      </div>
+      <p>${summary}</p>
+      <p class="subtitle">${sources}</p>
+      <div class="capability-meta">
+        <span>Updated ${state === "missing" ? "never" : "2026-06-29 00:00"}</span>
+        <span>${state === "manual" ? "This capability card was edited by an operator and is not agent-generated." : "Generated capability metadata state is visible."}</span>
+      </div>
+      <div class="capability-actions">
+        <button class="secondary"><span class="material-symbols-outlined">bolt</span>Edit Capabilities</button>
+        <button class="ghost"><span class="material-symbols-outlined">refresh</span>Copy Refresh Command</button>
+      </div>
+    </div>`).join("");
+
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>${stylesheet}</style>
+<style>
+  body { overflow: auto; padding: 1rem; }
+  .visual-frame { border: 1px solid var(--outline-soft); margin: 0 0 1rem; overflow: hidden; position: relative; }
+  .visual-frame.desktop { width: 1280px; height: 720px; }
+  .visual-frame.mobile { width: 390px; height: 844px; }
+  .visual-frame .floating-inspector { position: absolute; }
+  .visual-frame .floating-activity { position: absolute; height: 12rem; }
+</style>
+</head>
+<body>
+  <main class="visual-frame desktop" data-viewport="desktop">
+    <aside class="inspector floating-inspector" aria-label="Selected agent inspector">
+      <div class="inspector-head"><div><h2>Agent Details</h2><p class="subtitle">ui-stale</p></div><button class="ghost">Hide</button></div>
+      <div class="inspector-body">${cards}</div>
+    </aside>
+    <section class="activity floating-activity">
+      <div class="activity-head"><div><h2>System Activity</h2><p class="subtitle">Recent routed requests from the local state store.</p></div></div>
+      <div class="activity-body"><table class="activity-table"><tbody><tr><td>request-id-that-is-long-enough-to-force-table-scroll</td><td>answered</td></tr></tbody></table></div>
+    </section>
+  </main>
+  <main class="visual-frame mobile" data-viewport="mobile">
+    <aside class="inspector floating-inspector" aria-label="Selected agent inspector">
+      <div class="inspector-head"><div><h2>Agent Details</h2><p class="subtitle">ui-manual</p></div><button class="ghost">Hide</button></div>
+      <div class="inspector-body">${cards}</div>
+    </aside>
+    <section class="activity floating-activity">
+      <div class="activity-head"><div><h2>System Activity</h2><p class="subtitle">Recent routed requests from the local state store.</p></div></div>
+      <div class="activity-body"><table class="activity-table"><tbody><tr><td>mobile-request-id-that-is-long-enough-to-force-table-scroll</td><td>waiting</td></tr></tbody></table></div>
+    </section>
+  </main>
+</body>
+</html>`;
 }
 
 async function json(url) {

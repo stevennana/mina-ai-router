@@ -35,18 +35,18 @@ This is a UI task. Require visual sanity in the inspector and activity layout be
 
 Deterministic check summary:
 {
-  "checked_at": "2026-06-28T15:17:52.847Z",
+  "checked_at": "2026-06-28T15:23:52.411Z",
   "task_id": "capability-freshness-ui",
   "commands": [
     {
       "command": "npm run build",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CgulkabH.css   17.29 kB │ gzip:  4.33 kB\ndist/apps/http-server/src/public/assets/index-8VQ5Ieq-.js   234.99 kB │ gzip: 71.41 kB\n\n✓ built in 57ms\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CgulkabH.css   17.29 kB │ gzip:  4.33 kB\ndist/apps/http-server/src/public/assets/index-8VQ5Ieq-.js   234.99 kB │ gzip: 71.41 kB\n\n✓ built in 56ms\n"
     },
     {
       "command": "npm run smoke:http",
       "ok": true,
-      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:http\n> npm run build && node scripts/smoke-http.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CgulkabH.css   17.29 kB │ gzip:  4.33 kB\ndist/apps/http-server/src/public/assets/index-8VQ5Ieq-.js   234.99 kB │ gzip: 71.41 kB\n\n✓ built in 58ms\nhttp smoke passed\n"
+      "output": "\n> @minasoft/mina-ai-router@0.1.5 smoke:http\n> npm run build && node scripts/smoke-http.js\n\n\n> @minasoft/mina-ai-router@0.1.5 build\n> npm run build:ui && tsc\n\n\n> @minasoft/mina-ai-router@0.1.5 build:ui\n> vite build --config apps/http-server/ui/vite.config.ts\n\nvite v8.1.0 building client environment for production...\n\u001b[2K\rtransforming...✓ 36 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/apps/http-server/src/public/index.html                   0.80 kB │ gzip:  0.45 kB\ndist/apps/http-server/src/public/assets/index-CgulkabH.css   17.29 kB │ gzip:  4.33 kB\ndist/apps/http-server/src/public/assets/index-8VQ5Ieq-.js   234.99 kB │ gzip: 71.41 kB\n\n✓ built in 62ms\nvisual fixture: /var/folders/kr/td7d63zs2sz_hy_11mm05f6w0000gn/T/mina-http-smoke-v70FNc/capability-freshness-visual-fixture.html\nhttp smoke passed\n"
     },
     {
       "command": "npm run smoke:docs",
@@ -59,21 +59,20 @@ Deterministic check summary:
 }
 
 Worker handoff summary from the last run:
-Implemented the capability freshness UI follow-up and wrote `state/last-result.txt`.
+Implemented the verification follow-up for `capability-freshness-ui`.
 
 Changed:
-- Added stable `data-capability-state` / source attributes to capability cards.
-- Added `Copy Refresh Command` for `mair agent refresh-capabilities <id>`.
-- Preserved `Edit Capabilities` as the manual edit path.
-- Expanded `npm run smoke:http` to assert freshness labels/actions and responsive inspector/activity CSS constraints, including the sandbox listener-denied fallback.
-- Updated the active task progress log.
+- Added deterministic static visual fixture assertions to `scripts/smoke-http.js` for desktop/mobile inspector and activity layout.
+- Fixture covers missing/stale/fresh/manual capability cards, `Edit Capabilities`, `Copy Refresh Command`, and activity table overflow containment.
+- Updated `docs/exec-plans/active/005-capability-freshness-ui.md`.
+- Wrote the operator handoff to `state/last-result.txt`.
 
 Checks:
 - `npm run build` passed.
-- `npm run smoke:http` passed via the sandbox `EPERM` HTTP-listener skip path after built-asset UI assertions.
+- `npm run smoke:http` passed via the sandbox `EPERM` HTTP-listener path after built-asset and visual-fixture assertions.
 - `npm run smoke:docs` passed.
 
-Browser screenshots could not be captured because the in-app browser backend was unavailable and no local Playwright/Puppeteer/Chrome binary is installed. Pre-existing modified files `scripts/ralph/generated/current-task-prompt.txt` and `state/run-log.md` were left untouched.
+Exit criteria appear satisfied. In-app browser screenshots still could not be captured because the `iab` browser backend is unavailable in this session. Pre-existing modified files `scripts/ralph/generated/current-task-prompt.txt` and `state/run-log.md` were left untouched.
 
 Your job:
 - inspect the repository and current implementation

@@ -46,10 +46,8 @@ Required commands for this task:
 - npm run smoke:docs
 
 Previous known gaps from the last evaluation:
-- No visual sanity evidence for the inspector and activity layout, despite evaluator notes requiring it before promotion.
-- No desktop and mobile overflow verification evidence for floating panels.
-- No focused UI/DOM/screenshot assertion proving the new freshness states render in the browser console.
-- The worker handoff explicitly says browser screenshots could not be captured, so UI verification was limited to build and static CSS/layout inspection.
+- Rendered desktop and mobile visual sanity for the inspector and activity layout was not proven.
+- No screenshot or browser DOM/layout verification confirms the new capability UI avoids overflow in real viewports.
 
 
 

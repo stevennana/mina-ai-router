@@ -274,3 +274,17 @@
 - worker-summary: Implemented the capability freshness UI follow-up and wrote `state/last-result.txt`.
 - evaluator: started
 - evaluator: status=not_done promotion=false The implementation appears to expose capability freshness states, preserves manual editing, adds a safe refresh-command copy affordance, and the provided required command summary passes. However, this is explicitly a UI task and the evaluator notes require visual sanity in the inspector and activity layout before promotion. The worker could not capture desktop/mobile browser screenshots, and the current smoke coverage only asserts bundled strings/CSS constraints, not rendered overflow behavior. -> state/artifacts/20260629T001043-capability-freshness-ui/evaluator.log
+- commit: commit: created
+- promote: Task capability-freshness-ui not eligible for promotion.
+- backlog: rendered current=capability-freshness-ui
+- health: ooxxxxxxxxxxxxxooxx
+- cycle: finished
+
+### cycle 2026-06-29T00:19:43+09:00 task=capability-freshness-ui
+- artifacts: state/artifacts/20260629T001943-capability-freshness-ui
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260629T001943-capability-freshness-ui/worker.jsonl
+- worker-summary: Implemented the verification follow-up for `capability-freshness-ui`.
+- evaluator: started
+- evaluator: status=not_done promotion=false Implementation appears functionally close: the inspector computes and displays missing/stale/fresh/manual capability states, manual edits remain available through Edit Capabilities, Copy Refresh Command is non-destructive, and required commands are reported passing. I would not promote yet because the task explicitly requires visual sanity for inspector and activity layout, but the added smoke coverage only checks bundled strings/CSS patterns and writes an unrendered static fixture; no actual desktop/mobile screenshot or DOM layout measurement verifies overflow behavior. -> state/artifacts/20260629T001943-capability-freshness-ui/evaluator.log
