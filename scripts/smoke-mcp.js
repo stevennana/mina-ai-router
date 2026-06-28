@@ -28,7 +28,7 @@ async function main() {
     const mcp = new McpClient(distMcp, env);
     try {
       const initialize = await mcp.request("initialize", {});
-      assert.equal(initialize.serverInfo.name, "mina-agent-router");
+      assert.equal(initialize.serverInfo.name, "mina-ai-router");
 
       const tools = await mcp.request("tools/list", {});
       assert.deepEqual(

@@ -145,7 +145,7 @@ async function createProvider(): Promise<McpRuntimeProvider> {
     },
     {
       name: "register_agent",
-      description: "Register or update an agent in Mina Agent Router. Use this from a visible project Codex session to connect itself to the router.",
+      description: "Register or update an agent in Mina AI Router. Use this from a visible project Codex session to connect itself to the router.",
       inputSchema: {
         type: "object",
         properties: {
@@ -180,7 +180,7 @@ async function createProvider(): Promise<McpRuntimeProvider> {
     },
     {
       name: "get_request_status",
-      description: "Return status for a Mina Agent Router request.",
+      description: "Return status for a Mina AI Router request.",
       inputSchema: {
         type: "object",
         properties: {
@@ -194,7 +194,7 @@ async function createProvider(): Promise<McpRuntimeProvider> {
 
   providerPromise = Promise.resolve({
     serverInfo: {
-      name: "mina-agent-router",
+      name: "mina-ai-router",
       version: "0.1.0",
     },
     tools: {

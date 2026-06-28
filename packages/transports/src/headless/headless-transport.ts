@@ -16,7 +16,7 @@ export class HeadlessTransport implements AgentTransport {
     const answer = [
       `Headless response from ${agent.id}.`,
       "",
-      "This transport is for local POC testing only.",
+      "This transport is for local testing only.",
       "It proves the router envelope, request lifecycle, and response parser without a live CLI session.",
       "",
       `Received ${prompt.length} prompt characters for request ${requestId}.`,

@@ -69,7 +69,7 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Mina Agent Router HTTP server`);
+  console.log(`Mina AI Router HTTP server`);
   console.log(`UI:  http://${host}:${port}/`);
   console.log(`MCP: http://${host}:${port}/mcp`);
   console.log(`State: ${statePath}`);
@@ -250,7 +250,7 @@ async function handleRequestAction(requestId: string, action: string) {
 
   if (action === "cancel") {
     const updated = context.requestStore.updateStatus(requestId, "cancelled", {
-      error: "Cancelled by operator from Mina Agent Router UI.",
+      error: "Cancelled by operator from Mina AI Router UI.",
     });
     context.save();
     return updated;
@@ -540,7 +540,7 @@ function createTmuxAgent(body: Record<string, unknown>) {
     const capture = tmux.capture(sessionId);
     if (agentType === "codex" && isCodexTrustPrompt(capture)) {
       registration = "waiting for Codex directory trust approval";
-      nextAction = `Attach with "tmux attach -t ${sessionId}", approve the Codex trust prompt, then ask the agent to register this session with Mina Agent Router.`;
+      nextAction = `Attach with "tmux attach -t ${sessionId}", approve the Codex trust prompt, then ask the agent to register this session with Mina AI Router.`;
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
       if (agentType === "codex") {
@@ -558,7 +558,7 @@ function createTmuxAgent(body: Record<string, unknown>) {
     registration,
     nextAction,
     attachCommand: `tmux attach -t ${sessionId}`,
-    marAttachCommand: `mar attach ${id}`,
+    mairAttachCommand: `mair attach ${id}`,
   };
 }
 
@@ -586,7 +586,7 @@ function setupCodexPair(body: Record<string, unknown>) {
     mainRoot,
     helper: agent,
     mcpUrl: `http://${host}:${port}/mcp`,
-    codexMcpAdd: `codex mcp add mina-agent-router --url http://${host}:${port}/mcp`,
+    codexMcpAdd: `codex mcp add mina-ai-router --url http://${host}:${port}/mcp`,
     startMainCodex: `cd ${mainRoot} && codex --no-alt-screen`,
     attachHelper: `tmux attach -t ${sessionId}`,
   };
@@ -594,7 +594,7 @@ function setupCodexPair(body: Record<string, unknown>) {
 
 function buildSelfRegistrationPrompt(agent: Agent): string {
   return [
-    "Use Mina Agent Router MCP register_agent to register this visible CLI session.",
+    "Use Mina AI Router MCP register_agent to register this visible CLI session.",
     "Collect any missing context yourself when possible, but use these values as authoritative:",
     `- id: ${agent.id}`,
     `- name: ${agent.name}`,

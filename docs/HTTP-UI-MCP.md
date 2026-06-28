@@ -1,6 +1,6 @@
 # HTTP UI and MCP Server
 
-Mina Agent Router now runs as a local HTTP server.
+Mina AI Router now runs as a local HTTP server.
 
 It serves both:
 
@@ -19,7 +19,7 @@ The HTTP MCP endpoint exposes:
 ## Start
 
 ```sh
-cd /Users/stevenna/WebstormProjects/mina-aimesh
+cd mina-ai-router
 npm run build
 node dist/apps/cli/src/index.js server start --port 3333
 node dist/apps/cli/src/index.js server status
@@ -28,22 +28,22 @@ node dist/apps/cli/src/index.js server status
 Or, after `npm link`:
 
 ```sh
-mar server start --port 3333
-mar server status
+mair server start --port 3333
+mair server status
 ```
 
 Stop:
 
 ```sh
-mar server stop
+mair server stop
 ```
 
 ## Connect Codex CLI
 
 ```sh
-codex mcp remove mina-agent-router
-codex mcp add mina-agent-router --url http://127.0.0.1:3333/mcp
-codex mcp get mina-agent-router
+codex mcp remove mina-ai-router
+codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
+codex mcp get mina-ai-router
 ```
 
 Expected transport:
@@ -71,7 +71,7 @@ The page shows:
 - agent controls in the context menu: details, history, ask, attach commands, copy attach command, restart session, delete agent
 - right-click flow background menu for creating a tmux-backed Codex or Claude agent from a project directory
 - a `Connect Agent` guide instead of manual UI registration
-- hidden `Developer Tools` for POC helpers such as the two-Codex demo and stale request cleanup
+- hidden `Developer Tools` for diagnostics such as the two-Codex demo and stale request cleanup
 
 ## Health
 
@@ -84,9 +84,9 @@ http://127.0.0.1:3333/api/health
 The CLI exposes the same operator view:
 
 ```sh
-mar health
-mar version
-mar verify
+mair health
+mair version
+mair verify
 ```
 
 ## Visible Agent Commands
@@ -94,7 +94,7 @@ mar verify
 Start a visible Codex agent in the current directory:
 
 ```sh
-mar codex
+mair codex
 ```
 
 This derives the agent id and tmux session from the current directory. For example, from `/Users/stevenna/WebstormProjects/minasoftai`, it uses:
@@ -108,13 +108,13 @@ The started agent also receives a self-registration prompt. During registration 
 Start a visible Claude agent:
 
 ```sh
-mar claude
+mair claude
 ```
 
 Override values when needed:
 
 ```sh
-mar codex --id ralph --session mina-ralph-codex --root /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs
+mair codex --id ralph --session mina-ralph-codex --root /Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs
 ```
 
 ## Verify
@@ -125,10 +125,10 @@ npm run smoke:http
 
 ## Current Test Flow
 
-1. Start HTTP server with `mar server start --port 3333`.
+1. Start HTTP server with `mair server start --port 3333`.
 2. Open the UI.
 3. Click `Connect Agent` for the registration command guide.
-4. Start an agent from its project directory with `mar codex` or `mar claude`.
+4. Start an agent from its project directory with `mair codex` or `mair claude`.
 5. Confirm the agent appears in the flow diagram.
 6. Click the agent node and use the context menu to inspect details, view history, or delete it.
 

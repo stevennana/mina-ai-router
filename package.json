@@ -1,17 +1,30 @@
 {
-  "name": "mina-aimesh",
+  "name": "@minsoft/mina-ai-router",
   "version": "0.1.0",
-  "description": "Mina Agent Router POC",
+  "description": "Local MCP router and Web UI for visible tmux-backed AI agents.",
   "main": "dist/apps/cli/src/index.js",
   "bin": {
-    "mar": "dist/apps/cli/src/index.js",
-    "mar-mcp": "dist/apps/mcp-server/src/index.js",
-    "mar-http": "dist/apps/http-server/src/index.js"
+    "mair": "dist/apps/cli/src/index.js",
+    "mair-mcp": "dist/apps/mcp-server/src/index.js",
+    "mair-http": "dist/apps/http-server/src/index.js"
   },
+  "files": [
+    "dist",
+    "docs/assets",
+    "docs/GETTING-STARTED.md",
+    "docs/USER-START-GUIDE.md",
+    "docs/DEVELOPER-START-GUIDE.md",
+    "docs/MCP-CLIENT-SETUP.md",
+    "docs/SKILL-INSTALL-GUIDE.md",
+    "docs/HTTP-UI-MCP.md",
+    "docs/TROUBLESHOOTING.md",
+    "skills",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "npm run build && node scripts/core-tests.js",
-    "mar": "node dist/apps/cli/src/index.js",
+    "mair": "node dist/apps/cli/src/index.js",
     "mcp": "node dist/apps/mcp-server/src/index.js",
     "http": "node dist/apps/http-server/src/index.js",
     "smoke": "npm run build && node dist/apps/cli/src/index.js register payment --agent gemini --transport headless --session payment --root ./payment && node dist/apps/cli/src/index.js ask payment \"현재 payment flow를 요약해줘.\"",
@@ -28,5 +41,7 @@
   "devDependencies": {
     "typescript": "^5.5.3"
   },
-  "private": true
+  "publishConfig": {
+    "access": "public"
+  }
 }

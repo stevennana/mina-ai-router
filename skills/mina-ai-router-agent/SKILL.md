@@ -1,18 +1,18 @@
 ---
-name: mina-agent-router-agent
-description: Register the current visible Codex or Claude CLI session with Mina Agent Router through MCP. Use when the user says to connect, register, join, attach, or make the current CLI agent available in Mina/MAR, especially from inside a tmux-backed project session.
+name: mina-ai-router-agent
+description: Register the current visible Codex or Claude CLI session with Mina AI Router through MCP. Use when the user says to connect, register, join, attach, or make the current CLI agent available in Mina/MAIR, especially from inside a tmux-backed project session.
 ---
 
-# Mina Agent Router Agent
+# Mina AI Router Agent
 
 ## Purpose
 
-Register the current visible CLI agent session with Mina Agent Router using the MCP tool `register_agent`.
+Register the current visible CLI agent session with Mina AI Router using the MCP tool `register_agent`.
 
 Use this skill when the user asks for a short instruction such as:
 
 - "register this session with Mina"
-- "connect this agent to MAR"
+- "connect this agent to MAIR"
 - "join the router"
 - "make this Codex/Claude visible in Mina"
 
@@ -59,6 +59,6 @@ Set:
 ## Rules
 
 - Do not ask the user to manually provide the full registration payload unless inference fails.
-- If not running inside tmux, explain that Mina visible-session routing expects a tmux session and ask the user to start through `mar codex` or `mar claude`.
-- If `register_agent` is not available, ask the user to update Mina Agent Router or restart the MCP server.
+- If not running inside tmux, explain that Mina visible-session routing expects a tmux session and ask the user to start through `mair codex` or `mair claude`.
+- If `register_agent` is not available, ask the user to update Mina AI Router or restart the MCP server.
 - Keep the user-facing response short: say the agent id, session id, project root, capability source, and registration status.

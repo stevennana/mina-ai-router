@@ -33,8 +33,8 @@ Useful checks:
 ```sh
 tmux ls
 tmux capture-pane -t payment -p -J -S -200
-mar request <request-id>
-mar attach payment
+mair request <request-id>
+mair attach payment
 ```
 
 ## Answer Is `...` or `[your answer]`
@@ -53,18 +53,18 @@ npm run smoke:tmux
 Check the registered session ids:
 
 ```sh
-mar agents
-mar agent payment
-mar agent delivery
+mair agents
+mair agent payment
+mair agent delivery
 ```
 
 If needed, register with an explicit tmux pane target:
 
 ```sh
-mar register payment --agent gemini --transport tmux --session payment --target payment:0.0 --root ~/work/payment
+mair register payment --agent gemini --transport tmux --session payment --target payment:0.0 --root ~/work/payment
 ```
 
-## Reset POC State
+## Reset Local State
 
 Runtime JSON state is ignored by git.
 

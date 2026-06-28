@@ -14,7 +14,7 @@ import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport,
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
 const version = "0.1.0";
-const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mar-server.json");
+const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mair-server.json");
 
 async function main(argv: string[]): Promise<void> {
   const command = argv[2];
@@ -30,7 +30,7 @@ async function main(argv: string[]): Promise<void> {
     case "version":
     case "--version":
     case "-v":
-      printJson({ name: "mina-aimesh", version });
+      printJson({ name: "@minsoft/mina-ai-router", version });
       break;
     case "health":
       await showHealth(context);
@@ -75,7 +75,7 @@ async function main(argv: string[]): Promise<void> {
       showRequest(argv.slice(3), context);
       break;
     default:
-      throw new Error(`Unknown command "${command}". Run "mar help".`);
+      throw new Error(`Unknown command "${command}". Run "mair help".`);
   }
 }
 
@@ -94,7 +94,7 @@ function handleServerCommand(args: string[]): void {
       printJson(serverStatus());
       break;
     default:
-      throw new Error("Usage: mar server <start|stop|status> [--port 3333] [--host 127.0.0.1]");
+      throw new Error("Usage: mair server <start|stop|status> [--port 3333] [--host 127.0.0.1]");
   }
 }
 
@@ -109,7 +109,7 @@ function startServer(flags: Record<string, string>): void {
   const host = flags.host ?? process.env.MINA_HTTP_HOST ?? "127.0.0.1";
   const serverPath = join(__dirname, "../../http-server/src/index.js");
   mkdirSync(dirname(serverPidPath), { recursive: true });
-  const logPath = flags.log ?? join(dirname(serverPidPath), "mar-server.log");
+  const logPath = flags.log ?? join(dirname(serverPidPath), "mair-server.log");
   const child = spawn(process.execPath, [serverPath], {
     detached: true,
     stdio: "ignore",
@@ -260,7 +260,7 @@ function startVisibleAgent(
 
 function buildSelfRegistrationPrompt(agent: Agent): string {
   return [
-    "Use Mina Agent Router MCP register_agent to register this visible CLI session.",
+    "Use Mina AI Router MCP register_agent to register this visible CLI session.",
     "Collect any missing context yourself when possible, but use these values as authoritative:",
     `- id: ${agent.id}`,
     `- name: ${agent.name}`,
@@ -341,7 +341,7 @@ function setupCodexPair(args: string[], context: ReturnType<typeof createContext
   const helperRoot = options["helper-root"] ?? "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs";
   const helperId = options["helper-id"] ?? "ralph";
   const sessionId = options.session ?? "mina-ralph-codex";
-  const mcpName = options["mcp-name"] ?? "mina-agent-router";
+  const mcpName = options["mcp-name"] ?? "mina-ai-router";
   const codexCommand = options["codex-command"] ?? "codex --no-alt-screen";
 
   assertCommandAvailable("codex");
@@ -395,10 +395,10 @@ function setupCodexPair(args: string[], context: ReturnType<typeof createContext
     },
     nextSteps: [
       "Run npm run build before installing the MCP command if you changed source files.",
-      "Run the mcp.addCommand once so Codex CLI can see Mina Agent Router.",
+      "Run the mcp.addCommand once so Codex CLI can see Mina AI Router.",
       "Attach to the helper session and make sure helper Codex is ready.",
       "Start Codex in the main.root project.",
-      `Ask main Codex to call Mina Agent Router target '${helperId}' for questions about the helper project.`,
+      `Ask main Codex to call Mina AI Router target '${helperId}' for questions about the helper project.`,
     ],
   });
 }
@@ -440,7 +440,7 @@ function createContext() {
 function registerAgent(args: string[], context: ReturnType<typeof createContext>): void {
   const id = args[0];
   if (!id) {
-    throw new Error("Usage: mar register <id> --agent <type> --transport <transport> --session <session> --root <path>");
+    throw new Error("Usage: mair register <id> --agent <type> --transport <transport> --session <session> --root <path>");
   }
 
   const options = parseFlags(args.slice(1));
@@ -472,7 +472,7 @@ async function listAgents(context: ReturnType<typeof createContext>): Promise<vo
 async function showAgent(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
   const id = args[0];
   if (!id) {
-    throw new Error("Usage: mar agent <id>");
+    throw new Error("Usage: mair agent <id>");
   }
 
   const agent = context.registry.require(id);
@@ -487,7 +487,7 @@ async function showAgent(args: string[], context: ReturnType<typeof createContex
 function showAttach(args: string[], context: ReturnType<typeof createContext>): void {
   const id = args[0];
   if (!id) {
-    throw new Error("Usage: mar attach <id>");
+    throw new Error("Usage: mair attach <id>");
   }
 
   const agent = context.registry.require(id);
@@ -506,7 +506,7 @@ async function askAgent(args: string[], context: ReturnType<typeof createContext
   const task = args.slice(1).join(" ").trim();
 
   if (!target || !task) {
-    throw new Error('Usage: mar ask <target> "question" [--timeout-ms 300000]');
+    throw new Error('Usage: mair ask <target> "question" [--timeout-ms 300000]');
   }
 
   const flags = parseFlags(args);
@@ -536,7 +536,7 @@ function listRequests(args: string[], context: ReturnType<typeof createContext>)
 function showRequest(args: string[], context: ReturnType<typeof createContext>): void {
   const requestId = args[0];
   if (!requestId) {
-    throw new Error("Usage: mar request <request-id>");
+    throw new Error("Usage: mair request <request-id>");
   }
 
   printJson(context.router.getRequest(requestId));
@@ -617,36 +617,36 @@ function taskFromArgs(args: string[]): string {
 }
 
 function printHelp(): void {
-  console.log(`Mina Agent Router POC
+  console.log(`Mina AI Router
 
 Commands:
-  mar version
-  mar health
-  mar verify
-  mar server start [--port 3333] [--host 127.0.0.1]
-  mar server stop
-  mar server status
-  mar codex [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
-  mar claude [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
-  mar register <id> --agent <type> --transport <headless|mock|tmux|zmux> --session <session> --root <path>
-  mar agents
-  mar agent <id>
-  mar attach <id>
-  mar setup-codex-pair [--main-root <path>] [--helper-root <path>] [--helper-id <id>] [--session <tmux-session>]
-  mar serve [--port 3333]
-  mar ask <target> "question"
-  mar requests [--target <id>]
-  mar request <request-id>
+  mair version
+  mair health
+  mair verify
+  mair server start [--port 3333] [--host 127.0.0.1]
+  mair server stop
+  mair server status
+  mair codex [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
+  mair claude [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
+  mair register <id> --agent <type> --transport <headless|mock|tmux|zmux> --session <session> --root <path>
+  mair agents
+  mair agent <id>
+  mair attach <id>
+  mair setup-codex-pair [--main-root <path>] [--helper-root <path>] [--helper-id <id>] [--session <tmux-session>]
+  mair serve [--port 3333]
+  mair ask <target> "question"
+  mair requests [--target <id>]
+  mair request <request-id>
 
 Example:
-  mar register payment --agent gemini --transport headless --session payment --root ./payment
-  mar register payment --agent gemini --transport tmux --session payment --root ~/work/payment
-  mar setup-codex-pair
-  mar serve
-  mar server start --port 3333
-  mar codex
-  mar claude
-  mar ask payment "현재 payment flow를 요약해줘."
+  mair register payment --agent gemini --transport headless --session payment --root ./payment
+  mair register payment --agent gemini --transport tmux --session payment --root ~/work/payment
+  mair setup-codex-pair
+  mair serve
+  mair server start --port 3333
+  mair codex
+  mair claude
+  mair ask payment "현재 payment flow를 요약해줘."
 
 State:
   Set MINA_ROUTER_STATE=/path/to/router-state.json to share state between CLI and MCP.

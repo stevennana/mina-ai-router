@@ -32,7 +32,7 @@ async function main() {
     assert.equal(typeof health.ok, "boolean");
 
     const html = await text(`${baseUrl}/`);
-    assert.match(html, /Mina Agent Router/);
+    assert.match(html, /Mina AI Router/);
     assert.match(html, /Live Agent Flow/);
     assert.match(html, /Connect Agent/);
     assert.match(html, /Developer Tools/);
@@ -62,7 +62,7 @@ async function main() {
     assert.equal(uiCreated.agent.id, "ui-created");
     assert.equal(uiCreated.agent.sessionId, uiSession);
     assert.equal(uiCreated.attachCommand, `tmux attach -t ${uiSession}`);
-    assert.equal(uiCreated.marAttachCommand, "mar attach ui-created");
+    assert.equal(uiCreated.mairAttachCommand, "mair attach ui-created");
 
     const terminal = await json(`${baseUrl}/api/agents/ui-created/terminal`);
     assert.equal(terminal.agent.id, "ui-created");
@@ -118,7 +118,7 @@ async function main() {
       method: "initialize",
       params: {},
     });
-    assert.equal(initialized.result.serverInfo.name, "mina-agent-router");
+    assert.equal(initialized.result.serverInfo.name, "mina-ai-router");
 
     const tools = await postMcp({
       jsonrpc: "2.0",

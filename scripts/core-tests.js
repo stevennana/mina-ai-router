@@ -18,39 +18,39 @@ async function main() {
 function testParser() {
   const output = [
     "noise",
-    "<<<MINA_AGENT_RESPONSE_START mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_START mair-test>>>",
     "answer body",
-    "<<<MINA_AGENT_RESPONSE_END mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_END mair-test>>>",
     "more noise",
   ].join("\n");
 
-  assert.equal(parseMarkedResponse(output, "mar-test"), "answer body");
+  assert.equal(parseMarkedResponse(output, "mair-test"), "answer body");
   assert.throws(() => parseMarkedResponse(output, "missing"), /Response markers/);
 
   const echoedPromptAndAnswer = [
     "Wrap your final answer with:",
-    "<<<MINA_AGENT_RESPONSE_START mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_START mair-test>>>",
     "[your answer]",
-    "<<<MINA_AGENT_RESPONSE_END mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_END mair-test>>>",
     "actual terminal output",
-    "<<<MINA_AGENT_RESPONSE_START mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_START mair-test>>>",
     "real answer",
-    "<<<MINA_AGENT_RESPONSE_END mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_END mair-test>>>",
   ].join("\n");
-  assert.equal(parseMarkedResponse(echoedPromptAndAnswer, "mar-test"), "real answer");
+  assert.equal(parseMarkedResponse(echoedPromptAndAnswer, "mair-test"), "real answer");
 
   const placeholderOnly = [
-    "<<<MINA_AGENT_RESPONSE_START mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_START mair-test>>>",
     "| [your",
     "  answer] |",
-    "<<<MINA_AGENT_RESPONSE_END mar-test>>>",
+    "<<<MINA_AGENT_RESPONSE_END mair-test>>>",
   ].join("\n");
-  assert.throws(() => parseMarkedResponse(placeholderOnly, "mar-test"), /Response markers/);
+  assert.throws(() => parseMarkedResponse(placeholderOnly, "mair-test"), /Response markers/);
 }
 
 function testPromptEnvelope() {
   const request = {
-    id: "mar-test",
+    id: "mair-test",
     sourceAgent: "shopping",
     targetAgent: "payment",
     task: "summarize payment",
@@ -68,10 +68,10 @@ function testPromptEnvelope() {
   };
 
   const envelope = buildPromptEnvelope(request, agent);
-  assert.match(envelope, /Request ID: mar-test/);
+  assert.match(envelope, /Request ID: mair-test/);
   assert.match(envelope, /To: payment \/ gemini/);
   assert.match(envelope, /summarize payment/);
-  assert.match(envelope, /MINA_AGENT_RESPONSE_START mar-test/);
+  assert.match(envelope, /MINA_AGENT_RESPONSE_START mair-test/);
 }
 
 async function testRouterLifecycle() {

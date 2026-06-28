@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mina Agent Router</title>
+    <title>Mina AI Router</title>
     <style>
       :root {
         color-scheme: light;
@@ -736,7 +736,7 @@
       <header>
         <div class="topbar">
           <div>
-            <h1>Mina Agent Router</h1>
+            <h1>Mina AI Router</h1>
             <p class="subtitle">Agent-to-agent flow map for visible CLI sessions</p>
           </div>
           <div class="toolbar">
@@ -1007,7 +1007,7 @@
             ${kv("Detail", agent.detail || "-")}
             ${kv("Last request", agent.lastRequestStatus || "-")}
             ${kv("Attach command", attachCommand(agent))}
-            ${kv("MAR attach command", marAttachCommand(agent))}
+            ${kv("MAIR attach command", marAttachCommand(agent))}
             ${kv("Open root", `cd ${agent.projectRoot || "."}`)}
           </div>
           <form id="capabilityForm" class="detail-grid" style="margin-top: 1rem">
@@ -1044,10 +1044,10 @@
           <div class="guide-steps">
             <div class="notice">The web UI can control routing and session lifecycle. For full interactive terminal control, run one of these commands in your terminal app.</div>
             <div class="kv"><span>tmux attach</span><code>${escapeHtml(attachCommand(agent))}</code></div>
-            <div class="kv"><span>MAR helper command</span><code>${escapeHtml(marAttachCommand(agent))}</code></div>
+            <div class="kv"><span>MAIR helper command</span><code>${escapeHtml(marAttachCommand(agent))}</code></div>
             <div class="actions">
               <button type="button" id="copyTmuxAttach">Copy tmux attach</button>
-              <button type="button" class="secondary" id="copyMarAttach">Copy mar attach</button>
+              <button type="button" class="secondary" id="copyMarAttach">Copy mair attach</button>
             </div>
           </div>
         `);
@@ -1197,10 +1197,10 @@
         showModal("Connect an agent", "Start a visible CLI session and let the agent self-register through MCP", `
           <div class="guide-steps">
             <div class="notice">Use these commands from the project directory you want to expose as an agent. The CLI sends a short self-registration prompt, and the agent fills capabilitySummary from project docs or structure.</div>
-            ${kv("Start Codex agent", "cd /path/to/project && mar codex")}
-            ${kv("Start Claude agent", "cd /path/to/project && mar claude")}
-            ${kv("Manual prompt inside the CLI", "Register this session with Mina Agent Router.")}
-            <div class="kv"><span>Codex MCP command</span><code>codex mcp add mina-agent-router --url ${escapeHtml(currentState.mcpUrl || "http://127.0.0.1:3333/mcp")}</code></div>
+            ${kv("Start Codex agent", "cd /path/to/project && mair codex")}
+            ${kv("Start Claude agent", "cd /path/to/project && mair claude")}
+            ${kv("Manual prompt inside the CLI", "Register this session with Mina AI Router.")}
+            <div class="kv"><span>Codex MCP command</span><code>codex mcp add mina-ai-router --url ${escapeHtml(currentState.mcpUrl || "http://127.0.0.1:3333/mcp")}</code></div>
           </div>
         `);
       }
@@ -1306,7 +1306,7 @@
             registration: result.registration,
             nextAction: result.nextAction,
             tmuxAttach: result.attachCommand,
-            marAttach: result.marAttachCommand,
+            mairAttach: result.mairAttachCommand,
           }, null, 2);
           render();
           startTerminalPanel({
@@ -1436,7 +1436,7 @@
 
       function showDeveloperTools() {
         const recent = currentState.requests.slice().reverse().slice(0, 12);
-        showModal("Developer tools", "Hidden diagnostics and POC helpers", `
+        showModal("Developer tools", "Hidden diagnostics and maintenance helpers", `
           <div class="actions">
             <button type="button" id="setupPair">Create Two-Codex Demo</button>
             <button type="button" class="secondary" id="archiveStale">Archive Stale</button>
@@ -1526,7 +1526,7 @@
 
       $("refresh").onclick = () => withBusy(refresh);
       $("copyMcpCommand").onclick = () => withBusy(async () => {
-        const command = `codex mcp add mina-agent-router --url ${currentState.mcpUrl}`;
+        const command = `codex mcp add mina-ai-router --url ${currentState.mcpUrl}`;
         await copyText(command);
         lastAskOutput = `Copied: ${command}`;
         render();
@@ -1608,7 +1608,7 @@
           return "not available for non-tmux agents";
         }
 
-        return `mar attach ${agent.id}`;
+        return `mair attach ${agent.id}`;
       }
 
       function healthMessage(agent) {

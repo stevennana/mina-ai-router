@@ -2,7 +2,7 @@ import type { Agent, AgentRequest } from "./types";
 
 export function buildPromptEnvelope(request: AgentRequest, target: Agent): string {
   return [
-    "[Mina Agent Router Request]",
+    "[Mina AI Router Request]",
     `Request ID: ${request.id}`,
     `From: ${request.sourceAgent}`,
     `To: ${target.id} / ${target.agentType}`,

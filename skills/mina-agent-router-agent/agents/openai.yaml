@@ -1,4 +1,0 @@
-interface:
-  display_name: "Mina Agent Router Agent"
-  short_description: "Register the current visible CLI agent with Mina Agent Router."
-  default_prompt: "Register this CLI session with Mina Agent Router."
