@@ -13,7 +13,7 @@ import {
 import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
-const version = "0.1.1";
+const version = "0.1.2";
 const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mair-server.json");
 
 async function main(argv: string[]): Promise<void> {
