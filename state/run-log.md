@@ -288,3 +288,17 @@
 - worker-summary: Implemented the verification follow-up for `capability-freshness-ui`.
 - evaluator: started
 - evaluator: status=not_done promotion=false Implementation appears functionally close: the inspector computes and displays missing/stale/fresh/manual capability states, manual edits remain available through Edit Capabilities, Copy Refresh Command is non-destructive, and required commands are reported passing. I would not promote yet because the task explicitly requires visual sanity for inspector and activity layout, but the added smoke coverage only checks bundled strings/CSS patterns and writes an unrendered static fixture; no actual desktop/mobile screenshot or DOM layout measurement verifies overflow behavior. -> state/artifacts/20260629T001943-capability-freshness-ui/evaluator.log
+- commit: commit: created
+- promote: Task capability-freshness-ui not eligible for promotion.
+- backlog: rendered current=capability-freshness-ui
+- health: ooxxxxxxxxxxxxxooxxx
+- cycle: finished
+
+### cycle 2026-06-29T00:26:03+09:00 task=capability-freshness-ui
+- artifacts: state/artifacts/20260629T002603-capability-freshness-ui
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260629T002603-capability-freshness-ui/worker.jsonl
+- worker-summary: Focused pass complete.
+- evaluator: started
+- evaluator: status=not_done promotion=false The capability freshness implementation appears functionally present: the inspector computes and displays missing/stale/fresh/manual states, manual edits remain available through Edit Capabilities, and the refresh affordance safely copies the existing CLI command. However, the task explicitly requires visual sanity for the inspector and activity layout before promotion. Current verification is static CSS/fixture assertion rather than rendered browser screenshot or real DOM overflow measurement, and the handoff confirms live browser verification was not completed. -> state/artifacts/20260629T002603-capability-freshness-ui/evaluator.log
