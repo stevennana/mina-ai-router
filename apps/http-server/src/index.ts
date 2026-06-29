@@ -293,20 +293,16 @@ async function handleRequestAction(requestId: string, action: string) {
   }
 
   if (action === "recover") {
-    const updated = context.requestStore.markRecovered(
+    const updated = context.router.recoverRequestLease(
       requestId,
       "ui",
       "Marked recovered by operator from Mina AI Router UI.",
     );
-    clearAgentLeaseForRequest(updated);
-    context.save();
     return updated;
   }
 
   if (action === "archive") {
-    const updated = context.requestStore.archive(requestId);
-    context.save();
-    return updated;
+    return context.router.archiveRequest(requestId, "ui", "Archived by operator from Mina AI Router UI.");
   }
 
   if (action === "unarchive") {

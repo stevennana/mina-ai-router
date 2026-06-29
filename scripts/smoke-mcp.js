@@ -5,6 +5,7 @@ const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
 const repoRoot = join(__dirname, "..");
+const packageVersion = require(join(repoRoot, "package.json")).version;
 const distCli = join(repoRoot, "dist", "apps", "cli", "src", "index.js");
 const distMcp = join(repoRoot, "dist", "apps", "mcp-server", "src", "index.js");
 const session = `mina-router-mcp-${process.pid}`;
@@ -52,6 +53,7 @@ async function main() {
     try {
       const initialize = await mcp.request("initialize", {});
       assert.equal(initialize.serverInfo.name, "mina-ai-router");
+      assert.equal(initialize.serverInfo.version, packageVersion);
 
       const tools = await mcp.request("tools/list", {});
       assert.deepEqual(

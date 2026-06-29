@@ -85,15 +85,30 @@ export class RequestStore {
     });
   }
 
-  archive(id: string, reason?: string): AgentRequest {
+  archive(id: string, reason?: string, source: RequestRecoverySource = "system"): AgentRequest {
     const current = this.require(id);
     this.assertActionAllowed(current, "archive");
+    const now = new Date().toISOString();
+    const releasesLease = current.leaseStatus === "active" || current.leaseStatus === "orphaned";
+    const archiveReason = current.error ?? reason;
     return this.updateStatus(id, "archived", {
-      archivedAt: new Date().toISOString(),
+      archivedAt: now,
       archivedFromStatus: current.status,
-      error: current.error ?? reason,
-      leaseStatus: current.leaseStatus === "active" ? "released" : current.leaseStatus,
-      leaseReleasedAt: current.leaseStatus === "active" ? new Date().toISOString() : current.leaseReleasedAt,
+      error: archiveReason,
+      leaseStatus: releasesLease ? "released" : current.leaseStatus,
+      leaseReleasedAt: releasesLease ? now : current.leaseReleasedAt,
+      recoveryStatus: current.leaseStatus === "orphaned" ? "recovered" : current.recoveryStatus,
+      recoveredAt: current.leaseStatus === "orphaned" ? now : current.recoveredAt,
+      recoveryEvents: current.leaseStatus === "orphaned"
+        ? appendRecoveryEvent(current, {
+          at: now,
+          action: "archive",
+          source,
+          message: reason ?? "Archived orphaned request and released lease.",
+          previousLeaseStatus: current.leaseStatus,
+          activeRequestId: current.id,
+        })
+        : current.recoveryEvents,
     });
   }
 

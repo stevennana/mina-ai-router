@@ -26,6 +26,8 @@ async function main() {
   await testRouterCancelStaysTerminal();
   await testRouterParseFailure();
   await testRouterTimeout();
+  await testRouterRecoverClearsBusyLock();
+  await testRouterArchiveOrphanClearsBusyLock();
   await testRouterHealthClassification();
   console.log("core tests passed");
 }
@@ -597,6 +599,66 @@ async function testRouterTimeout() {
   assert.match(agent.detail, /timed out/);
 }
 
+async function testRouterRecoverClearsBusyLock() {
+  const transport = new SwitchableTransport(new TimeoutTransport());
+  const router = buildRouterWithTransport(transport);
+
+  await assert.rejects(
+    () => router.callAgent({ target: "payment", task: "timeout", timeoutMs: 1 }),
+    /Timed out/,
+  );
+
+  const timedOut = router.listRequests()[0];
+  assert.equal(timedOut.leaseStatus, "orphaned");
+
+  const recovered = router.recoverRequestLease(
+    timedOut.id,
+    "cli",
+    "Recovered in core regression test.",
+  );
+  assert.equal(recovered.leaseStatus, "released");
+  assert.equal(recovered.recoveryStatus, "recovered");
+
+  transport.inner = new HeadlessTransport();
+  const routedAgain = await router.callAgent({
+    target: "payment",
+    task: "after recover",
+    timeoutMs: 1_000,
+  });
+  const afterRecover = router.getRequest(routedAgain.requestId);
+  assert.equal(afterRecover.status, "answered");
+  assert.match(afterRecover.answer, /Headless response from payment/);
+}
+
+async function testRouterArchiveOrphanClearsBusyLock() {
+  const transport = new SwitchableTransport(new TimeoutTransport());
+  const router = buildRouterWithTransport(transport);
+
+  await assert.rejects(
+    () => router.callAgent({ target: "payment", task: "timeout then archive", timeoutMs: 1 }),
+    /Timed out/,
+  );
+
+  const timedOut = router.listRequests()[0];
+  const archived = router.archiveRequest(
+    timedOut.id,
+    "cli",
+    "Archived orphaned request in core regression test.",
+  );
+  assert.equal(archived.status, "archived");
+  assert.equal(archived.leaseStatus, "released");
+  assert.equal(archived.recoveryStatus, "recovered");
+  assert.equal(archived.recoveryEvents.at(-1).action, "archive");
+
+  transport.inner = new HeadlessTransport();
+  const routedAgain = await router.callAgent({
+    target: "payment",
+    task: "after orphan archive",
+    timeoutMs: 1_000,
+  });
+  assert.equal(router.getRequest(routedAgain.requestId).status, "answered");
+}
+
 async function testRouterHealthClassification() {
   const staleTime = "2026-01-01T00:00:00.000Z";
   const registry = new AgentRegistry([
@@ -737,6 +799,28 @@ class TimeoutTransport {
   }
   async waitForResponse() {
     throw new Error("Timed out waiting for response markers for mair-test. Last capture:\npartial terminal capture");
+  }
+}
+
+class SwitchableTransport {
+  constructor(inner) {
+    this.inner = inner;
+  }
+
+  async send(agent, prompt, requestId) {
+    return this.inner.send(agent, prompt, requestId);
+  }
+
+  async capture(agent) {
+    return this.inner.capture(agent);
+  }
+
+  async waitForResponse(agent, requestId, timeoutMs) {
+    return this.inner.waitForResponse(agent, requestId, timeoutMs);
+  }
+
+  async status(agent) {
+    return this.inner.status ? this.inner.status(agent) : { status: "available" };
   }
 }
 

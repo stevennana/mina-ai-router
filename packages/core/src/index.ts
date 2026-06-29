@@ -8,3 +8,4 @@ export * from "./request-store";
 export * from "./response-parser";
 export * from "./router";
 export * from "./types";
+export * from "./version";

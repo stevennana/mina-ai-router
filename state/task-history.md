@@ -25,3 +25,7 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-29T06:30:19.886Z: promoted request-lease-state -> transaction-recovery-controls
 - 2026-06-29T06:44:36.359Z: promoted transaction-recovery-controls -> bootstrap-docs-and-smoke-hardening
 - 2026-06-29T06:51:04.765Z: promoted bootstrap-docs-and-smoke-hardening -> NONE
+- 2026-06-29T07:35:00+09:00: seeded branch review release-readiness fix wave from docs/reviews/2026-06-29-collaboration-reliability-branch-review.md; current task router-recovery-lock-release
+- 2026-06-29T07:21:40.711Z: promoted router-recovery-lock-release -> orphan-archive-semantics
+- 2026-06-29T07:27:32.786Z: promoted orphan-archive-semantics -> cli-blocked-agent-placeholder
+- 2026-06-29T07:32:52.564Z: promoted cli-blocked-agent-placeholder -> release-version-and-verify-contract

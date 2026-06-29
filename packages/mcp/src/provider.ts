@@ -5,6 +5,7 @@ import type {
   McpToolCallResult,
 } from "@minasoft/mcp-runtime";
 import type { Agent, AgentRegistry, AgentRouter, RequestStore, TransportType } from "../../core/src";
+import { packageVersion } from "../../core/src";
 
 export interface MinaMcpContext {
   registry: AgentRegistry;
@@ -88,7 +89,7 @@ export function createMinaMcpProvider(context: MinaMcpContext): McpRuntimeProvid
   return {
     serverInfo: {
       name: "mina-ai-router",
-      version: "0.1.0",
+      version: packageVersion(),
     },
     tools: {
       async list() {

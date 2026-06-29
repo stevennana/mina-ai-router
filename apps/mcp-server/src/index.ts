@@ -2,7 +2,7 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { appendFileSync } from "node:fs";
-import { AgentRegistry, AgentRouter, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
+import { AgentRegistry, AgentRouter, FileState, RequestStore, packageVersion, type Agent, type TransportType } from "../../../packages/core/src";
 import { DefaultTransportRegistry, HeadlessTransport, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type {
   JsonValue,
@@ -207,7 +207,7 @@ async function createProvider(): Promise<McpRuntimeProvider> {
   providerPromise = Promise.resolve({
     serverInfo: {
       name: "mina-ai-router",
-      version: "0.1.0",
+      version: packageVersion(),
     },
     tools: {
       async list() {

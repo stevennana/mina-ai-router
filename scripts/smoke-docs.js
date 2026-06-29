@@ -11,7 +11,9 @@ const markdownFiles = [
   "docs/HTTP-UI-MCP.md",
   "docs/MCP-CLIENT-SETUP.md",
   "docs/product-specs/agent-bootstrap-reliability.md",
+  "docs/product-specs/release-readiness-review-fixes.md",
   "docs/design-docs/agent-bootstrap-reliability.md",
+  "docs/reviews/2026-06-29-collaboration-reliability-branch-review.md",
   "docs/exec-plans/active/index.md",
 ];
 
@@ -55,12 +57,16 @@ assert.match(read("docs/MCP-CLIENT-SETUP.md"), /keeps the lease as `orphaned`/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /`list_agents` returns `isSelf`/);
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Pain Point Gap Map/);
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Duplicate registration/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Release Readiness Review Fixes/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /live in-memory lock/);
+assert.match(read("docs/reviews/2026-06-29-collaboration-reliability-branch-review.md"), /Recovered Timeout Requests Leave AgentRouter Busy Lock Stuck/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
-assert.match(read("docs/exec-plans/active/index.md"), /bootstrap-docs-and-smoke-hardening/);
-assert.match(read("docs/exec-plans/active/index.md"), /Completed in this wave/);
-assert.match(read("docs/exec-plans/active/index.md"), /transaction-recovery-controls/);
+assert.match(read("docs/exec-plans/active/index.md"), /router-recovery-lock-release/);
+assert.match(read("docs/exec-plans/active/index.md"), /orphan-archive-semantics/);
+assert.match(read("docs/exec-plans/active/index.md"), /cli-blocked-agent-placeholder/);
+assert.match(read("docs/exec-plans/active/index.md"), /release-version-and-verify-contract/);
 
 for (const file of markdownFiles) {
   const content = read(file);

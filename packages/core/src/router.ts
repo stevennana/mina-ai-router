@@ -7,6 +7,7 @@ import type {
   AgentStatus,
   CallAgentInput,
   RequestRawEvidence,
+  RequestRecoverySource,
   TransportRegistry,
 } from "./types";
 import { AgentRegistry } from "./registry";
@@ -151,6 +152,32 @@ export class AgentRouter {
 
   getRequest(requestId: string) {
     return this.requestStore.require(requestId);
+  }
+
+  recoverRequestLease(
+    requestId: string,
+    source: RequestRecoverySource,
+    message = "Marked recovered by operator.",
+  ): AgentRequest {
+    const updated = this.requestStore.markRecovered(requestId, source, message);
+    const agentId = updated.leaseOwnerAgentId ?? updated.targetAgent;
+    this.releaseAgentLease(agentId, updated.id);
+    this.persistState();
+    return this.requestStore.require(updated.id);
+  }
+
+  archiveRequest(
+    requestId: string,
+    source: RequestRecoverySource,
+    reason = "Archived by operator.",
+  ): AgentRequest {
+    const updated = this.requestStore.archive(requestId, reason, source);
+    if (updated.leaseStatus === "released") {
+      const agentId = updated.leaseOwnerAgentId ?? updated.targetAgent;
+      this.releaseAgentLease(agentId, updated.id);
+    }
+    this.persistState();
+    return this.requestStore.require(updated.id);
   }
 
   async callAgent(input: CallAgentInput): Promise<AgentResponse> {

@@ -19,4 +19,7 @@
 - [x] request-lease-state — Request lease state
 - [x] transaction-recovery-controls — Transaction recovery controls
 - [x] bootstrap-docs-and-smoke-hardening — Bootstrap documentation and smoke hardening
-
+- [x] router-recovery-lock-release — Router recovery lock release
+- [x] orphan-archive-semantics — Orphan archive semantics
+- [x] cli-blocked-agent-placeholder — CLI blocked agent placeholder
+- [ ] release-version-and-verify-contract — Release version and verify contract ← current

@@ -32,6 +32,7 @@ export type RequestRecoveryStatus =
   | "recovered";
 
 export type RequestRecoveryAction =
+  | "archive"
   | "cancel"
   | "interrupt"
   | "recover";

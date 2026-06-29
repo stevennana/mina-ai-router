@@ -6,6 +6,7 @@ const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
 
 const port = 3344;
+const packageVersion = require(join(process.cwd(), "package.json")).version;
 const baseUrl = `http://127.0.0.1:${port}`;
 const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
@@ -370,6 +371,75 @@ async function main() {
     assert.equal(recoveredAgent.activeRequestId, undefined);
     assert.equal(recoveredAgent.leaseStatus, "released");
 
+    await postJson(`${baseUrl}/api/register`, {
+      id: "http-timeout",
+      name: "http-timeout",
+      agentType: "codex",
+      transport: "headless",
+      sessionId: timeoutSession,
+      projectRoot: tempDir,
+      capabilitySummary: "Recovered timeout helper.",
+      capabilitySources: "smoke fixture",
+      sessionFingerprint: timeoutSession,
+    });
+    const afterRecover = await postJson(`${baseUrl}/api/ask`, {
+      target: "http-timeout",
+      task: "HTTP request after recovery",
+      timeoutMs: 1000,
+    });
+    assert.equal(afterRecover.result.target, "http-timeout");
+    const afterRecoverRequest = findRequest(afterRecover.state, afterRecover.result.requestId);
+    assert.equal(afterRecoverRequest.status, "answered");
+    assert.equal(afterRecoverRequest.leaseStatus, "released");
+
+    await postJson(`${baseUrl}/api/register`, {
+      id: "http-timeout",
+      name: "http-timeout",
+      agentType: "codex",
+      transport: "tmux",
+      sessionId: timeoutSession,
+      projectRoot: tempDir,
+      capabilitySummary: "Timeout archive helper.",
+      capabilitySources: "smoke fixture",
+      sessionFingerprint: timeoutSession,
+    });
+    const archiveTimedOutAsk = await expectPostJsonFailure(`${baseUrl}/api/ask`, {
+      target: "http-timeout",
+      task: "HTTP timeout archive request",
+      timeoutMs: 20,
+    });
+    assert.equal(archiveTimedOutAsk.status, 500);
+    const archiveTimeoutRequest = archiveTimedOutAsk.body.state.requests.find((request) =>
+      request.targetAgent === "http-timeout" && request.task === "HTTP timeout archive request"
+    );
+    assert.equal(archiveTimeoutRequest.leaseStatus, "orphaned");
+    const archivedTimeout = await postJson(`${baseUrl}/api/requests/${archiveTimeoutRequest.id}/archive`, {});
+    assert.equal(archivedTimeout.result.status, "archived");
+    assert.equal(archivedTimeout.result.leaseStatus, "released");
+    assert.equal(archivedTimeout.result.recoveryStatus, "recovered");
+    assert.equal(archivedTimeout.result.recoveryEvents.at(-1).action, "archive");
+    const archivedTimeoutAgent = archivedTimeout.state.agents.find((agent) => agent.id === "http-timeout");
+    assert.equal(archivedTimeoutAgent.activeRequestId, undefined);
+    assert.equal(archivedTimeoutAgent.leaseStatus, "released");
+
+    await postJson(`${baseUrl}/api/register`, {
+      id: "http-timeout",
+      name: "http-timeout",
+      agentType: "codex",
+      transport: "headless",
+      sessionId: timeoutSession,
+      projectRoot: tempDir,
+      capabilitySummary: "Archive recovered timeout helper.",
+      capabilitySources: "smoke fixture",
+      sessionFingerprint: timeoutSession,
+    });
+    const afterArchive = await postJson(`${baseUrl}/api/ask`, {
+      target: "http-timeout",
+      task: "HTTP request after orphan archive",
+      timeoutMs: 1000,
+    });
+    assert.equal(findRequest(afterArchive.state, afterArchive.result.requestId).status, "answered");
+
     const stale = await postJson(`${baseUrl}/api/requests/archive-stale`, { olderThanMs: 0 });
     assert.ok(Array.isArray(stale.archived));
 
@@ -383,6 +453,7 @@ async function main() {
       params: {},
     });
     assert.equal(initialized.result.serverInfo.name, "mina-ai-router");
+    assert.equal(initialized.result.serverInfo.version, packageVersion);
 
     const tools = await postMcp({
       jsonrpc: "2.0",

@@ -8,6 +8,7 @@ import {
   buildMcpPreflight,
   FileState,
   RequestStore,
+  packageVersion,
   type Agent,
   type AgentCapabilityProfile,
   type TransportType,
@@ -15,7 +16,7 @@ import {
 import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
-const version = "0.1.4";
+const version = packageVersion();
 const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mair-server.json");
 const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
 
@@ -228,14 +229,21 @@ function startVisibleAgent(
   const shouldAttach = flags.attach !== "false" && flags["no-attach"] !== "true";
   const shouldPromptRegister = flags.register !== "false" && flags["no-register"] !== "true";
   const registerDelayMs = flags["register-delay-ms"] ? Number(flags["register-delay-ms"]) : 4_000;
+  const existing = context.registry.get(id) ?? context.registry.findBySessionFingerprint(sessionId);
+  const registrationAttemptAt = new Date().toISOString();
   const agent: Agent = {
     id,
     name: id,
     agentType,
     transport: "tmux",
     sessionId,
+    sessionFingerprint: sessionId,
     projectRoot: root,
     startupCommand,
+    bootstrapStatus: mcpPreflight.canSendSelfRegistrationPrompt ? "created" : "mcp-configuring",
+    registrationSource: "cli",
+    registrationStatus: existing?.registrationStatus === "confirmed" ? "confirmed" : "pending",
+    lastRegistrationAttemptAt: registrationAttemptAt,
     permissionProfile: permissionProfile.permissionProfile,
     permissionProfileStatus: permissionProfile.permissionProfileStatus,
     permissionProfileDetail: permissionProfile.permissionProfileDetail,
@@ -249,18 +257,30 @@ function startVisibleAgent(
   const tmux = new TmuxClient();
   const existed = tmux.hasSession(sessionId);
   tmux.ensureSession(agent);
+  let registeredAgent = context.registry.register(agent);
+  context.save();
 
   let registration = "registration prompt skipped";
   let nextAction: string | undefined;
-  if (shouldPromptRegister && !context.registry.get(id)) {
+  if (shouldPromptRegister && existing?.registrationStatus !== "confirmed") {
     sleep(registerDelayMs);
     const permissionPrompt = detectAgentPermissionPrompt(agent, tmux.capture(sessionId));
     if (permissionPrompt) {
       registration = "waiting for permission approval";
       nextAction = permissionPrompt.action;
+      registeredAgent = context.registry.register({
+        ...registeredAgent,
+        bootstrapStatus: "permission-required",
+      });
+      context.save();
     } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
       registration = "waiting for MCP setup";
       nextAction = mcpPreflight.nextAction;
+      registeredAgent = context.registry.register({
+        ...registeredAgent,
+        bootstrapStatus: "mcp-configuring",
+      });
+      context.save();
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
       if (agentType === "codex") {
@@ -269,11 +289,17 @@ function startVisibleAgent(
         tmux.sendText(sessionId, prompt);
       }
       registration = "registration prompt sent to agent";
+      registeredAgent = context.registry.register({
+        ...registeredAgent,
+        bootstrapStatus: "registration-pending",
+        registrationStatus: "pending",
+      });
+      context.save();
     }
   }
 
   const summary = {
-    agent,
+    agent: registeredAgent,
     existed,
     attach: `tmux attach -t ${sessionId}`,
     registration,
@@ -798,19 +824,16 @@ async function runRequestAction(
       return;
     }
     case "recover": {
-      const updated = context.requestStore.markRecovered(
+      const updated = context.router.recoverRequestLease(
         requestId,
         "cli",
         "Marked recovered by operator from Mina AI Router CLI.",
       );
-      clearAgentLeaseForRequest(updated, context);
-      context.save();
       printJson(updated);
       return;
     }
     case "archive": {
-      const updated = context.requestStore.archive(requestId);
-      context.save();
+      const updated = context.router.archiveRequest(requestId, "cli", "Archived by operator from Mina AI Router CLI.");
       printJson(updated);
       return;
     }

@@ -6,3 +6,4 @@ Milestone 0.2 specs:
 - [Agent capability refresh](./agent-capability-refresh.md)
 - [Agent health and heartbeat](./agent-health-and-heartbeat.md)
 - [Agent bootstrap reliability](./agent-bootstrap-reliability.md)
+- [Release readiness review fixes](./release-readiness-review-fixes.md)

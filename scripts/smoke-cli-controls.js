@@ -5,6 +5,7 @@ const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
 const repoRoot = join(__dirname, "..");
+const packageVersion = require(join(repoRoot, "package.json")).version;
 const distCli = join(repoRoot, "dist", "apps", "cli", "src", "index.js");
 const tempDir = mkdtempSync(join(tmpdir(), "mina-cli-controls-"));
 const statePath = join(tempDir, "router-state.json");
@@ -25,6 +26,9 @@ async function main() {
   writeRefreshResponder();
 
   try {
+    const version = JSON.parse(runNode(["version"]));
+    assert.equal(version.version, packageVersion);
+
     const registeredCliRefresh = JSON.parse(runNode([
       "register",
       "cli-refresh",
@@ -106,10 +110,24 @@ async function main() {
     assert.match(visible.agent.permissionProfileDetail, /No known codex startup flag/);
     assert.equal(visible.permissionProfile.permissionProfileStatus, "unsupported");
     assert.equal(visible.agent.mcpPreflightStatus, "missing");
+    assert.equal(visible.agent.bootstrapStatus, "mcp-configuring");
+    assert.equal(visible.agent.registrationSource, "cli");
+    assert.equal(visible.agent.registrationStatus, "pending");
+    assert.equal(visible.agent.sessionFingerprint, session);
+    assert.ok(visible.agent.lastRegistrationAttemptAt);
     assert.equal(visible.mcpPreflight.status, "missing");
     assert.match(visible.mcpPreflight.mcpSetupCommand, /codex mcp add mina-ai-router --url/);
     assert.equal(visible.registration, "registration prompt skipped");
     run("tmux", ["has-session", "-t", session]);
+    const persistedVisibleAgents = JSON.parse(runNode(["agents"]));
+    const persistedVisible = persistedVisibleAgents.agents.find((agent) => agent.id === visible.agent.id);
+    assert.ok(persistedVisible, "expected CLI-created visible agent to be persisted");
+    assert.equal(persistedVisible.bootstrapStatus, "mcp-configuring");
+    assert.equal(persistedVisible.registrationSource, "cli");
+    assert.equal(persistedVisible.registrationStatus, "pending");
+    const persistedVisibleDetail = JSON.parse(runNode(["agent", visible.agent.id]));
+    assert.equal(persistedVisibleDetail.agent.bootstrapStatus, "mcp-configuring");
+    assert.equal(persistedVisibleDetail.agent.mcpPreflightStatus, "missing");
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "cli-helper",
