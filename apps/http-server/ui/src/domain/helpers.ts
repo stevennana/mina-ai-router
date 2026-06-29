@@ -34,8 +34,15 @@ export function mairRefreshCapabilitiesCommand(agent: RouterAgent): string {
 
 export function healthMessage(agent: RouterAgent): string {
   if (agent.status === "available") return "Agent session is reachable. It can receive routed requests.";
+  if (agent.status === "busy") return "Agent is currently handling a routed request.";
+  if (agent.status === "stale") {
+    return agent.detail || `No confirmed agent reachability since ${formatDateTime(agent.lastSeenAt || agent.lastActivityAt)}. Refresh or restart before routing important work.`;
+  }
   if (agent.status === "missing") {
     return agent.detail || `tmux session "${agent.sessionId}" is missing. Restart the session or re-register the agent.`;
+  }
+  if (agent.status === "needs-attention") {
+    return agent.detail || "The last routed request failed or timed out. Inspect the request before sending more work.";
   }
   if (agent.status === "unknown") {
     return "This transport does not expose a live health check yet. Calls may still work if the transport is headless or mock.";

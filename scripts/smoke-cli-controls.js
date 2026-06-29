@@ -17,6 +17,7 @@ const env = {
   ...process.env,
   MINA_ROUTER_STATE: statePath,
   MINA_SERVER_PID: pidPath,
+  MINA_AGENT_STALE_AFTER_MS: "1",
 };
 
 async function main() {
@@ -46,6 +47,21 @@ async function main() {
     assert.equal(refreshed.agent.capabilitySources, "headless transport prompt");
     assert.equal(refreshed.agent.capabilitySource, "generated");
     assert.ok(refreshed.agent.lastCapabilityRefreshAt);
+    seedHealthFixtures();
+    const health = JSON.parse(runNode(["health"]));
+    assert.equal(health.ok, false);
+    assert.ok(health.agents.stale >= 1, "expected stale health count");
+    assert.ok(health.agents.missing >= 1, "expected missing health count");
+    assert.ok(health.agents.needsAttention >= 1, "expected needs-attention health count");
+
+    const agents = JSON.parse(runNode(["agents"]));
+    const byId = Object.fromEntries(agents.agents.map((agent) => [agent.id, agent]));
+    assert.equal(byId["cli-stale"].status, "stale");
+    assert.equal(byId["cli-missing"].status, "missing");
+    assert.equal(byId["cli-attention"].status, "needs-attention");
+    assert.ok(byId["cli-stale"].healthCheckedAt);
+    const staleDetail = JSON.parse(runNode(["agent", "cli-stale"]));
+    assert.equal(staleDetail.status.status, "stale");
 
     const started = JSON.parse(runNode(["server", "start", "--port", String(port)]));
     if (!started.running) {
@@ -318,6 +334,48 @@ function writeRefreshResponder() {
       "",
     ].join("\n"),
   );
+}
+
+function seedHealthFixtures() {
+  const state = JSON.parse(readFileSync(statePath, "utf8"));
+  state.agents.push(
+    {
+      id: "cli-stale",
+      name: "cli-stale",
+      agentType: "shell",
+      transport: "headless",
+      sessionId: "cli-stale",
+      projectRoot: tempDir,
+      lastSeenAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "cli-missing",
+      name: "cli-missing",
+      agentType: "shell",
+      transport: "tmux",
+      sessionId: `missing-${process.pid}`,
+      projectRoot: tempDir,
+    },
+    {
+      id: "cli-attention",
+      name: "cli-attention",
+      agentType: "shell",
+      transport: "headless",
+      sessionId: "cli-attention",
+      projectRoot: tempDir,
+    },
+  );
+  state.requests.push({
+    id: "cli-attention-request",
+    sourceAgent: "main",
+    targetAgent: "cli-attention",
+    task: "failed health fixture",
+    status: "failed",
+    createdAt: "2026-01-02T00:00:00.000Z",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    error: "fixture transport failure",
+  });
+  writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 main().catch((error) => {

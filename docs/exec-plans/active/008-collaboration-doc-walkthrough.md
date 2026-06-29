@@ -5,7 +5,7 @@
   "id": "collaboration-doc-walkthrough",
   "title": "Collaboration documentation walkthrough",
   "order": 8,
-  "status": "queued",
+  "status": "active",
   "next_task_on_success": "NONE",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -67,3 +67,4 @@ This is deterministic-only because docs plus existing tests should be sufficient
 ## Progress log
 
 - Queue seeded for milestone 0.2 Ralph setup.
+- 2026-06-29T03:22:26.880Z: restored as current task after agent-health-ui-cli promotion.

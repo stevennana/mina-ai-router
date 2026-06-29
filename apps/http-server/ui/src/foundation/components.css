@@ -180,13 +180,15 @@ pre {
 .dot.waiting,
 .dot.busy,
 .dot.sent,
-.dot.created {
+.dot.created,
+.dot.stale {
   background: var(--warning);
 }
 
 .dot.failed,
 .dot.timeout,
 .dot.missing,
+.dot.needs-attention,
 .dot.danger {
   background: var(--danger);
 }
@@ -419,6 +421,7 @@ pre {
 }
 
 .status.missing,
+.status.needs-attention,
 .status.timeout,
 .status.failed,
 .status.parse_failure,
@@ -463,10 +466,15 @@ pre {
 .section,
 .request-list,
 .detail-grid,
+.health-grid,
 .form-grid,
 .guide-steps {
   display: grid;
   gap: 0.75rem;
+}
+
+.health-grid {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
 }
 
 .section-title {

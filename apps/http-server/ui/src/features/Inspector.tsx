@@ -1,5 +1,5 @@
 import type { RouterAgent, RouterRequest } from "../domain/types";
-import { agentRequests, attachCommand, capabilityFreshness, displayAgentName, healthMessage } from "../domain/helpers";
+import { agentRequests, attachCommand, capabilityFreshness, displayAgentName, formatDateTime, healthMessage } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
@@ -50,6 +50,11 @@ export function Inspector({
           <div className="section-title"><Icon name="info" size={15} />Status</div>
           <StatusPill status={agent.status} />
           <div className="notice">{healthMessage(agent)}</div>
+          <div className="health-grid">
+            <Kv label="Last seen">{formatDateTime(agent.lastSeenAt)}</Kv>
+            <Kv label="Last activity">{formatDateTime(agent.lastActivityAt)}</Kv>
+            <Kv label="Checked">{formatDateTime(agent.healthCheckedAt)}</Kv>
+          </div>
         </div>
         <div className="section">
           <div className="section-title"><Icon name="lan" size={15} />Connection</div>

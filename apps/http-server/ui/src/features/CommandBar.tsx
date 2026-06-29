@@ -20,7 +20,12 @@ export function CommandBar({
   const healthText = health
     ? health.ok
       ? `${health.agents.available}/${health.agents.total} available, ${health.requests.open} open`
-      : `${health.agents.missing} missing, ${health.requests.open} open`
+      : [
+        health.agents.missing ? `${health.agents.missing} missing` : "",
+        health.agents.stale ? `${health.agents.stale} stale` : "",
+        health.agents.needsAttention ? `${health.agents.needsAttention} needs attention` : "",
+        `${health.requests.open} open`,
+      ].filter(Boolean).join(", ")
     : "Health loading...";
 
   return (

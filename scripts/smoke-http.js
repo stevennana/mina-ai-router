@@ -311,11 +311,17 @@ function assertUiFreshnessSurfaceContent(script, stylesheet) {
   assert.match(script, /Edit Capabilities/);
   assert.match(script, /Copy Refresh Command/);
   assert.match(script, /mair agent refresh-capabilities/);
+  assert.match(script, /data-health-status/);
+  assert.match(script, /needs-attention/);
+  assert.match(script, /Last seen/);
+  assert.match(script, /needs attention/);
 
   assert.match(stylesheet, /capability-fresh/);
   assert.match(stylesheet, /capability-stale/);
   assert.match(stylesheet, /capability-manual/);
   assert.match(stylesheet, /capability-missing/);
+  assert.match(stylesheet, /health-grid/);
+  assert.match(stylesheet, /needs-attention/);
   assert.match(stylesheet, /floating-inspector/);
   assert.match(stylesheet, /max-height:min\(34rem,100vh - 1\.5rem\)/);
   assert.match(stylesheet, /width:100vw/);

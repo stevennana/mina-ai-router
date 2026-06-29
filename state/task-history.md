@@ -13,3 +13,4 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-28T15:02:43.787Z: promoted capability-refresh-command -> capability-freshness-ui
 - 2026-06-29T02:47:06.797Z: manually promoted capability-freshness-ui -> agent-health-core-api | reason=manual completion of 005 after browser permission blocker; live in-app browser desktop/mobile layout verified | artifact=state/artifacts/manual-005-browser-evidence
 - 2026-06-29T03:02:21.399Z: manually promoted agent-health-core-api -> agent-health-ui-cli | reason=manual completion of 006 after required core/API health checks passed
+- 2026-06-29T03:22:26.880Z: manually promoted agent-health-ui-cli -> collaboration-doc-walkthrough | reason=manual completion of 007 after UI and CLI health checks passed
