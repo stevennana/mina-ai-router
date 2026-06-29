@@ -22,4 +22,4 @@
 - [x] router-recovery-lock-release — Router recovery lock release
 - [x] orphan-archive-semantics — Orphan archive semantics
 - [x] cli-blocked-agent-placeholder — CLI blocked agent placeholder
-- [ ] release-version-and-verify-contract — Release version and verify contract ← current
+- [x] release-version-and-verify-contract — Release version and verify contract

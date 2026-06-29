@@ -5,7 +5,7 @@
   "id": "release-version-and-verify-contract",
   "title": "Release version and verify contract",
   "order": 22,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "NONE",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -34,7 +34,8 @@
     "Runtime version is hard-coded in more than one place without smoke coverage",
     "verify omits docs smoke after docs are part of release readiness",
     "Package dry-run output shows missing runtime assets or docs"
-  ]
+  ],
+  "completed_at": "2026-06-29T07:44:49.305Z"
 }
 ```
 
@@ -81,4 +82,6 @@ Prefer reading package version from one source over updating several constants m
 
 - 2026-06-29: Seeded from branch review Findings 4 and 5 plus Additional Observations.
 - 2026-06-29T08:34:00+09:00: added shared package version helper, wired CLI and MCP server info to package.json, added CLI/MCP version smoke assertions, included docs smoke in `npm run verify`, and cleaned the branch EOF whitespace issue. `npm run verify`, `npm run smoke:docs`, `node dist/apps/cli/src/index.js version`, and `npm pack --dry-run` passed. `git diff --check main...HEAD` requires the fix commit to be present because it checks committed HEAD, not the working tree.
+- 2026-06-29T08:42:00+09:00: committed review fixes so `git diff --check main...HEAD` validates the corrected branch diff. Required checks passed after commit: `npm run verify`, `npm run smoke:docs`, `git diff --check main...HEAD`, `node dist/apps/cli/src/index.js version`, and `npm pack --dry-run`.
 - 2026-06-29T07:32:52.564Z: restored as current task after cli-blocked-agent-placeholder promotion.
+- 2026-06-29T07:44:49.305Z: automatically promoted after deterministic checks and evaluator approval.

@@ -29,3 +29,4 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-29T07:21:40.711Z: promoted router-recovery-lock-release -> orphan-archive-semantics
 - 2026-06-29T07:27:32.786Z: promoted orphan-archive-semantics -> cli-blocked-agent-placeholder
 - 2026-06-29T07:32:52.564Z: promoted cli-blocked-agent-placeholder -> release-version-and-verify-contract
+- 2026-06-29T07:44:49.305Z: promoted release-version-and-verify-contract -> NONE
