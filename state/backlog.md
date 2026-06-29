@@ -23,3 +23,7 @@
 - [x] orphan-archive-semantics — Orphan archive semantics
 - [x] cli-blocked-agent-placeholder — CLI blocked agent placeholder
 - [x] release-version-and-verify-contract — Release version and verify contract
+- [ ] cli-server-proxy-register-ask — CLI server proxy for register and ask
+- [ ] cli-server-proxy-agent-start-refresh — CLI server proxy for agent start and refresh
+- [ ] health-running-server-mcp-url — Health running server MCP URL
+- [ ] fresh-operator-smoke-hardening — Fresh operator smoke hardening

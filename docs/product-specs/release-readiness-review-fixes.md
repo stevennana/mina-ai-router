@@ -4,11 +4,11 @@ Date: 2026-06-29
 
 ## Purpose
 
-The collaboration reliability branch passed the main 0.2 implementation wave, but branch review found release-blocking and release-confusing gaps. This spec defines the follow-up wave required before merge or release.
+The collaboration reliability branch passed the main 0.2 implementation wave, but review passes found release-blocking and release-confusing gaps. This spec defines the follow-up waves required before merge or release.
 
 ## Source Review
 
-- [Branch review: collaboration reliability](../reviews/2026-06-29-collaboration-reliability-branch-review.md)
+- [Fresh operator review: Mina AI Router](../reviews/2026-06-29-fresh-operator-review.md)
 
 ## User Story
 
@@ -23,6 +23,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | CLI-created visible agents are not persisted when registration is blocked | CLI-started Codex/Claude agents appear in registry, UI, health, and CLI lists even when permission or MCP setup blocks registration |
 | Version values are inconsistent | CLI and MCP runtime version surfaces match `package.json.version` |
 | Diff whitespace and docs smoke verification drift | Release verification catches docs smoke and branch diff whitespace before merge |
+| CLI and HTTP server can diverge and overwrite router state | While a matching HTTP server is running, normal mutating CLI commands proxy to the server-owned live state instead of writing stale file snapshots |
+| `mair health` reports the wrong MCP URL after `server start --port` | Health reports the running matching server's MCP URL before falling back to default/env URL construction |
 
 ## Functional Requirements
 
@@ -31,6 +33,9 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 3. CLI-created visible agents must be persisted immediately as pending or blocked records before permission/MCP checks can stop the self-registration prompt.
 4. Runtime version reporting must be single-source or checked against `package.json`.
 5. Release verification must include docs smoke and branch whitespace checks.
+6. While the HTTP server is running for the same state file, the server owns live router state and compatible CLI mutations must route through it.
+7. CLI register, ask, agent-start placeholder, and capability-refresh flows must be visible through `/api/state` without restarting the server.
+8. `mair health` must prefer a running server status MCP URL when the pid file points at the same resolved state path.
 
 ## Non-goals
 
@@ -46,3 +51,5 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - `mair codex` / `mair claude` blocked by permission or MCP preflight leave visible registry records with blocker fields.
 - `mair version` and MCP `serverInfo.version` match `package.json.version`.
 - `npm run verify`, `npm run smoke:docs`, `git diff --check main...HEAD`, runtime version checks, and `npm pack --dry-run` are documented and runnable for release readiness.
+- With a running matching HTTP server, CLI `register`, `ask`, visible agent bootstrap, and capability refresh update the server-owned state and cannot be overwritten by a later HTTP mutation.
+- With a non-default running server port, `mair health` reports the same MCP URL as `mair server status`.

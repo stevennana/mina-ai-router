@@ -13,7 +13,7 @@ const markdownFiles = [
   "docs/product-specs/agent-bootstrap-reliability.md",
   "docs/product-specs/release-readiness-review-fixes.md",
   "docs/design-docs/agent-bootstrap-reliability.md",
-  "docs/reviews/2026-06-29-collaboration-reliability-branch-review.md",
+  "docs/reviews/2026-06-29-fresh-operator-review.md",
   "docs/exec-plans/active/index.md",
 ];
 
@@ -59,14 +59,17 @@ assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Pain Po
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Duplicate registration/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Release Readiness Review Fixes/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /live in-memory lock/);
-assert.match(read("docs/reviews/2026-06-29-collaboration-reliability-branch-review.md"), /Recovered Timeout Requests Leave AgentRouter Busy Lock Stuck/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /server owns live router state/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /running matching server's MCP URL/);
+assert.match(read("docs/reviews/2026-06-29-fresh-operator-review.md"), /CLI and HTTP Server Can Diverge and Overwrite Router State/);
+assert.match(read("docs/reviews/2026-06-29-fresh-operator-review.md"), /mair health` Reports the Wrong MCP URL/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
-assert.match(read("docs/exec-plans/active/index.md"), /router-recovery-lock-release/);
-assert.match(read("docs/exec-plans/active/index.md"), /orphan-archive-semantics/);
-assert.match(read("docs/exec-plans/active/index.md"), /cli-blocked-agent-placeholder/);
-assert.match(read("docs/exec-plans/active/index.md"), /release-version-and-verify-contract/);
+assert.match(read("docs/exec-plans/active/index.md"), /cli-server-proxy-register-ask/);
+assert.match(read("docs/exec-plans/active/index.md"), /cli-server-proxy-agent-start-refresh/);
+assert.match(read("docs/exec-plans/active/index.md"), /health-running-server-mcp-url/);
+assert.match(read("docs/exec-plans/active/index.md"), /fresh-operator-smoke-hardening/);
 
 for (const file of markdownFiles) {
   const content = read(file);
