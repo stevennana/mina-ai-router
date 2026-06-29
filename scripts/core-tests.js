@@ -18,6 +18,7 @@ async function main() {
   await testRouterCancelStaysTerminal();
   await testRouterParseFailure();
   await testRouterTimeout();
+  await testRouterHealthClassification();
   console.log("core tests passed");
 }
 
@@ -283,6 +284,104 @@ async function testRouterTimeout() {
   assert.equal(request.rawEvidence.excerpt, "partial terminal capture");
 }
 
+async function testRouterHealthClassification() {
+  const staleTime = "2026-01-01T00:00:00.000Z";
+  const registry = new AgentRegistry([
+    {
+      id: "available",
+      name: "available",
+      agentType: "gemini",
+      projectRoot: "/tmp/available",
+      transport: "available",
+      sessionId: "available",
+    },
+    {
+      id: "missing",
+      name: "missing",
+      agentType: "gemini",
+      projectRoot: "/tmp/missing",
+      transport: "missing",
+      sessionId: "missing",
+    },
+    {
+      id: "stale",
+      name: "stale",
+      agentType: "gemini",
+      projectRoot: "/tmp/stale",
+      transport: "unknown",
+      sessionId: "stale",
+      lastSeenAt: staleTime,
+    },
+    {
+      id: "attention",
+      name: "attention",
+      agentType: "gemini",
+      projectRoot: "/tmp/attention",
+      transport: "available",
+      sessionId: "attention",
+    },
+    {
+      id: "busy",
+      name: "busy",
+      agentType: "gemini",
+      projectRoot: "/tmp/busy",
+      transport: "deferred",
+      sessionId: "busy",
+    },
+  ]);
+  const requestStore = new RequestStore([
+    {
+      id: "attention-request",
+      sourceAgent: "main",
+      targetAgent: "attention",
+      task: "failed task",
+      status: "failed",
+      createdAt: "2026-01-02T00:00:00.000Z",
+      updatedAt: "2026-01-02T00:00:00.000Z",
+      error: "transport failed",
+    },
+  ]);
+  const deferred = new DeferredResponseTransport();
+  const transports = new DefaultTransportRegistry()
+    .register("available", new StaticStatusTransport("available"))
+    .register("missing", new StaticStatusTransport("missing", "session is gone"))
+    .register("unknown", new StaticStatusTransport("unknown"))
+    .register("deferred", deferred);
+  const router = new AgentRouter({
+    registry,
+    requestStore,
+    transports,
+    agentStaleAfterMs: 1,
+  });
+
+  const pending = router.callAgent({
+    target: "busy",
+    task: "long running",
+    timeoutMs: 1_000,
+  });
+  await deferred.waitStarted;
+
+  const statuses = await router.listAgentStatuses();
+  const byId = Object.fromEntries(statuses.map((status) => [status.id, status]));
+  assert.equal(byId.available.status, "available");
+  assert.ok(byId.available.lastSeenAt);
+  assert.equal(byId.missing.status, "missing");
+  assert.match(byId.missing.detail, /session is gone/);
+  assert.equal(byId.stale.status, "stale");
+  assert.equal(byId.stale.lastSeenAt, staleTime);
+  assert.equal(byId.attention.status, "needs-attention");
+  assert.match(byId.attention.detail, /transport failed/);
+  assert.equal(byId.busy.status, "busy");
+  assert.ok(byId.busy.lastActivityAt);
+
+  deferred.resolve([
+    `<<<MINA_AGENT_RESPONSE_START ${requestStore.list().find((request) => request.targetAgent === "busy").id}>>>`,
+    "done",
+    `<<<MINA_AGENT_RESPONSE_END ${requestStore.list().find((request) => request.targetAgent === "busy").id}>>>`,
+  ].join("\n"));
+  await pending;
+}
+
 function buildRouterWithTransport(transport) {
   const registry = new AgentRegistry([
     {
@@ -344,6 +443,28 @@ class DeferredResponseTransport {
   }
   resolve(output) {
     this.resolveResponse(output);
+  }
+}
+
+class StaticStatusTransport {
+  constructor(status, detail) {
+    this.statusValue = status;
+    this.detail = detail;
+  }
+
+  async send() {}
+  async capture() {
+    return "";
+  }
+  async waitForResponse(agent, requestId) {
+    return [
+      `<<<MINA_AGENT_RESPONSE_START ${requestId}>>>`,
+      "ok",
+      `<<<MINA_AGENT_RESPONSE_END ${requestId}>>>`,
+    ].join("\n");
+  }
+  async status() {
+    return { status: this.statusValue, detail: this.detail };
   }
 }
 

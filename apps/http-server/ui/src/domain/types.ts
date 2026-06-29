@@ -1,4 +1,4 @@
-export type AgentStatus = "available" | "busy" | "missing" | "unknown" | string;
+export type AgentStatus = "available" | "busy" | "stale" | "missing" | "needs-attention" | "unknown" | string;
 export type RequestStatus = "created" | "sent" | "waiting" | "answered" | "failed" | "timeout" | "cancelled" | "archived" | string;
 export type RequestDiagnosticStatus =
   | "pending"
@@ -43,6 +43,10 @@ export type RouterAgent = {
   capabilitySource?: "manual" | "generated";
   capabilityUpdatedAt?: string;
   lastCapabilityRefreshAt?: string;
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+  healthCheckedAt?: string;
+  staleAfterMs?: number;
   detail?: string;
   status: AgentStatus;
   lastRequestStatus?: string;
@@ -80,7 +84,9 @@ export type HealthState = {
     total: number;
     available: number;
     busy: number;
+    stale: number;
     missing: number;
+    needsAttention: number;
     unknown: number;
   };
   requests: {

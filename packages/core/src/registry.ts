@@ -12,6 +12,11 @@ export interface AgentCapabilityUpdate {
   refreshedAt?: string;
 }
 
+export interface AgentHealthUpdate {
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+}
+
 export class AgentRegistry {
   private readonly agents = new Map<string, Agent>();
 
@@ -30,6 +35,8 @@ export class AgentRegistry {
       capabilitySource: agent.capabilitySource ?? current?.capabilitySource,
       capabilityUpdatedAt: agent.capabilityUpdatedAt ?? current?.capabilityUpdatedAt,
       lastCapabilityRefreshAt: agent.lastCapabilityRefreshAt ?? current?.lastCapabilityRefreshAt,
+      lastSeenAt: agent.lastSeenAt ?? current?.lastSeenAt,
+      lastActivityAt: agent.lastActivityAt ?? current?.lastActivityAt,
     };
 
     if ((agent.capabilitySummary !== undefined || agent.capabilitySources !== undefined)
@@ -80,6 +87,18 @@ export class AgentRegistry {
       capabilitySource: update.source,
       capabilityUpdatedAt: timestamp,
       lastCapabilityRefreshAt: update.source === "generated" ? timestamp : agent.lastCapabilityRefreshAt,
+    };
+
+    this.agents.set(id, next);
+    return next;
+  }
+
+  updateHealth(id: string, update: AgentHealthUpdate): Agent {
+    const agent = this.require(id);
+    const next: Agent = {
+      ...agent,
+      lastSeenAt: update.lastSeenAt ?? agent.lastSeenAt,
+      lastActivityAt: update.lastActivityAt ?? agent.lastActivityAt,
     };
 
     this.agents.set(id, next);

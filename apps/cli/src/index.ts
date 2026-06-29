@@ -15,6 +15,7 @@ import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport,
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
 const version = "0.1.4";
 const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mair-server.json");
+const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
 
 async function main(argv: string[]): Promise<void> {
   const command = argv[2];
@@ -287,7 +288,7 @@ async function showHealth(context: ReturnType<typeof createContext>): Promise<vo
   const openRequests = requests.filter((request) => ["created", "sent", "waiting"].includes(request.status));
 
   printJson({
-    ok: agents.every((agent) => agent.status !== "missing"),
+    ok: agents.every((agent) => !["missing", "stale", "needs-attention"].includes(agent.status)),
     version,
     statePath,
     tmuxAvailable: new TmuxClient().isAvailable(),
@@ -295,7 +296,9 @@ async function showHealth(context: ReturnType<typeof createContext>): Promise<vo
       total: agents.length,
       available: agents.filter((agent) => agent.status === "available").length,
       busy: agents.filter((agent) => agent.status === "busy").length,
+      stale: agents.filter((agent) => agent.status === "stale").length,
       missing: agents.filter((agent) => agent.status === "missing").length,
+      needsAttention: agents.filter((agent) => agent.status === "needs-attention").length,
       unknown: agents.filter((agent) => agent.status === "unknown").length,
     },
     requests: {
@@ -429,6 +432,7 @@ function createContext() {
     registry,
     requestStore,
     transports,
+    agentStaleAfterMs,
     onStateChanged: context.save,
   });
 

@@ -56,6 +56,14 @@ function main() {
       throw error;
     }
     runNode(["register", "smoke", "--agent", "shell", "--transport", "tmux", "--session", session, "--root", tempDir]);
+    const listed = JSON.parse(runNode(["agents"]));
+    const smokeAgent = listed.agents.find((agent) => agent.id === "smoke");
+    assert.ok(smokeAgent, "expected registered smoke agent in health list");
+    assert.equal(smokeAgent.status, "available");
+    assert.ok(smokeAgent.lastSeenAt);
+    assert.ok(smokeAgent.healthCheckedAt);
+    assert.equal(typeof smokeAgent.staleAfterMs, "number");
+
     const raw = runNode(["ask", "smoke", "return a marker response", "--timeout-ms", "5000"]);
     const parsed = JSON.parse(raw);
 
@@ -65,6 +73,10 @@ function main() {
     const requests = JSON.parse(runNode(["requests", "--target", "smoke"]));
     assert.equal(requests.requests.length, 1);
     assert.equal(requests.requests[0].status, "answered");
+
+    const afterRequest = JSON.parse(runNode(["agents"])).agents.find((agent) => agent.id === "smoke");
+    assert.equal(afterRequest.status, "available");
+    assert.ok(afterRequest.lastActivityAt);
 
     const refreshed = JSON.parse(runNode(["agent", "refresh-capabilities", "smoke", "--timeout-ms", "5000"]));
     assert.equal(refreshed.agent.id, "smoke");

@@ -5,7 +5,7 @@
   "id": "agent-health-ui-cli",
   "title": "Agent health UI and CLI",
   "order": 7,
-  "status": "queued",
+  "status": "active",
   "next_task_on_success": "collaboration-doc-walkthrough",
   "prompt_docs": [
     "AGENTS.md",
@@ -67,3 +67,4 @@ Promote only when the UI and CLI consume the same health semantics.
 ## Progress log
 
 - Split from broad `agent-heartbeat-health` after exec-plan quality review.
+- 2026-06-29T03:02:21.399Z: restored as current task after agent-health-core-api promotion.

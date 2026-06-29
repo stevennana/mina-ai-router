@@ -23,6 +23,7 @@ const runtimeModuleUrl = pathToFileURL(
 const port = Number(process.env.PORT ?? process.env.MINA_HTTP_PORT ?? 3333);
 const host = process.env.HOST ?? process.env.MINA_HTTP_HOST ?? "127.0.0.1";
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
+const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
 const context = createContext();
 let mcpHandlerPromise: Promise<McpFetchHandler> | undefined;
 
@@ -50,6 +51,7 @@ function createContext() {
     registry,
     requestStore,
     transports,
+    agentStaleAfterMs,
     onStateChanged: baseContext.save,
   });
 
@@ -362,14 +364,16 @@ async function getHealth() {
   const openRequests = requests.filter((request) => ["created", "sent", "waiting"].includes(request.status));
 
   return {
-    ok: agents.every((agent) => agent.status !== "missing"),
+    ok: agents.every((agent) => !["missing", "stale", "needs-attention"].includes(agent.status)),
     statePath,
     mcpUrl: `http://${host}:${port}/mcp`,
     agents: {
       total: agents.length,
       available: agents.filter((agent) => agent.status === "available").length,
       busy: agents.filter((agent) => agent.status === "busy").length,
+      stale: agents.filter((agent) => agent.status === "stale").length,
       missing: agents.filter((agent) => agent.status === "missing").length,
+      needsAttention: agents.filter((agent) => agent.status === "needs-attention").length,
       unknown: agents.filter((agent) => agent.status === "unknown").length,
     },
     requests: {

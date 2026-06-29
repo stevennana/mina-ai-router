@@ -35,6 +35,16 @@ writeFileSync(statePath, `${JSON.stringify({
       capabilitySource: "generated",
       capabilityUpdatedAt: "2026-01-01T00:00:00.000Z",
       lastCapabilityRefreshAt: "2026-01-01T00:00:00.000Z",
+      lastSeenAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "ui-tmux-missing",
+      name: "ui-tmux-missing",
+      agentType: "shell",
+      transport: "tmux",
+      sessionId: `missing-${process.pid}`,
+      projectRoot: tempDir,
+      status: "unknown",
     },
   ],
   requests: [],
@@ -65,6 +75,10 @@ async function main() {
     const health = await json(`${baseUrl}/api/health`);
     assert.equal(health.mcpUrl, `${baseUrl}/mcp`);
     assert.equal(typeof health.ok, "boolean");
+    assert.equal(health.ok, false);
+    assert.ok(health.agents.stale >= 1, "expected stale agent in health summary");
+    assert.ok(health.agents.missing >= 1, "expected missing agent in health summary");
+    assert.equal(typeof health.agents.needsAttention, "number");
 
     const html = await text(`${baseUrl}/`);
     assert.match(html, /Mina AI Router/);
@@ -76,11 +90,16 @@ async function main() {
     const seededState = await json(`${baseUrl}/api/state`);
     const missingAgent = seededState.agents.find((agent) => agent.id === "ui-missing");
     const staleAgent = seededState.agents.find((agent) => agent.id === "ui-stale");
+    const missingTmuxAgent = seededState.agents.find((agent) => agent.id === "ui-tmux-missing");
     assert.ok(missingAgent, "expected missing capability fixture in UI state");
     assert.ok(staleAgent, "expected stale capability fixture in UI state");
+    assert.ok(missingTmuxAgent, "expected missing tmux fixture in UI state");
     assert.equal(missingAgent.capabilitySummary, undefined);
+    assert.equal(staleAgent.status, "stale");
     assert.equal(staleAgent.capabilitySource, "generated");
     assert.equal(staleAgent.lastCapabilityRefreshAt, "2026-01-01T00:00:00.000Z");
+    assert.equal(missingTmuxAgent.status, "missing");
+    assert.ok(missingTmuxAgent.healthCheckedAt);
 
     const directories = await postJson(`${baseUrl}/api/fs/directories`, {
       path: tempDir,

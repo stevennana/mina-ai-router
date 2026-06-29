@@ -47,6 +47,14 @@ export interface RequestRawEvidence {
   truncated: boolean;
 }
 
+export type AgentHealthStatus =
+  | "available"
+  | "busy"
+  | "stale"
+  | "missing"
+  | "needs-attention"
+  | "unknown";
+
 export interface Agent {
   id: string;
   name: string;
@@ -61,6 +69,8 @@ export interface Agent {
   capabilitySource?: "manual" | "generated";
   capabilityUpdatedAt?: string;
   lastCapabilityRefreshAt?: string;
+  lastSeenAt?: string;
+  lastActivityAt?: string;
 }
 
 export interface AgentRequest {
@@ -108,7 +118,11 @@ export interface AgentStatus {
   capabilitySource?: "manual" | "generated";
   capabilityUpdatedAt?: string;
   lastCapabilityRefreshAt?: string;
-  status: "available" | "missing" | "unknown" | "busy";
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+  healthCheckedAt: string;
+  staleAfterMs: number;
+  status: AgentHealthStatus;
   detail?: string;
   lastRequestStatus?: RequestStatus;
 }
@@ -121,7 +135,7 @@ export interface AgentTransport {
     requestId: string,
     timeoutMs: number,
   ): Promise<string>;
-  status?(agent: Agent): Promise<{ status: AgentStatus["status"]; detail?: string }>;
+  status?(agent: Agent): Promise<{ status: AgentHealthStatus; detail?: string }>;
 }
 
 export interface TransportRegistry {

@@ -4,6 +4,7 @@ import { inspectMarkedResponse, ResponseParseError } from "./response-parser";
 import type {
   AgentRequest,
   AgentResponse,
+  AgentStatus,
   CallAgentInput,
   RequestRawEvidence,
   TransportRegistry,
@@ -12,6 +13,7 @@ import { AgentRegistry } from "./registry";
 import { RequestStore } from "./request-store";
 
 const rawEvidenceExcerptLimit = 4_000;
+const defaultAgentStaleAfterMs = 15 * 60 * 1000;
 
 class RequestNoLongerOpenError extends Error {
   constructor(readonly request: AgentRequest) {
@@ -25,6 +27,7 @@ export interface AgentRouterOptions {
   transports: TransportRegistry;
   defaultSourceAgent?: string;
   defaultTimeoutMs?: number;
+  agentStaleAfterMs?: number;
   onStateChanged?: () => void;
 }
 
@@ -34,6 +37,7 @@ export class AgentRouter {
   private readonly transports: TransportRegistry;
   private readonly defaultSourceAgent: string;
   private readonly defaultTimeoutMs: number;
+  private readonly agentStaleAfterMs: number;
   private readonly onStateChanged?: () => void;
   private readonly busyAgents = new Set<string>();
 
@@ -43,6 +47,7 @@ export class AgentRouter {
     this.transports = options.transports;
     this.defaultSourceAgent = options.defaultSourceAgent ?? "main";
     this.defaultTimeoutMs = options.defaultTimeoutMs ?? 300_000;
+    this.agentStaleAfterMs = options.agentStaleAfterMs ?? defaultAgentStaleAfterMs;
     this.onStateChanged = options.onStateChanged;
   }
 
@@ -56,6 +61,8 @@ export class AgentRouter {
 
   async listAgentStatuses() {
     const requests = this.requestStore.list();
+    const checkedAt = new Date().toISOString();
+    let healthChanged = false;
     return Promise.all(
       this.registry.list().map(async (agent) => {
         const agentRequests = requests.filter((request) => request.targetAgent === agent.id);
@@ -64,6 +71,22 @@ export class AgentRouter {
         const status = transport.status
           ? await transport.status(agent)
           : { status: "unknown" as const };
+        const lastActivityAt = lastRequest?.updatedAt ?? agent.lastActivityAt;
+        const lastSeenAt = status.status === "available" ? checkedAt : agent.lastSeenAt;
+        const healthStatus = classifyAgentHealth({
+          transportStatus: status.status,
+          busy: this.busyAgents.has(agent.id),
+          lastSeenAt,
+          lastActivityAt,
+          lastRequest,
+          checkedAt,
+          staleAfterMs: this.agentStaleAfterMs,
+        });
+
+        if (lastSeenAt !== agent.lastSeenAt || lastActivityAt !== agent.lastActivityAt) {
+          this.registry.updateHealth(agent.id, { lastSeenAt, lastActivityAt });
+          healthChanged = true;
+        }
 
         return {
           id: agent.id,
@@ -77,12 +100,20 @@ export class AgentRouter {
           capabilitySource: agent.capabilitySource,
           capabilityUpdatedAt: agent.capabilityUpdatedAt,
           lastCapabilityRefreshAt: agent.lastCapabilityRefreshAt,
-          status: this.busyAgents.has(agent.id) ? "busy" as const : status.status,
-          detail: status.detail,
+          lastSeenAt,
+          lastActivityAt,
+          healthCheckedAt: checkedAt,
+          staleAfterMs: this.agentStaleAfterMs,
+          status: healthStatus.status,
+          detail: healthStatus.detail ?? status.detail,
           lastRequestStatus: lastRequest?.status,
         };
       }),
-    );
+    ).finally(() => {
+      if (healthChanged) {
+        this.persistState();
+      }
+    });
   }
 
   getRequest(requestId: string) {
@@ -97,6 +128,7 @@ export class AgentRouter {
 
     this.busyAgents.add(target.id);
     const now = new Date().toISOString();
+    this.registry.updateHealth(target.id, { lastActivityAt: now });
     const request: AgentRequest = this.requestStore.create({
       id: createRequestId(),
       sourceAgent: input.sourceAgent ?? this.defaultSourceAgent,
@@ -201,6 +233,60 @@ function diagnosticStatusForError(
   }
 
   return "transport_failure";
+}
+
+function classifyAgentHealth(input: {
+  transportStatus: AgentStatus["status"];
+  busy: boolean;
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+  lastRequest?: AgentRequest;
+  checkedAt: string;
+  staleAfterMs: number;
+}): Pick<AgentStatus, "status" | "detail"> {
+  if (input.busy) {
+    return { status: "busy", detail: "Agent is currently handling a routed request." };
+  }
+
+  if (input.transportStatus === "missing") {
+    return { status: "missing" };
+  }
+
+  const attentionStatuses = new Set<AgentRequest["status"]>(["failed", "timeout"]);
+  if (input.lastRequest && attentionStatuses.has(input.lastRequest.status)) {
+    return {
+      status: "needs-attention",
+      detail: input.lastRequest.error
+        ? `Last request ${input.lastRequest.status}: ${input.lastRequest.error}`
+        : `Last request is ${input.lastRequest.status}.`,
+    };
+  }
+
+  const staleReference = input.lastSeenAt ?? input.lastActivityAt;
+  if (staleReference && isOlderThan(staleReference, input.checkedAt, input.staleAfterMs)) {
+    return {
+      status: "stale",
+      detail: `No confirmed agent reachability within ${Math.round(input.staleAfterMs / 1000)} seconds.`,
+    };
+  }
+
+  if (input.transportStatus === "available") {
+    return { status: "available" };
+  }
+
+  if (input.transportStatus === "stale" || input.transportStatus === "needs-attention") {
+    return { status: input.transportStatus };
+  }
+
+  return { status: "unknown" };
+}
+
+function isOlderThan(timestamp: string, now: string, staleAfterMs: number): boolean {
+  const timestampMs = Date.parse(timestamp);
+  const nowMs = Date.parse(now);
+  return Number.isFinite(timestampMs)
+    && Number.isFinite(nowMs)
+    && nowMs - timestampMs > staleAfterMs;
 }
 
 function rawEvidenceFromOutput(output: string): RequestRawEvidence {

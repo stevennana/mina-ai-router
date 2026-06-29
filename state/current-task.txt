@@ -1,1 +1,1 @@
-agent-health-core-api
+agent-health-ui-cli
