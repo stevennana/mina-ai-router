@@ -1,5 +1,6 @@
 export * from "./ids";
 export * from "./file-state";
+export * from "./mcp-preflight";
 export * from "./prompt-envelope";
 export * from "./registry";
 export * from "./request-store";

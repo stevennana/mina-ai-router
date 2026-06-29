@@ -27,14 +27,43 @@ export class AgentRegistry {
   }
 
   register(agent: Agent, options: AgentRegistrationOptions = {}): Agent {
-    const current = this.agents.get(agent.id);
+    const fingerprint = agent.sessionFingerprint;
+    const currentById = this.agents.get(agent.id);
+    const currentByFingerprint = fingerprint ? this.findBySessionFingerprint(fingerprint) : undefined;
+    const current = currentById ?? currentByFingerprint;
+    const canonicalId = current?.id ?? agent.id;
+    const registrationWarnings = mergeRegistrationWarnings(
+      current?.registrationWarnings,
+      currentByFingerprint && currentByFingerprint.id !== agent.id
+        ? `Registration id "${agent.id}" matched existing session fingerprint for "${currentByFingerprint.id}"; preserved existing agent id.`
+        : undefined,
+    );
     const next: Agent = {
       ...agent,
+      id: canonicalId,
+      name: agent.name || current?.name || canonicalId,
       capabilitySummary: agent.capabilitySummary ?? current?.capabilitySummary,
       capabilitySources: agent.capabilitySources ?? current?.capabilitySources,
       capabilitySource: agent.capabilitySource ?? current?.capabilitySource,
       capabilityUpdatedAt: agent.capabilityUpdatedAt ?? current?.capabilityUpdatedAt,
       lastCapabilityRefreshAt: agent.lastCapabilityRefreshAt ?? current?.lastCapabilityRefreshAt,
+      bootstrapStatus: agent.bootstrapStatus ?? current?.bootstrapStatus ?? "ready",
+      registrationSource: agent.registrationSource ?? current?.registrationSource ?? "unknown",
+      registrationStatus: agent.registrationStatus ?? current?.registrationStatus ?? "confirmed",
+      lastRegistrationAttemptAt: agent.lastRegistrationAttemptAt ?? current?.lastRegistrationAttemptAt,
+      confirmedByAgentAt: agent.confirmedByAgentAt ?? current?.confirmedByAgentAt,
+      sessionFingerprint: agent.sessionFingerprint ?? current?.sessionFingerprint ?? agent.sessionId,
+      registrationHistory: appendRegistrationHistory(current?.registrationHistory, agent, canonicalId),
+      registrationWarnings,
+      permissionProfile: agent.permissionProfile ?? current?.permissionProfile ?? "default",
+      permissionProfileStatus: agent.permissionProfileStatus ?? current?.permissionProfileStatus ?? "not-requested",
+      permissionProfileDetail: agent.permissionProfileDetail ?? current?.permissionProfileDetail,
+      mcpPreflightStatus: agent.mcpPreflightStatus ?? current?.mcpPreflightStatus,
+      mcpPreflightDetail: agent.mcpPreflightDetail ?? current?.mcpPreflightDetail,
+      mcpSetupCommand: agent.mcpSetupCommand ?? current?.mcpSetupCommand,
+      mcpVerifyCommand: agent.mcpVerifyCommand ?? current?.mcpVerifyCommand,
+      mcpRemoveCommand: agent.mcpRemoveCommand ?? current?.mcpRemoveCommand,
+      mcpUrl: agent.mcpUrl ?? current?.mcpUrl,
       lastSeenAt: agent.lastSeenAt ?? current?.lastSeenAt,
       lastActivityAt: agent.lastActivityAt ?? current?.lastActivityAt,
     };
@@ -49,7 +78,7 @@ export class AgentRegistry {
       }
     }
 
-    this.agents.set(agent.id, next);
+    this.agents.set(canonicalId, next);
     return next;
   }
 
@@ -59,6 +88,10 @@ export class AgentRegistry {
 
   get(id: string): Agent | undefined {
     return this.agents.get(id);
+  }
+
+  findBySessionFingerprint(sessionFingerprint: string): Agent | undefined {
+    return this.list().find((agent) => agent.sessionFingerprint === sessionFingerprint);
   }
 
   unregister(id: string): Agent {
@@ -104,4 +137,44 @@ export class AgentRegistry {
     this.agents.set(id, next);
     return next;
   }
+}
+
+function appendRegistrationHistory(
+  current: Agent["registrationHistory"] = [],
+  agent: Agent,
+  canonicalId: string,
+): Agent["registrationHistory"] {
+  const at = agent.confirmedByAgentAt ?? agent.lastRegistrationAttemptAt;
+  const source = agent.registrationSource;
+  const status = agent.registrationStatus;
+  if (!at || !source || !status) {
+    return current;
+  }
+
+  const event = {
+    at,
+    source,
+    status,
+    agentId: canonicalId,
+    sessionFingerprint: agent.sessionFingerprint,
+  };
+  const last = current[current.length - 1];
+  if (last
+    && last.at === event.at
+    && last.source === event.source
+    && last.status === event.status
+    && last.agentId === event.agentId
+    && last.sessionFingerprint === event.sessionFingerprint) {
+    return current;
+  }
+
+  return [...current, event];
+}
+
+function mergeRegistrationWarnings(current: string[] = [], next?: string): string[] | undefined {
+  if (!next) {
+    return current.length ? current : undefined;
+  }
+
+  return current.includes(next) ? current : [...current, next];
 }

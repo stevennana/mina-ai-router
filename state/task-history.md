@@ -15,3 +15,7 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-29T03:02:21.399Z: manually promoted agent-health-core-api -> agent-health-ui-cli | reason=manual completion of 006 after required core/API health checks passed
 - 2026-06-29T03:22:26.880Z: manually promoted agent-health-ui-cli -> collaboration-doc-walkthrough | reason=manual completion of 007 after UI and CLI health checks passed
 - 2026-06-29T03:28:26.110Z: manually promoted collaboration-doc-walkthrough -> NONE | reason=manual completion of 008 after docs walkthrough checks passed
+- 2026-06-29T05:10:28.533Z: promoted bootstrap-state-model -> permission-trust-readiness
+- 2026-06-29T05:24:16.670Z: promoted permission-trust-readiness -> mcp-preflight-agent-create
+- 2026-06-29T05:36:38.374Z: promoted mcp-preflight-agent-create -> idempotent-registration-handshake
+- 2026-06-29T05:50:08.686Z: promoted idempotent-registration-handshake -> caller-identity-self-avoidance

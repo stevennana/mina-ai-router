@@ -28,8 +28,8 @@ export const routerApi = {
   restartAgent: (id: string) => api<{ agent: RouterAgent; state: UiState }>(`/api/agents/${encodeURIComponent(id)}/restart`, {
     method: "POST",
   }),
-  createTmuxAgent: (body: { agentType: string; projectRoot: string; id?: string; sessionId?: string }) =>
-    api<{ agent: RouterAgent; state: UiState; existed: boolean; registration: string; nextAction: string; attachCommand: string; mairAttachCommand: string }>("/api/agents/create-tmux", {
+  createTmuxAgent: (body: { agentType: string; projectRoot: string; id?: string; sessionId?: string; permissionProfile?: string }) =>
+    api<{ agent: RouterAgent; state: UiState; existed: boolean; registration: string; nextAction: string; attachCommand: string; mairAttachCommand: string; permissionProfile: Pick<RouterAgent, "permissionProfile" | "permissionProfileStatus" | "permissionProfileDetail">; mcpPreflight: Pick<RouterAgent, "mcpPreflightStatus" | "mcpPreflightDetail" | "mcpSetupCommand" | "mcpVerifyCommand" | "mcpRemoveCommand" | "mcpUrl"> & { status: string; nextAction: string; canSendSelfRegistrationPrompt: boolean } }>("/api/agents/create-tmux", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -45,9 +45,9 @@ export const routerApi = {
     method: "POST",
     body: JSON.stringify({ olderThanMs: 30 * 60 * 1000 }),
   }),
-  terminal: (agentId: string) => api<{ terminal: { text: string; trustPrompt: boolean; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal`),
+  terminal: (agentId: string) => api<{ terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal`),
   terminalInput: (agentId: string, text: string, enter: boolean) =>
-    api<{ registration: string; terminal: { text: string; trustPrompt: boolean; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal/input`, {
+    api<{ registration: string; terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal/input`, {
       method: "POST",
       body: JSON.stringify({ text, enter }),
     }),

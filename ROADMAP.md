@@ -86,6 +86,22 @@ Done when:
 - The UI and CLI agree on agent health.
 - Stale or missing agents are visually obvious.
 
+### 0.2.5 Agent Bootstrap Reliability
+
+- Add bootstrap states for created, starting, permission-required, MCP configuring, registration pending, ready, and failed agents.
+- Add permission/trust readiness handling for Web UI and CLI-created Codex/Claude sessions.
+- Add MCP preflight before self-registration prompts.
+- Make Web UI-created placeholders and agent self-registration idempotent.
+- Add caller identity so agents can identify themselves and avoid self-calls.
+- Replace shallow capability text with structured, evidence-backed capability profiles.
+- Add request leases and session recovery controls for long transactions that outlive router timeouts.
+
+Done when:
+
+- A newly created agent cannot silently look ready while blocked on permission or MCP setup.
+- Agents can identify their own entry in MCP `list_agents` results.
+- Long-running timed-out requests can be cancelled, interrupted, or marked recovered from the UI or CLI.
+
 ## Milestone 0.3: Team Workspace
 
 Goal: let users organize local agents as reusable working teams.

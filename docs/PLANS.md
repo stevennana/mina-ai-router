@@ -32,4 +32,6 @@ Tasks may include narrower checks for speed, but completion should include `npm 
 
 ## Active Queue
 
-The 0.2 queue starts with request activity/protocol diagnostics because that improves every later collaboration feature.
+The original 0.2 queue completed request diagnostics, capability freshness, health labels, and collaboration docs.
+
+The next active queue targets Agent Bootstrap Reliability: making Web UI and CLI-created agents become truly ready to collaborate before Mina routes work to them.

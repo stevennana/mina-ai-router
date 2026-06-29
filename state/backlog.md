@@ -9,4 +9,14 @@
 - [x] agent-health-core-api — Agent health core and API
 - [x] agent-health-ui-cli — Agent health UI and CLI
 - [x] collaboration-doc-walkthrough — Collaboration documentation walkthrough
+- [x] bootstrap-state-model — Bootstrap state model
+- [x] permission-trust-readiness — Permission and trust readiness
+- [x] mcp-preflight-agent-create — MCP preflight for agent creation
+- [x] idempotent-registration-handshake — Idempotent registration handshake
+- [ ] caller-identity-self-avoidance — Caller identity and self-call avoidance ← current
+- [ ] capability-profile-schema-scoring — Capability profile schema and scoring
+- [ ] capability-profile-ui-cli — Capability profile UI and CLI
+- [ ] request-lease-state — Request lease state
+- [ ] transaction-recovery-controls — Transaction recovery controls
+- [ ] bootstrap-docs-and-smoke-hardening — Bootstrap documentation and smoke hardening
 

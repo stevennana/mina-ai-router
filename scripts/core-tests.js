@@ -2,17 +2,21 @@ const assert = require("node:assert/strict");
 const {
   AgentRegistry,
   AgentRouter,
+  buildMcpPreflight,
   RequestStore,
   buildPromptEnvelope,
   inspectMarkedResponse,
   parseMarkedResponse,
 } = require("../dist/packages/core/src");
-const { DefaultTransportRegistry, HeadlessTransport } = require("../dist/packages/transports/src");
+const { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport } = require("../dist/packages/transports/src");
 
 async function main() {
   testParser();
   testPromptEnvelope();
   testRegistryCapabilityMetadata();
+  testRegistryIdempotentRegistration();
+  testMcpPreflight();
+  testPermissionPromptDetection();
   testRequestStoreDiagnostics();
   await testRouterLifecycle();
   await testRouterCancelStaysTerminal();
@@ -20,6 +24,79 @@ async function main() {
   await testRouterTimeout();
   await testRouterHealthClassification();
   console.log("core tests passed");
+}
+
+function testMcpPreflight() {
+  const codexMissing = buildMcpPreflight({
+    agentType: "codex",
+    mcpUrl: "http://127.0.0.1:3333/mcp",
+  });
+  assert.equal(codexMissing.status, "missing");
+  assert.equal(codexMissing.canSendSelfRegistrationPrompt, false);
+  assert.equal(codexMissing.mcpSetupCommand, "codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp");
+  assert.match(codexMissing.nextAction, /codex mcp add/);
+
+  const claudeConfigured = buildMcpPreflight({
+    agentType: "claude",
+    mcpUrl: "http://127.0.0.1:3333/mcp",
+    configuredUrl: "http://127.0.0.1:3333/mcp",
+  });
+  assert.equal(claudeConfigured.status, "configured");
+  assert.equal(claudeConfigured.canSendSelfRegistrationPrompt, true);
+  assert.equal(claudeConfigured.mcpSetupCommand, "claude mcp add --transport http mina-ai-router http://127.0.0.1:3333/mcp");
+
+  const stale = buildMcpPreflight({
+    agentType: "codex",
+    mcpUrl: "http://127.0.0.1:3333/mcp",
+    configuredUrl: "http://127.0.0.1:9999/mcp",
+  });
+  assert.equal(stale.status, "stale");
+  assert.equal(stale.canSendSelfRegistrationPrompt, false);
+  assert.match(stale.mcpPreflightDetail, /9999/);
+
+  const unsupported = buildMcpPreflight({
+    agentType: "gemini",
+    mcpUrl: "http://127.0.0.1:3333/mcp",
+  });
+  assert.equal(unsupported.status, "unsupported");
+  assert.equal(unsupported.canSendSelfRegistrationPrompt, false);
+}
+
+function testPermissionPromptDetection() {
+  const codexAgent = {
+    id: "codex",
+    name: "codex",
+    agentType: "codex",
+    projectRoot: "/tmp/project",
+    transport: "tmux",
+    sessionId: "codex-session",
+  };
+  const claudeAgent = {
+    id: "claude",
+    name: "claude",
+    agentType: "claude",
+    projectRoot: "/tmp/project",
+    transport: "tmux",
+    sessionId: "claude-session",
+  };
+
+  const codexPrompt = detectAgentPermissionPrompt(
+    codexAgent,
+    "Do you trust the contents of this directory?\nPress enter to continue",
+  );
+  assert.equal(codexPrompt.client, "codex");
+  assert.equal(codexPrompt.kind, "directory-trust");
+  assert.match(codexPrompt.action, /tmux attach -t codex-session/);
+
+  const claudePrompt = detectAgentPermissionPrompt(
+    claudeAgent,
+    "Claude needs your permission to read files in this project. Press Enter to continue.",
+  );
+  assert.equal(claudePrompt.client, "claude");
+  assert.equal(claudePrompt.kind, "permission-approval");
+  assert.match(claudePrompt.action, /tmux attach -t claude-session/);
+
+  assert.equal(detectAgentPermissionPrompt(codexAgent, "ready for input"), undefined);
 }
 
 function testRegistryCapabilityMetadata() {
@@ -48,6 +125,28 @@ function testRegistryCapabilityMetadata() {
   });
   assert.equal(merged.capabilitySummary, "Existing manual summary.");
   assert.equal(merged.capabilitySource, "manual");
+  assert.equal(merged.bootstrapStatus, "ready");
+  assert.equal(merged.registrationSource, "unknown");
+  assert.equal(merged.registrationStatus, "confirmed");
+
+  const placeholder = registry.register({
+    id: "payment",
+    name: "payment",
+    agentType: "gemini",
+    projectRoot: "/tmp/payment",
+    transport: "headless",
+    sessionId: "payment",
+    bootstrapStatus: "created",
+    registrationSource: "web-ui",
+    registrationStatus: "pending",
+    lastRegistrationAttemptAt: "2026-01-01T00:01:00.000Z",
+    sessionFingerprint: "payment-session",
+  });
+  assert.equal(placeholder.bootstrapStatus, "created");
+  assert.equal(placeholder.registrationSource, "web-ui");
+  assert.equal(placeholder.registrationStatus, "pending");
+  assert.equal(placeholder.lastRegistrationAttemptAt, "2026-01-01T00:01:00.000Z");
+  assert.equal(placeholder.sessionFingerprint, "payment-session");
 
   const refreshed = registry.updateCapabilities("payment", {
     summary: "Generated summary.",
@@ -59,6 +158,78 @@ function testRegistryCapabilityMetadata() {
   assert.equal(refreshed.capabilitySource, "generated");
   assert.equal(refreshed.capabilityUpdatedAt, "2026-01-02T00:00:00.000Z");
   assert.equal(refreshed.lastCapabilityRefreshAt, "2026-01-02T00:00:00.000Z");
+  assert.equal(refreshed.bootstrapStatus, "created");
+  assert.equal(refreshed.registrationStatus, "pending");
+}
+
+function testRegistryIdempotentRegistration() {
+  const registry = new AgentRegistry();
+
+  const placeholder = registry.register({
+    id: "payment",
+    name: "payment",
+    agentType: "codex",
+    projectRoot: "/tmp/payment",
+    transport: "tmux",
+    sessionId: "payment-session",
+    bootstrapStatus: "created",
+    registrationSource: "web-ui",
+    registrationStatus: "pending",
+    lastRegistrationAttemptAt: "2026-01-01T00:00:00.000Z",
+    sessionFingerprint: "payment-session",
+  });
+  assert.equal(placeholder.registrationHistory.length, 1);
+  assert.equal(placeholder.registrationHistory[0].source, "web-ui");
+  assert.equal(placeholder.registrationHistory[0].status, "pending");
+
+  const confirmed = registry.register({
+    id: "payment",
+    name: "payment",
+    agentType: "codex",
+    projectRoot: "/tmp/payment",
+    transport: "tmux",
+    sessionId: "payment-session",
+    bootstrapStatus: "ready",
+    registrationSource: "mcp",
+    registrationStatus: "confirmed",
+    lastRegistrationAttemptAt: "2026-01-01T00:01:00.000Z",
+    confirmedByAgentAt: "2026-01-01T00:01:00.000Z",
+    sessionFingerprint: "payment-session",
+    capabilitySummary: "Payment API helper.",
+    capabilitySources: "README.md, src",
+  }, {
+    capabilitySource: "generated",
+    refreshedAt: "2026-01-01T00:01:00.000Z",
+  });
+  assert.equal(confirmed.id, "payment");
+  assert.equal(confirmed.bootstrapStatus, "ready");
+  assert.equal(confirmed.registrationSource, "mcp");
+  assert.equal(confirmed.registrationStatus, "confirmed");
+  assert.equal(confirmed.confirmedByAgentAt, "2026-01-01T00:01:00.000Z");
+  assert.equal(confirmed.registrationHistory.length, 2);
+  assert.equal(confirmed.registrationHistory[1].source, "mcp");
+  assert.equal(confirmed.capabilitySource, "generated");
+
+  const duplicate = registry.register({
+    id: "payment-copy",
+    name: "payment-copy",
+    agentType: "codex",
+    projectRoot: "/tmp/payment",
+    transport: "tmux",
+    sessionId: "payment-session",
+    bootstrapStatus: "ready",
+    registrationSource: "mcp",
+    registrationStatus: "confirmed",
+    lastRegistrationAttemptAt: "2026-01-01T00:02:00.000Z",
+    confirmedByAgentAt: "2026-01-01T00:02:00.000Z",
+    sessionFingerprint: "payment-session",
+  });
+  assert.equal(duplicate.id, "payment");
+  assert.equal(registry.get("payment-copy"), undefined);
+  assert.equal(registry.list().length, 1);
+  assert.equal(duplicate.registrationHistory.length, 3);
+  assert.match(duplicate.registrationWarnings[0], /matched existing session fingerprint/);
+  assert.equal(duplicate.lastRegistrationAttemptAt, "2026-01-01T00:02:00.000Z");
 }
 
 function testParser() {
@@ -365,6 +536,8 @@ async function testRouterHealthClassification() {
   const byId = Object.fromEntries(statuses.map((status) => [status.id, status]));
   assert.equal(byId.available.status, "available");
   assert.ok(byId.available.lastSeenAt);
+  assert.equal(byId.available.bootstrapStatus, "ready");
+  assert.equal(byId.available.registrationStatus, "confirmed");
   assert.equal(byId.missing.status, "missing");
   assert.match(byId.missing.detail, /session is gone/);
   assert.equal(byId.stale.status, "stale");

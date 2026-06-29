@@ -22,6 +22,24 @@ async function main() {
 
   writeResponder();
   cleanup();
+  writeFileSync(statePath, `${JSON.stringify({
+    agents: [
+      {
+        id: "payment",
+        name: "payment",
+        agentType: "shell",
+        transport: "tmux",
+        sessionId: session,
+        projectRoot: tempDir,
+        bootstrapStatus: "created",
+        registrationSource: "web-ui",
+        registrationStatus: "pending",
+        lastRegistrationAttemptAt: "2026-01-01T00:00:00.000Z",
+        sessionFingerprint: session,
+      },
+    ],
+    requests: [],
+  }, null, 2)}\n`);
 
   try {
     try {
@@ -48,12 +66,18 @@ async function main() {
           agentType: "shell",
           transport: "tmux",
           sessionId: session,
+          sessionFingerprint: session,
           projectRoot: tempDir,
           capabilitySummary: "Handles payment project questions and returns marker-wrapped tmux responses.",
           capabilitySources: "AGENTS.md, package.json",
         })).content[0].text,
       );
       assert.equal(registered.agent.id, "payment");
+      assert.equal(registered.agent.bootstrapStatus, "ready");
+      assert.equal(registered.agent.registrationSource, "mcp");
+      assert.equal(registered.agent.registrationStatus, "confirmed");
+      assert.ok(registered.agent.confirmedByAgentAt);
+      assert.ok(registered.agent.registrationHistory.length >= 2);
       assert.equal(registered.agent.capabilitySummary, "Handles payment project questions and returns marker-wrapped tmux responses.");
       assert.equal(registered.agent.capabilitySource, "generated");
       assert.ok(registered.agent.capabilityUpdatedAt);

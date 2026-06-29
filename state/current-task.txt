@@ -1,1 +1,1 @@
-NONE
+caller-identity-self-avoidance

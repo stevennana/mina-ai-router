@@ -4,9 +4,9 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { AgentRegistry, AgentRouter, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
+import { AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
 import { createMinaMcpProvider } from "../../../packages/mcp/src/provider";
-import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
+import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type { McpFetchHandler, McpRuntimeProvider } from "@minasoft/mcp-runtime";
 
 type RuntimeModule = typeof import("@minasoft/mcp-runtime");
@@ -391,6 +391,7 @@ function registerAgent(body: Record<string, unknown>): Agent {
   const id = requiredString(body.id, "id");
   const projectRoot = stringValue(body.projectRoot) ?? process.cwd();
   const capabilityNotice = inferCapabilityNotice(projectRoot);
+  const now = new Date().toISOString();
   const agent: Agent = {
     id,
     name: stringValue(body.name) ?? id,
@@ -402,6 +403,15 @@ function registerAgent(body: Record<string, unknown>): Agent {
     startupCommand: stringValue(body.startupCommand),
     capabilitySummary: stringValue(body.capabilitySummary) ?? capabilityNotice.summary,
     capabilitySources: stringValue(body.capabilitySources) ?? capabilityNotice.sources,
+    bootstrapStatus: stringValue(body.bootstrapStatus) ?? "ready",
+    registrationSource: stringValue(body.registrationSource) ?? "manual",
+    registrationStatus: stringValue(body.registrationStatus) ?? "confirmed",
+    lastRegistrationAttemptAt: stringValue(body.lastRegistrationAttemptAt) ?? now,
+    confirmedByAgentAt: stringValue(body.confirmedByAgentAt) ?? now,
+    sessionFingerprint: stringValue(body.sessionFingerprint) ?? stringValue(body.sessionId) ?? id,
+    permissionProfile: stringValue(body.permissionProfile) ?? "default",
+    permissionProfileStatus: stringValue(body.permissionProfileStatus) ?? "not-requested",
+    permissionProfileDetail: stringValue(body.permissionProfileDetail),
   };
 
   const registered = context.registry.register(agent, {
@@ -483,12 +493,24 @@ function captureAgentTerminal(id: string) {
 
   const tmux = new TmuxClient({ captureLines: 120 });
   const text = tmux.capture(agent.tmuxTarget ?? agent.sessionId);
+  const permissionPrompt = detectAgentPermissionPrompt(agent, text);
+  const nextAgent = permissionPrompt
+    ? context.registry.register({
+      ...agent,
+      bootstrapStatus: "permission-required",
+    })
+    : agent;
+  if (permissionPrompt) {
+    context.save();
+  }
+
   return {
-    agent,
+    agent: nextAgent,
     terminal: {
       text,
       capturedAt: new Date().toISOString(),
-      trustPrompt: agent.agentType === "codex" && isCodexTrustPrompt(text),
+      trustPrompt: Boolean(permissionPrompt),
+      permissionPrompt,
       pendingRegistration: isPendingUiRegistration(agent),
     },
   };
@@ -519,7 +541,7 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   if (enter && !text && isPendingUiRegistration(agent)) {
     sleep(1_200);
     const capture = tmux.capture(target);
-    if (!(agent.agentType === "codex" && isCodexTrustPrompt(capture))) {
+    if (!detectAgentPermissionPrompt(agent, capture)) {
       if (agent.agentType === "codex") {
         tmux.sendCodexText(target, buildSelfRegistrationPrompt(agent));
       } else {
@@ -552,6 +574,15 @@ function createTmuxAgent(body: Record<string, unknown>) {
   const sessionId = stringValue(body.sessionId) ?? `${agentType}-${sanitizeName(projectName)}`;
   const startupCommand = stringValue(body.startupCommand)
     ?? (agentType === "codex" ? "codex --no-alt-screen" : "claude");
+  const now = new Date().toISOString();
+  const permissionProfile = resolvePermissionProfile(agentType, stringValue(body.permissionProfile) ?? "default", projectRoot);
+  const mcpPreflight = buildMcpPreflight({
+    agentType,
+    mcpUrl: `http://${host}:${port}/mcp`,
+    mcpName: stringValue(body.mcpName),
+    configured: body.mcpConfigured === true,
+    configuredUrl: stringValue(body.mcpConfiguredUrl),
+  });
   const command = startupCommand.split(/\s+/)[0];
   assertCommandAvailable("tmux");
   assertCommandAvailable(command);
@@ -564,13 +595,27 @@ function createTmuxAgent(body: Record<string, unknown>) {
     sessionId,
     projectRoot,
     startupCommand,
+    bootstrapStatus: "created",
+    registrationSource: "web-ui",
+    registrationStatus: "pending",
+    lastRegistrationAttemptAt: now,
+    sessionFingerprint: sessionId,
+    permissionProfile: permissionProfile.permissionProfile,
+    permissionProfileStatus: permissionProfile.permissionProfileStatus,
+    permissionProfileDetail: permissionProfile.permissionProfileDetail,
+    mcpPreflightStatus: mcpPreflight.mcpPreflightStatus,
+    mcpPreflightDetail: mcpPreflight.mcpPreflightDetail,
+    mcpSetupCommand: mcpPreflight.mcpSetupCommand,
+    mcpVerifyCommand: mcpPreflight.mcpVerifyCommand,
+    mcpRemoveCommand: mcpPreflight.mcpRemoveCommand,
+    mcpUrl: mcpPreflight.mcpUrl,
     ...uiCreatedCapabilityNotice(projectRoot),
   };
 
   const tmux = new TmuxClient();
   const existed = tmux.hasSession(sessionId);
   tmux.ensureSession(agent);
-  context.registry.register(agent);
+  let registeredAgent = context.registry.register(agent);
   context.save();
 
   const sendRegistrationPrompt = body.sendRegistrationPrompt !== false;
@@ -580,9 +625,23 @@ function createTmuxAgent(body: Record<string, unknown>) {
     const delayMs = typeof body.registerDelayMs === "number" ? body.registerDelayMs : 4_000;
     sleep(delayMs);
     const capture = tmux.capture(sessionId);
-    if (agentType === "codex" && isCodexTrustPrompt(capture)) {
-      registration = "waiting for Codex directory trust approval";
-      nextAction = `Attach with "tmux attach -t ${sessionId}", approve the Codex trust prompt, then ask the agent to register this session with Mina AI Router.`;
+    const permissionPrompt = detectAgentPermissionPrompt(agent, capture);
+    if (permissionPrompt) {
+      registration = "waiting for permission approval";
+      nextAction = permissionPrompt.action;
+      registeredAgent = context.registry.register({
+        ...agent,
+        bootstrapStatus: "permission-required",
+      });
+      context.save();
+    } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
+      registration = "waiting for MCP setup";
+      nextAction = mcpPreflight.nextAction;
+      registeredAgent = context.registry.register({
+        ...agent,
+        bootstrapStatus: "mcp-configuring",
+      });
+      context.save();
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
       if (agentType === "codex") {
@@ -595,12 +654,34 @@ function createTmuxAgent(body: Record<string, unknown>) {
   }
 
   return {
-    agent,
+    agent: registeredAgent,
     existed,
     registration,
     nextAction,
+    permissionProfile,
+    mcpPreflight,
     attachCommand: `tmux attach -t ${sessionId}`,
     mairAttachCommand: `mair attach ${id}`,
+  };
+}
+
+function resolvePermissionProfile(
+  agentType: string,
+  requestedProfile: string,
+  projectRoot: string,
+): Pick<Agent, "permissionProfile" | "permissionProfileStatus" | "permissionProfileDetail"> {
+  if (requestedProfile !== "direct-workspace-read") {
+    return {
+      permissionProfile: "default",
+      permissionProfileStatus: "not-requested",
+      permissionProfileDetail: "Default CLI startup. Mina will surface permission prompts instead of hiding them.",
+    };
+  }
+
+  return {
+    permissionProfile: "direct-workspace-read",
+    permissionProfileStatus: "unsupported",
+    permissionProfileDetail: `No known ${agentType} startup flag in Mina is both direct-read and scoped only to ${projectRoot}. Mina will start the default command and surface permission prompts.`,
   };
 }
 
@@ -643,14 +724,18 @@ function buildSelfRegistrationPrompt(agent: Agent): string {
     `- agentType: ${agent.agentType}`,
     `- transport: ${agent.transport}`,
     `- sessionId: ${agent.sessionId}`,
+    `- sessionFingerprint: ${agent.sessionFingerprint ?? agent.sessionId}`,
     `- projectRoot: ${agent.projectRoot}`,
     `- startupCommand: ${agent.startupCommand ?? ""}`,
+    "",
+    "If Mina already created this agent record, confirm and update that existing id. Do not create a new id for the same session.",
     "",
     "Before registering, create a concise capability notice for this session:",
     "- Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
     "- If those files are missing, inspect package metadata and the project file tree to infer what this project/agent can help with.",
     "- Set register_agent capabilitySummary to 2-5 short bullets or one short paragraph under 800 characters.",
     "- Set register_agent capabilitySources to a comma-separated list of the files or project signals you used.",
+    "- Set register_agent sessionFingerprint to the value above.",
     "After registering, call list_agents and confirm this agent is available.",
   ].join("\n");
 }
@@ -802,12 +887,6 @@ function objectValue(value: unknown): Record<string, unknown> {
 function truncateText(value: string, maxLength: number): string {
   const normalized = value.replace(/\s+/g, " ").trim();
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
-}
-
-function isCodexTrustPrompt(capture: string): boolean {
-  return capture.includes("Do you trust the contents of this directory?")
-    || capture.includes("Press enter to continue")
-    || capture.includes("Yes, continue");
 }
 
 function isPendingUiRegistration(agent: Agent): boolean {

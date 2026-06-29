@@ -10,6 +10,7 @@ const baseUrl = `http://127.0.0.1:${port}`;
 const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
+const promptSession = `mina-http-permission-${process.pid}`;
 let serverLog = "";
 writeFileSync(statePath, `${JSON.stringify({
   agents: [
@@ -95,6 +96,9 @@ async function main() {
     assert.ok(staleAgent, "expected stale capability fixture in UI state");
     assert.ok(missingTmuxAgent, "expected missing tmux fixture in UI state");
     assert.equal(missingAgent.capabilitySummary, undefined);
+    assert.equal(missingAgent.bootstrapStatus, "ready");
+    assert.equal(missingAgent.registrationSource, "unknown");
+    assert.equal(missingAgent.registrationStatus, "confirmed");
     assert.equal(staleAgent.status, "stale");
     assert.equal(staleAgent.capabilitySource, "generated");
     assert.equal(staleAgent.lastCapabilityRefreshAt, "2026-01-01T00:00:00.000Z");
@@ -113,10 +117,23 @@ async function main() {
       projectRoot: tempDir,
       sessionId: uiSession,
       startupCommand: "/bin/sh",
+      permissionProfile: "direct-workspace-read",
       sendRegistrationPrompt: false,
     });
     assert.equal(uiCreated.agent.id, "ui-created");
     assert.equal(uiCreated.agent.sessionId, uiSession);
+    assert.equal(uiCreated.agent.bootstrapStatus, "created");
+    assert.equal(uiCreated.agent.registrationSource, "web-ui");
+    assert.equal(uiCreated.agent.registrationStatus, "pending");
+    assert.equal(uiCreated.agent.sessionFingerprint, uiSession);
+    assert.equal(uiCreated.agent.permissionProfile, "direct-workspace-read");
+    assert.equal(uiCreated.agent.permissionProfileStatus, "unsupported");
+    assert.match(uiCreated.agent.permissionProfileDetail, /No known codex startup flag/);
+    assert.equal(uiCreated.permissionProfile.permissionProfileStatus, "unsupported");
+    assert.equal(uiCreated.agent.mcpPreflightStatus, "missing");
+    assert.match(uiCreated.agent.mcpSetupCommand, /codex mcp add mina-ai-router --url/);
+    assert.equal(uiCreated.mcpPreflight.status, "missing");
+    assert.ok(uiCreated.agent.lastRegistrationAttemptAt);
     assert.equal(uiCreated.attachCommand, `tmux attach -t ${uiSession}`);
     assert.equal(uiCreated.mairAttachCommand, "mair attach ui-created");
 
@@ -129,6 +146,37 @@ async function main() {
     });
     assert.equal(terminalInput.ok, true);
 
+    const confirmedUiCreated = await postJson(`${baseUrl}/api/register`, {
+      id: "ui-created",
+      name: "ui-created",
+      agentType: "codex",
+      transport: "tmux",
+      sessionId: uiSession,
+      sessionFingerprint: uiSession,
+      projectRoot: tempDir,
+      capabilitySummary: "Confirmed UI-created helper.",
+      capabilitySources: "self registration smoke",
+    });
+    assert.equal(confirmedUiCreated.agent.id, "ui-created");
+    assert.equal(confirmedUiCreated.agent.bootstrapStatus, "ready");
+    assert.equal(confirmedUiCreated.agent.registrationSource, "manual");
+    assert.equal(confirmedUiCreated.agent.registrationStatus, "confirmed");
+    assert.ok(confirmedUiCreated.agent.confirmedByAgentAt);
+    assert.ok(confirmedUiCreated.agent.registrationHistory.length >= 2);
+
+    const duplicateUiCreated = await postJson(`${baseUrl}/api/register`, {
+      id: "ui-created-copy",
+      name: "ui-created-copy",
+      agentType: "codex",
+      transport: "tmux",
+      sessionId: uiSession,
+      sessionFingerprint: uiSession,
+      projectRoot: tempDir,
+    });
+    assert.equal(duplicateUiCreated.agent.id, "ui-created");
+    assert.ok(duplicateUiCreated.agent.registrationWarnings[0].includes("matched existing session fingerprint"));
+    assert.equal(duplicateUiCreated.state.agents.filter((agent) => agent.sessionFingerprint === uiSession).length, 1);
+
     const updatedUiCreated = await patchJson(`${baseUrl}/api/agents/ui-created`, {
       capabilitySummary: "Edited capability notice.",
       capabilitySources: "manual UI edit",
@@ -140,6 +188,45 @@ async function main() {
 
     const deletedUiCreated = await deleteJson(`${baseUrl}/api/agents/ui-created`);
     assert.equal(deletedUiCreated.agent.id, "ui-created");
+
+    const mcpBlocked = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-mcp-missing",
+      agentType: "claude",
+      projectRoot: tempDir,
+      sessionId: `mina-http-mcp-${process.pid}`,
+      startupCommand: "/bin/sh",
+      registerDelayMs: 250,
+    });
+    assert.equal(mcpBlocked.registration, "waiting for MCP setup");
+    assert.equal(mcpBlocked.agent.bootstrapStatus, "mcp-configuring");
+    assert.equal(mcpBlocked.agent.mcpPreflightStatus, "missing");
+    assert.match(mcpBlocked.nextAction, /claude mcp add --transport http mina-ai-router/);
+
+    const promptScriptPath = join(tempDir, "permission-prompt-fixture.sh");
+    writeFileSync(promptScriptPath, [
+      "printf 'Do you trust the contents of this directory?\\nPress enter to continue\\n'",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const permissionBlocked = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-permission",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: promptSession,
+      startupCommand: `/bin/sh ${promptScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(permissionBlocked.registration, "waiting for permission approval");
+    assert.equal(permissionBlocked.agent.bootstrapStatus, "permission-required");
+    assert.match(permissionBlocked.nextAction, /tmux attach/);
+
+    const blockedState = await json(`${baseUrl}/api/state`);
+    const blockedAgent = blockedState.agents.find((agent) => agent.id === "ui-permission");
+    assert.equal(blockedAgent.status, "needs-attention");
+    assert.equal(blockedAgent.bootstrapStatus, "permission-required");
+    assert.equal(blockedAgent.permissionPrompt.client, "codex");
+    assert.match(blockedAgent.detail, /directory trust approval/);
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "http-smoke",
@@ -154,6 +241,11 @@ async function main() {
     assert.equal(registered.agent.id, "http-smoke");
     assert.equal(registered.agent.capabilitySummary, "HTTP smoke helper for validating registration metadata.");
     assert.equal(registered.agent.capabilitySource, "generated");
+    assert.equal(registered.agent.bootstrapStatus, "ready");
+    assert.equal(registered.agent.registrationSource, "manual");
+    assert.equal(registered.agent.registrationStatus, "confirmed");
+    assert.ok(registered.agent.lastRegistrationAttemptAt);
+    assert.ok(registered.agent.confirmedByAgentAt);
     assert.ok(registered.agent.capabilityUpdatedAt);
     assert.ok(registered.agent.lastCapabilityRefreshAt);
 
@@ -161,6 +253,8 @@ async function main() {
     const registeredAgent = registeredState.agents.find((agent) => agent.id === "http-smoke");
     assert.ok(registeredAgent, "expected registered agent in HTTP UI state");
     assert.equal(registeredAgent.capabilitySource, "generated");
+    assert.equal(registeredAgent.bootstrapStatus, "ready");
+    assert.equal(registeredAgent.registrationStatus, "confirmed");
     assert.ok(registeredAgent.capabilityUpdatedAt);
     assert.ok(registeredAgent.lastCapabilityRefreshAt);
 
@@ -250,6 +344,20 @@ async function main() {
       });
     } catch {
       // Temporary UI-created session may not exist.
+    }
+    try {
+      execFileSync("tmux", ["kill-session", "-t", promptSession], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      // Temporary permission fixture session may not exist.
+    }
+    try {
+      execFileSync("tmux", ["kill-session", "-t", `mina-http-mcp-${process.pid}`], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      // Temporary MCP preflight fixture session may not exist.
     }
     server.kill("SIGTERM");
   }

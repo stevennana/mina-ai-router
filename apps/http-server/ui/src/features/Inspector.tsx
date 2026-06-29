@@ -1,5 +1,5 @@
 import type { RouterAgent, RouterRequest } from "../domain/types";
-import { agentRequests, attachCommand, capabilityFreshness, displayAgentName, formatDateTime, healthMessage } from "../domain/helpers";
+import { agentRequests, attachCommand, bootstrapLabel, capabilityFreshness, displayAgentName, formatDateTime, healthMessage, mcpPreflightLabel, permissionProfileLabel } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
@@ -54,7 +54,15 @@ export function Inspector({
             <Kv label="Last seen">{formatDateTime(agent.lastSeenAt)}</Kv>
             <Kv label="Last activity">{formatDateTime(agent.lastActivityAt)}</Kv>
             <Kv label="Checked">{formatDateTime(agent.healthCheckedAt)}</Kv>
+            <Kv label="Bootstrap">{bootstrapLabel(agent)}</Kv>
+            <Kv label="Permission profile">{permissionProfileLabel(agent)}</Kv>
+            <Kv label="MCP preflight">{mcpPreflightLabel(agent)}</Kv>
           </div>
+          {agent.permissionProfileDetail ? <div className="notice">{agent.permissionProfileDetail}</div> : null}
+          {agent.mcpPreflightDetail ? <div className="notice">{agent.mcpPreflightDetail}</div> : null}
+          {agent.registrationWarnings?.length ? <div className="notice">{agent.registrationWarnings.join(" ")}</div> : null}
+          {agent.mcpSetupCommand && agent.mcpPreflightStatus !== "configured" ? <div className="command-box"><span className="subtitle">MCP setup</span><code>{agent.mcpSetupCommand}</code></div> : null}
+          {agent.permissionPrompt ? <div className="notice">{agent.permissionPrompt.evidence}</div> : null}
         </div>
         <div className="section">
           <div className="section-title"><Icon name="lan" size={15} />Connection</div>

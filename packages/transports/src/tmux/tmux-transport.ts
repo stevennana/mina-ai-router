@@ -1,6 +1,6 @@
-import type { Agent, AgentTransport } from "../../../core/src";
+import type { Agent, AgentTransport, AgentTransportStatus } from "../../../core/src";
 import { parseMarkedResponse } from "../../../core/src";
-import { TmuxClient } from "./tmux-client";
+import { detectAgentPermissionPrompt, TmuxClient } from "./tmux-client";
 
 const pollIntervalMs = 500;
 
@@ -40,13 +40,24 @@ export class TmuxTransport implements AgentTransport {
     throw new Error(`Timed out waiting for response markers for ${requestId}. Last capture:\n${lastOutput}`);
   }
 
-  async status(agent: Agent): Promise<{ status: "available" | "missing"; detail?: string }> {
+  async status(agent: Agent): Promise<AgentTransportStatus> {
     if (!this.client.isAvailable()) {
       return { status: "missing", detail: "tmux binary is not available" };
     }
 
     if (!this.client.hasSession(agent.sessionId)) {
       return { status: "missing", detail: `tmux session "${agent.sessionId}" does not exist` };
+    }
+
+    const capture = this.client.capture(targetFor(agent));
+    const permissionPrompt = detectAgentPermissionPrompt(agent, capture);
+    if (permissionPrompt) {
+      return {
+        status: "needs-attention",
+        detail: `${permissionPrompt.message} ${permissionPrompt.action}`,
+        bootstrapStatus: "permission-required",
+        permissionPrompt,
+      };
     }
 
     return { status: "available", detail: this.client.attachCommand(agent) };

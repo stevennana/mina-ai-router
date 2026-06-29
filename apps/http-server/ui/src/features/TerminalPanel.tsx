@@ -75,8 +75,12 @@ export function TerminalPanel({
   );
 }
 
-function terminalStatusText(terminal: { trustPrompt: boolean; pendingRegistration: boolean }, autoHideOnRegistered: boolean): string {
-  if (terminal.trustPrompt) return "Codex is waiting for directory trust approval. Press Send Enter to continue.";
+function terminalStatusText(
+  terminal: { trustPrompt: boolean; permissionPrompt?: { message: string; action: string }; pendingRegistration: boolean },
+  autoHideOnRegistered: boolean,
+): string {
+  if (terminal.permissionPrompt) return `${terminal.permissionPrompt.message} ${terminal.permissionPrompt.action}`;
+  if (terminal.trustPrompt) return "Agent is waiting for a permission or trust prompt. Press Send Enter only after reviewing the directory.";
   if (terminal.pendingRegistration) return "Waiting for the agent to finish self-registration.";
   return autoHideOnRegistered ? "Agent is registered. Terminal preview will close automatically." : "Live terminal preview is active.";
 }

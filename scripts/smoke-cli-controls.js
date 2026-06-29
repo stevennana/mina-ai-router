@@ -25,7 +25,7 @@ async function main() {
   writeRefreshResponder();
 
   try {
-    runNode([
+    const registeredCliRefresh = JSON.parse(runNode([
       "register",
       "cli-refresh",
       "--agent",
@@ -40,7 +40,11 @@ async function main() {
       "Manual capability summary.",
       "--sources",
       "manual operator note",
-    ]);
+    ]));
+    assert.equal(registeredCliRefresh.agent.registrationSource, "cli");
+    assert.equal(registeredCliRefresh.agent.registrationStatus, "confirmed");
+    assert.equal(registeredCliRefresh.agent.sessionFingerprint, "cli-refresh");
+    assert.ok(registeredCliRefresh.agent.registrationHistory.length >= 1);
     const refreshed = JSON.parse(runNode(["agent", "refresh-capabilities", "cli-refresh", "--timeout-ms", "5000"]));
     assert.equal(refreshed.agent.id, "cli-refresh");
     assert.equal(refreshed.agent.capabilitySummary, "Headless capability refresh for cli-refresh.");
@@ -90,11 +94,20 @@ async function main() {
       tempDir,
       "--command",
       "/bin/sh",
+      "--permission-profile",
+      "direct-workspace-read",
       "--no-attach",
       "--no-register",
     ]));
     assert.equal(visible.agent.sessionId, session);
     assert.equal(visible.agent.projectRoot, tempDir);
+    assert.equal(visible.agent.permissionProfile, "direct-workspace-read");
+    assert.equal(visible.agent.permissionProfileStatus, "unsupported");
+    assert.match(visible.agent.permissionProfileDetail, /No known codex startup flag/);
+    assert.equal(visible.permissionProfile.permissionProfileStatus, "unsupported");
+    assert.equal(visible.agent.mcpPreflightStatus, "missing");
+    assert.equal(visible.mcpPreflight.status, "missing");
+    assert.match(visible.mcpPreflight.mcpSetupCommand, /codex mcp add mina-ai-router --url/);
     assert.equal(visible.registration, "registration prompt skipped");
     run("tmux", ["has-session", "-t", session]);
 

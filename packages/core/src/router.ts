@@ -71,6 +71,14 @@ export class AgentRouter {
         const status = transport.status
           ? await transport.status(agent)
           : { status: "unknown" as const };
+        const bootstrapStatus = status.bootstrapStatus ?? agent.bootstrapStatus;
+        if (status.bootstrapStatus && status.bootstrapStatus !== agent.bootstrapStatus) {
+          this.registry.register({
+            ...agent,
+            bootstrapStatus: status.bootstrapStatus,
+          });
+          healthChanged = true;
+        }
         const lastActivityAt = lastRequest?.updatedAt ?? agent.lastActivityAt;
         const lastSeenAt = status.status === "available" ? checkedAt : agent.lastSeenAt;
         const healthStatus = classifyAgentHealth({
@@ -100,6 +108,24 @@ export class AgentRouter {
           capabilitySource: agent.capabilitySource,
           capabilityUpdatedAt: agent.capabilityUpdatedAt,
           lastCapabilityRefreshAt: agent.lastCapabilityRefreshAt,
+          bootstrapStatus,
+          registrationSource: agent.registrationSource,
+          registrationStatus: agent.registrationStatus,
+          lastRegistrationAttemptAt: agent.lastRegistrationAttemptAt,
+          confirmedByAgentAt: agent.confirmedByAgentAt,
+          sessionFingerprint: agent.sessionFingerprint,
+          registrationHistory: agent.registrationHistory,
+          registrationWarnings: agent.registrationWarnings,
+          permissionProfile: agent.permissionProfile,
+          permissionProfileStatus: agent.permissionProfileStatus,
+          permissionProfileDetail: agent.permissionProfileDetail,
+          permissionPrompt: status.permissionPrompt,
+          mcpPreflightStatus: agent.mcpPreflightStatus,
+          mcpPreflightDetail: agent.mcpPreflightDetail,
+          mcpSetupCommand: agent.mcpSetupCommand,
+          mcpVerifyCommand: agent.mcpVerifyCommand,
+          mcpRemoveCommand: agent.mcpRemoveCommand,
+          mcpUrl: agent.mcpUrl,
           lastSeenAt,
           lastActivityAt,
           healthCheckedAt: checkedAt,
@@ -252,6 +278,10 @@ function classifyAgentHealth(input: {
     return { status: "missing" };
   }
 
+  if (input.transportStatus === "needs-attention") {
+    return { status: "needs-attention" };
+  }
+
   const attentionStatuses = new Set<AgentRequest["status"]>(["failed", "timeout"]);
   if (input.lastRequest && attentionStatuses.has(input.lastRequest.status)) {
     return {
@@ -274,7 +304,7 @@ function classifyAgentHealth(input: {
     return { status: "available" };
   }
 
-  if (input.transportStatus === "stale" || input.transportStatus === "needs-attention") {
+  if (input.transportStatus === "stale") {
     return { status: input.transportStatus };
   }
 

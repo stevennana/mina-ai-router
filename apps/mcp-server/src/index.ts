@@ -154,6 +154,7 @@ async function createProvider(): Promise<McpRuntimeProvider> {
           agentType: { type: "string" },
           transport: { type: "string" },
           sessionId: { type: "string" },
+          sessionFingerprint: { type: "string" },
           projectRoot: { type: "string" },
           tmuxTarget: { type: "string" },
           startupCommand: { type: "string" },
@@ -222,7 +223,16 @@ async function callTool(name: string, args: Record<string, JsonValue>): Promise<
     case "register_agent": {
       try {
         const agent = agentFromArgs(args);
-        const registered = context.registry.register(agent, {
+        const now = new Date().toISOString();
+        const registered = context.registry.register({
+          ...agent,
+          bootstrapStatus: "ready",
+          registrationSource: "mcp",
+          registrationStatus: "confirmed",
+          lastRegistrationAttemptAt: now,
+          confirmedByAgentAt: now,
+          sessionFingerprint: agent.sessionFingerprint ?? agent.sessionId,
+        }, {
           capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "generated" : undefined,
         });
         context.save();
@@ -289,6 +299,7 @@ function agentFromArgs(args: Record<string, JsonValue>): Agent {
     agentType: requiredString(args.agentType, "agentType"),
     transport: requiredString(args.transport, "transport") as TransportType,
     sessionId: requiredString(args.sessionId, "sessionId"),
+    sessionFingerprint: stringValue(args.sessionFingerprint) ?? stringValue(args.sessionId),
     projectRoot: requiredString(args.projectRoot, "projectRoot"),
     tmuxTarget: stringValue(args.tmuxTarget),
     startupCommand: stringValue(args.startupCommand),

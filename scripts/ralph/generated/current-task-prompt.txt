@@ -1,48 +1,50 @@
 Read the following repository documents before making changes:
 - AGENTS.md
-- README.md
-- docs/USER-START-GUIDE.md
+- docs/product-specs/agent-bootstrap-reliability.md
+- docs/design-docs/agent-bootstrap-reliability.md
 - docs/MCP-CLIENT-SETUP.md
-- docs/product-specs/request-diagnostics-and-controls.md
-- docs/exec-plans/active/008-collaboration-doc-walkthrough.md
+- docs/exec-plans/active/013-caller-identity-self-avoidance.md
 
-Current task id: collaboration-doc-walkthrough
-Current task title: Collaboration documentation walkthrough
+Current task id: caller-identity-self-avoidance
+Current task title: Caller identity and self-call avoidance
 
 Objective:
-Update user-facing docs after 0.2 reliability features land so first-time users can run and inspect a two-agent collaboration.
+Let an agent recognize its own registry entry and prevent accidental self-targeted calls.
 
 Scope:
-- Add or revise a two-agent collaboration walkthrough.
-- Explain request diagnostics, retry/recovery, capability freshness, and health states.
-- Remove obsolete UI wording.
+- Add caller identity inference or explicit caller context to MCP handling.
+- Mark the caller's own entry as `isSelf` in `list_agents` results when known.
+- Make `call_agent` reject self-targets by default with a clear error.
+- Allow an explicit override such as `allowSelfCall: true` for diagnostic cases.
+- Update collaboration prompt docs.
 
 Out of scope:
-- Application code changes.
-- New screenshots unless needed and already available.
+- Authentication.
+- Cross-machine identity.
+- Team routing policies.
 
 Exit criteria:
-1. Docs describe the current 0.2 collaboration flow accurately.
-2. The walkthrough can be followed from install to routed request inspection.
-3. Docs image links and required walkthrough phrases are verified by `npm run smoke:docs`.
-4. `npm run test` passes.
+1. MCP `list_agents` can mark the current caller as self.
+2. MCP `call_agent` blocks accidental self-calls with actionable output.
+3. The first implementation uses explicit `sourceAgent` or a persisted session fingerprint before falling back to unknown; display name alone is not a valid identity source.
+4. Existing callers without identity remain backward compatible.
+5. Required checks pass.
 
 Required checks:
 - `npm run test`
-- `npm run smoke:docs`
+- `npm run smoke:mcp`
 
 Evaluator notes:
-This is deterministic-only because docs plus existing tests should be sufficient.
+Prefer a stable session fingerprint or explicit source id over fragile name matching.
 
 Required repository artifacts for this task:
-- README.md
-- docs/USER-START-GUIDE.md
-- docs/MCP-CLIENT-SETUP.md
-- scripts/smoke-docs.js
+- packages/mcp/src
+- packages/core/src
+- scripts/smoke-mcp.js
 
 Required commands for this task:
 - npm run test
-- npm run smoke:docs
+- npm run smoke:mcp
 
 Previous known gaps from the last evaluation:
 - none

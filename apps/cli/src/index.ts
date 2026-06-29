@@ -5,12 +5,13 @@ import { execFileSync, spawn } from "node:child_process";
 import {
   AgentRegistry,
   AgentRouter,
+  buildMcpPreflight,
   FileState,
   RequestStore,
   type Agent,
   type TransportType,
 } from "../../../packages/core/src";
-import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
+import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
 const version = "0.1.4";
@@ -214,6 +215,14 @@ function startVisibleAgent(
   const id = flags.id ?? sanitizeName(projectName);
   const sessionId = flags.session ?? `${agentType}-${sanitizeName(projectName)}`;
   const startupCommand = flags.command ?? defaultCommand;
+  const permissionProfile = resolvePermissionProfile(agentType, flags["permission-profile"] ?? "default", root);
+  const mcpPreflight = buildMcpPreflight({
+    agentType,
+    mcpUrl: `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`,
+    mcpName: flags["mcp-name"],
+    configured: flags["mcp-configured"] === "true",
+    configuredUrl: flags["mcp-configured-url"],
+  });
   assertCommandAvailable(startupCommand.split(/\s+/)[0]);
   const shouldAttach = flags.attach !== "false" && flags["no-attach"] !== "true";
   const shouldPromptRegister = flags.register !== "false" && flags["no-register"] !== "true";
@@ -226,18 +235,39 @@ function startVisibleAgent(
     sessionId,
     projectRoot: root,
     startupCommand,
+    permissionProfile: permissionProfile.permissionProfile,
+    permissionProfileStatus: permissionProfile.permissionProfileStatus,
+    permissionProfileDetail: permissionProfile.permissionProfileDetail,
+    mcpPreflightStatus: mcpPreflight.mcpPreflightStatus,
+    mcpPreflightDetail: mcpPreflight.mcpPreflightDetail,
+    mcpSetupCommand: mcpPreflight.mcpSetupCommand,
+    mcpVerifyCommand: mcpPreflight.mcpVerifyCommand,
+    mcpRemoveCommand: mcpPreflight.mcpRemoveCommand,
+    mcpUrl: mcpPreflight.mcpUrl,
   };
   const tmux = new TmuxClient();
   const existed = tmux.hasSession(sessionId);
   tmux.ensureSession(agent);
 
+  let registration = "registration prompt skipped";
+  let nextAction: string | undefined;
   if (shouldPromptRegister && !context.registry.get(id)) {
     sleep(registerDelayMs);
-    const prompt = buildSelfRegistrationPrompt(agent);
-    if (agentType === "codex") {
-      tmux.sendCodexText(sessionId, prompt);
+    const permissionPrompt = detectAgentPermissionPrompt(agent, tmux.capture(sessionId));
+    if (permissionPrompt) {
+      registration = "waiting for permission approval";
+      nextAction = permissionPrompt.action;
+    } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
+      registration = "waiting for MCP setup";
+      nextAction = mcpPreflight.nextAction;
     } else {
-      tmux.sendText(sessionId, prompt);
+      const prompt = buildSelfRegistrationPrompt(agent);
+      if (agentType === "codex") {
+        tmux.sendCodexText(sessionId, prompt);
+      } else {
+        tmux.sendText(sessionId, prompt);
+      }
+      registration = "registration prompt sent to agent";
     }
   }
 
@@ -245,9 +275,10 @@ function startVisibleAgent(
     agent,
     existed,
     attach: `tmux attach -t ${sessionId}`,
-    registration: shouldPromptRegister && !context.registry.get(id)
-      ? "registration prompt sent to agent"
-      : "registration prompt skipped",
+    registration,
+    nextAction,
+    permissionProfile,
+    mcpPreflight,
   };
 
   if (!shouldAttach) {
@@ -261,6 +292,26 @@ function startVisibleAgent(
   });
 }
 
+function resolvePermissionProfile(
+  agentType: string,
+  requestedProfile: string,
+  projectRoot: string,
+): Pick<Agent, "permissionProfile" | "permissionProfileStatus" | "permissionProfileDetail"> {
+  if (requestedProfile !== "direct-workspace-read") {
+    return {
+      permissionProfile: "default",
+      permissionProfileStatus: "not-requested",
+      permissionProfileDetail: "Default CLI startup. Mina will surface permission prompts instead of hiding them.",
+    };
+  }
+
+  return {
+    permissionProfile: "direct-workspace-read",
+    permissionProfileStatus: "unsupported",
+    permissionProfileDetail: `No known ${agentType} startup flag in Mina is both direct-read and scoped only to ${projectRoot}. Mina will start the default command and surface permission prompts.`,
+  };
+}
+
 function buildSelfRegistrationPrompt(agent: Agent): string {
   return [
     "Use Mina AI Router MCP register_agent to register this visible CLI session.",
@@ -270,14 +321,18 @@ function buildSelfRegistrationPrompt(agent: Agent): string {
     `- agentType: ${agent.agentType}`,
     `- transport: ${agent.transport}`,
     `- sessionId: ${agent.sessionId}`,
+    `- sessionFingerprint: ${agent.sessionFingerprint ?? agent.sessionId}`,
     `- projectRoot: ${agent.projectRoot}`,
     `- startupCommand: ${agent.startupCommand ?? ""}`,
+    "",
+    "If Mina already created this agent record, confirm and update that existing id. Do not create a new id for the same session.",
     "",
     "Before registering, create a concise capability notice for this session:",
     "- Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
     "- If those files are missing, inspect package metadata and the project file tree to infer what this project/agent can help with.",
     "- Set register_agent capabilitySummary to 2-5 short bullets or one short paragraph under 800 characters.",
     "- Set register_agent capabilitySources to a comma-separated list of the files or project signals you used.",
+    "- Set register_agent sessionFingerprint to the value above.",
     "After registering, call list_agents and confirm this agent is available.",
   ].join("\n");
 }
@@ -450,17 +505,24 @@ function registerAgent(args: string[], context: ReturnType<typeof createContext>
   }
 
   const options = parseFlags(args.slice(1));
+  const now = new Date().toISOString();
   const agent: Agent = {
     id,
     name: options.name ?? id,
     agentType: options.agent ?? "unknown",
     transport: (options.transport ?? "headless") as TransportType,
     sessionId: options.session ?? id,
+    sessionFingerprint: options["session-fingerprint"] ?? options.session ?? id,
     projectRoot: options.root ?? process.cwd(),
     tmuxTarget: options.target,
     startupCommand: options.command,
     capabilitySummary: options.summary ?? options["capability-summary"],
     capabilitySources: options.sources ?? options["capability-sources"],
+    bootstrapStatus: "ready",
+    registrationSource: "cli",
+    registrationStatus: "confirmed",
+    lastRegistrationAttemptAt: now,
+    confirmedByAgentAt: now,
   };
 
   const registered = context.registry.register(agent, {

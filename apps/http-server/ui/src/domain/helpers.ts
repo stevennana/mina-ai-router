@@ -33,6 +33,14 @@ export function mairRefreshCapabilitiesCommand(agent: RouterAgent): string {
 }
 
 export function healthMessage(agent: RouterAgent): string {
+  if (agent.bootstrapStatus === "mcp-configuring") {
+    return agent.mcpPreflightDetail || "This agent is waiting for Mina MCP setup before self-registration.";
+  }
+  if (agent.bootstrapStatus === "permission-required") {
+    return agent.permissionPrompt?.action
+      || agent.detail
+      || "This agent is waiting for a permission or trust prompt before it can receive routed work.";
+  }
   if (agent.status === "available") return "Agent session is reachable. It can receive routed requests.";
   if (agent.status === "busy") return "Agent is currently handling a routed request.";
   if (agent.status === "stale") {
@@ -48,6 +56,22 @@ export function healthMessage(agent: RouterAgent): string {
     return "This transport does not expose a live health check yet. Calls may still work if the transport is headless or mock.";
   }
   return "Agent status needs operator attention.";
+}
+
+export function bootstrapLabel(agent: RouterAgent): string {
+  const status = agent.bootstrapStatus || "unknown";
+  const registration = agent.registrationStatus ? ` / ${agent.registrationStatus}` : "";
+  return `${status}${registration}`;
+}
+
+export function permissionProfileLabel(agent: RouterAgent): string {
+  const profile = agent.permissionProfile || "default";
+  const status = agent.permissionProfileStatus || "unknown";
+  return `${profile} / ${status}`;
+}
+
+export function mcpPreflightLabel(agent: RouterAgent): string {
+  return agent.mcpPreflightStatus || "unknown";
 }
 
 export function latestRequestFor(agentId: string, requests: RouterRequest[]): RouterRequest | undefined {

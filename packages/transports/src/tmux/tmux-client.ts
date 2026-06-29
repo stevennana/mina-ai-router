@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import type { Agent } from "../../../core/src";
+import type { Agent, AgentPermissionPrompt } from "../../../core/src";
 
 export interface TmuxClientOptions {
   binary?: string;
@@ -126,6 +126,66 @@ export class TmuxClient {
 
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
   }
+}
+
+export function detectAgentPermissionPrompt(agent: Agent, capture: string): AgentPermissionPrompt | undefined {
+  const normalized = capture.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (agent.agentType === "codex" && hasCodexTrustPrompt(normalized)) {
+    return {
+      client: "codex",
+      kind: "directory-trust",
+      message: "Codex is waiting for directory trust approval before it can work in this project.",
+      action: `Review the project directory, then attach with "tmux attach -t ${agent.sessionId}" or press Send Enter in Mina to approve the prompt.`,
+      evidence: promptEvidence(capture, codexTrustPatterns),
+    };
+  }
+
+  if (agent.agentType === "claude" && hasClaudePermissionPrompt(normalized)) {
+    return {
+      client: "claude",
+      kind: "permission-approval",
+      message: "Claude is waiting for a permission or trust approval before it can work in this project.",
+      action: `Review the project directory, then attach with "tmux attach -t ${agent.sessionId}" and approve the Claude prompt.`,
+      evidence: promptEvidence(capture, claudePermissionPatterns),
+    };
+  }
+
+  return undefined;
+}
+
+function hasCodexTrustPrompt(value: string): boolean {
+  return codexTrustPatterns.some((pattern) => pattern.test(value));
+}
+
+function hasClaudePermissionPrompt(value: string): boolean {
+  return claudePermissionPatterns.some((pattern) => pattern.test(value));
+}
+
+const codexTrustPatterns = [
+  /do you trust the contents of this directory\?/i,
+  /yes,\s*continue/i,
+  /press enter to continue/i,
+  /codex.+(?:trust|permission|approval)/i,
+];
+
+const claudePermissionPatterns = [
+  /claude.+(?:permission|approval|trust)/i,
+  /(?:allow|approve).+claude/i,
+  /do you trust.+(?:folder|directory|workspace|project)/i,
+  /permission.+(?:press enter|continue|approve|allow)/i,
+];
+
+function promptEvidence(capture: string, patterns: RegExp[]): string {
+  const lines = capture
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const matched = lines.find((line) => patterns.some((pattern) => pattern.test(line)));
+  return (matched ?? lines.slice(-1)[0] ?? "").slice(0, 240);
 }
 
 function asSingleLinePrompt(text: string): string {
