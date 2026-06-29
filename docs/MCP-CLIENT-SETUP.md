@@ -36,6 +36,8 @@ cd /path/to/project
 mair codex
 ```
 
+When a Codex session is created from the Web UI or `mair codex`, Mina runs an MCP preflight for that session profile. If the profile is missing or stale, the agent enters `mcp-configuring` and the inspector shows the setup, verify, and remove commands to run before self-registration continues.
+
 ## Claude
 
 Register the MAIR MCP server with Claude Code:
@@ -52,6 +54,8 @@ Then start Claude inside a project with MAIR:
 cd /path/to/project
 mair claude
 ```
+
+Claude Code can keep MCP configuration per profile or project/session context. If a newly created Claude agent cannot see Mina MCP, keep it in `mcp-configuring`, run the setup command shown by Mina, then verify with `claude mcp get mina-ai-router` before routing work to that session.
 
 ## Verify From the AI CLI
 
@@ -72,7 +76,7 @@ Use Mina AI Router to ask docs:
 Review the README changes and summarize what a first-time user should understand.
 ```
 
-The source agent should call `list_agents`, choose the target agent, send the work with `call_agent`, and check progress with `get_request_status`.
+The source agent should call `list_agents` with its `callerSessionFingerprint` or `callerAgentId`, choose a target where `isSelf` is not true, send the work with `call_agent`, and check progress with `get_request_status`.
 
 For a stronger first test, ask for both the routed answer and the request id:
 
@@ -82,13 +86,17 @@ Which endpoint should the frontend call for user lookup?
 Return the routed answer and the Mina request id you used.
 ```
 
-Then open the browser console and inspect that request in the activity panel. The request detail should show lifecycle status, parsed answer or error, parser diagnostics, and raw terminal evidence.
+Then open the browser console and inspect that request in the activity panel. The request detail should show lifecycle status, request lease state, parsed answer or error, parser diagnostics, prompt evidence, raw terminal evidence, and recovery history.
 
 If the target is stale, missing, or needs attention, ask the source agent to call `list_agents` again and select another available target or tell you which session needs repair.
+
+If the request times out but the target terminal is still running, Mina keeps the lease as `orphaned`. Use `Interrupt Terminal` only when you want to send Ctrl-C to that tmux session. Use `Mark Recovered` after you have confirmed the session is idle or repaired. These are separate from `Cancel`, which only cancels an open router request.
 
 ## Available MCP Tools
 
 - `list_agents`: list known agents and their statuses
 - `register_agent`: register or update the current visible agent
-- `call_agent`: send a task to another registered agent
+- `call_agent`: send a task to another registered agent. Provide `callerAgentId` or `callerSessionFingerprint` so Mina can reject accidental self-calls. Use `allowSelfCall: true` only for diagnostics.
 - `get_request_status`: check a routed request
+
+`list_agents` returns `isSelf` for the caller when identity is supplied. A source agent should avoid targets where `isSelf` is true unless the user explicitly asked for a self-diagnostic.

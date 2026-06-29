@@ -59,7 +59,7 @@ export class AgentRouter {
     return this.requestStore.list();
   }
 
-  async listAgentStatuses() {
+  async listAgentStatuses(options: { callerAgentId?: string } = {}) {
     const requests = this.requestStore.list();
     const checkedAt = new Date().toISOString();
     let healthChanged = false;
@@ -108,6 +108,7 @@ export class AgentRouter {
           capabilitySource: agent.capabilitySource,
           capabilityUpdatedAt: agent.capabilityUpdatedAt,
           lastCapabilityRefreshAt: agent.lastCapabilityRefreshAt,
+          capabilityProfile: agent.capabilityProfile,
           bootstrapStatus,
           registrationSource: agent.registrationSource,
           registrationStatus: agent.registrationStatus,
@@ -128,11 +129,17 @@ export class AgentRouter {
           mcpUrl: agent.mcpUrl,
           lastSeenAt,
           lastActivityAt,
+          activeRequestId: agent.activeRequestId,
+          leaseStatus: agent.leaseStatus,
+          leaseStartedAt: agent.leaseStartedAt,
+          leaseExpiresAt: agent.leaseExpiresAt,
+          leaseReleasedAt: agent.leaseReleasedAt,
           healthCheckedAt: checkedAt,
           staleAfterMs: this.agentStaleAfterMs,
           status: healthStatus.status,
           detail: healthStatus.detail ?? status.detail,
           lastRequestStatus: lastRequest?.status,
+          isSelf: options.callerAgentId === agent.id || undefined,
         };
       }),
     ).finally(() => {
@@ -148,13 +155,27 @@ export class AgentRouter {
 
   async callAgent(input: CallAgentInput): Promise<AgentResponse> {
     const target = this.registry.require(input.target);
+    if (input.sourceAgent && input.sourceAgent === target.id && !input.allowSelfCall) {
+      throw new Error(`Refusing self-call from agent "${target.id}" to itself. Choose another target from list_agents or pass allowSelfCall: true for diagnostics.`);
+    }
+
     if (this.busyAgents.has(target.id)) {
       throw new Error(`Agent "${target.id}" is busy with another request.`);
     }
 
     this.busyAgents.add(target.id);
     const now = new Date().toISOString();
-    this.registry.updateHealth(target.id, { lastActivityAt: now });
+    const timeoutMs = input.timeoutMs ?? this.defaultTimeoutMs;
+    const leaseExpiresAt = new Date(Date.now() + timeoutMs).toISOString();
+    this.registry.register({
+      ...target,
+      activeRequestId: undefined,
+      leaseStatus: undefined,
+      leaseStartedAt: undefined,
+      leaseExpiresAt: undefined,
+      leaseReleasedAt: undefined,
+      lastActivityAt: now,
+    });
     const request: AgentRequest = this.requestStore.create({
       id: createRequestId(),
       sourceAgent: input.sourceAgent ?? this.defaultSourceAgent,
@@ -164,11 +185,29 @@ export class AgentRouter {
       createdAt: now,
       updatedAt: now,
       retryOfRequestId: input.retryOfRequestId,
+      leaseStatus: "active",
+      leaseStartedAt: now,
+      leaseExpiresAt,
+      leaseOwnerAgentId: target.id,
+      leaseTargetSessionId: target.sessionId,
+      leaseTargetSessionFingerprint: target.sessionFingerprint,
+    });
+    this.registry.register({
+      ...target,
+      activeRequestId: request.id,
+      leaseStatus: "active",
+      leaseStartedAt: now,
+      leaseExpiresAt,
+      leaseReleasedAt: undefined,
+      lastActivityAt: now,
     });
     this.persistState();
 
     const transport = this.transports.get(target.transport);
     const prompt = buildPromptEnvelope(request, target);
+    this.requestStore.patch(request.id, {
+      promptEvidence: rawEvidenceFromOutput(prompt, "prompt_envelope"),
+    });
     let output = "";
 
     try {
@@ -195,7 +234,9 @@ export class AgentRouter {
         diagnosticStatus: "answered",
         parserDiagnostics: parsed.diagnostics,
         rawEvidence: rawEvidenceFromOutput(output),
+        ...releasedLeasePatch(),
       });
+      this.releaseAgentLease(target.id, request.id);
       this.persistState();
 
       return {
@@ -205,6 +246,7 @@ export class AgentRouter {
       };
     } catch (error) {
       if (error instanceof RequestNoLongerOpenError) {
+        this.releaseAgentLease(target.id, request.id);
         this.persistState();
         throw error;
       }
@@ -217,14 +259,24 @@ export class AgentRouter {
         diagnosticStatus: diagnosticStatusForError(error, status),
         parserDiagnostics: error instanceof ResponseParseError ? error.diagnostics : undefined,
         rawEvidence: capturedOutput ? rawEvidenceFromOutput(capturedOutput) : undefined,
+        ...(status === "timeout" ? orphanedLeasePatch() : releasedLeasePatch()),
       });
       if (!updated) {
+        this.releaseAgentLease(target.id, request.id);
         throw new RequestNoLongerOpenError(this.requestStore.require(request.id));
+      }
+      if (status === "timeout") {
+        this.orphanAgentLease(target.id, request.id);
+      } else {
+        this.releaseAgentLease(target.id, request.id);
       }
       this.persistState();
       throw error;
     } finally {
-      this.busyAgents.delete(target.id);
+      const current = this.registry.get(target.id);
+      if (current?.activeRequestId !== request.id) {
+        this.busyAgents.delete(target.id);
+      }
     }
   }
 
@@ -244,6 +296,48 @@ export class AgentRouter {
   private persistState(): void {
     this.onStateChanged?.();
   }
+
+  private releaseAgentLease(agentId: string, requestId: string): void {
+    const current = this.registry.get(agentId);
+    if (!current || current.activeRequestId !== requestId) {
+      this.busyAgents.delete(agentId);
+      return;
+    }
+
+    this.registry.register({
+      ...current,
+      activeRequestId: undefined,
+      leaseStatus: "released",
+      leaseReleasedAt: new Date().toISOString(),
+    });
+    this.busyAgents.delete(agentId);
+  }
+
+  private orphanAgentLease(agentId: string, requestId: string): void {
+    const current = this.registry.get(agentId);
+    if (!current || current.activeRequestId !== requestId) {
+      return;
+    }
+
+    this.registry.register({
+      ...current,
+      activeRequestId: requestId,
+      leaseStatus: "orphaned",
+    });
+  }
+}
+
+function releasedLeasePatch(): Partial<AgentRequest> {
+  return {
+    leaseStatus: "released",
+    leaseReleasedAt: new Date().toISOString(),
+  };
+}
+
+function orphanedLeasePatch(): Partial<AgentRequest> {
+  return {
+    leaseStatus: "orphaned",
+  };
 }
 
 function diagnosticStatusForError(
@@ -270,6 +364,10 @@ function classifyAgentHealth(input: {
   checkedAt: string;
   staleAfterMs: number;
 }): Pick<AgentStatus, "status" | "detail"> {
+  if (input.lastRequest?.leaseStatus === "orphaned") {
+    return { status: "busy", detail: `Request "${input.lastRequest.id}" timed out in the router, but the target session lease is still attached for recovery.` };
+  }
+
   if (input.busy) {
     return { status: "busy", detail: "Agent is currently handling a routed request." };
   }
@@ -319,10 +417,10 @@ function isOlderThan(timestamp: string, now: string, staleAfterMs: number): bool
     && nowMs - timestampMs > staleAfterMs;
 }
 
-function rawEvidenceFromOutput(output: string): RequestRawEvidence {
+function rawEvidenceFromOutput(output: string, kind: RequestRawEvidence["kind"] = "transport_capture"): RequestRawEvidence {
   const excerpt = output.slice(-rawEvidenceExcerptLimit);
   return {
-    kind: "transport_capture",
+    kind,
     capturedAt: new Date().toISOString(),
     characterCount: output.length,
     excerpt,

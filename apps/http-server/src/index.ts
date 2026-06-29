@@ -196,7 +196,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
-  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive|unarchive)$/);
+  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive|unarchive|interrupt|recover)$/);
   if (requestActionMatch && request.method === "POST") {
     const requestId = decodeURIComponent(requestActionMatch[1]);
     const action = requestActionMatch[2];
@@ -245,11 +245,15 @@ function archiveStaleRequests(olderThanMs: number) {
       continue;
     }
 
-    archived.push(context.requestStore.updateStatus(request.id, "archived", {
+    const archivedRequest = context.requestStore.updateStatus(request.id, "archived", {
       archivedAt: new Date().toISOString(),
       archivedFromStatus: request.status,
       error: request.error ?? "Archived as stale by operator.",
-    }));
+      leaseStatus: request.leaseStatus === "active" ? "released" : request.leaseStatus,
+      leaseReleasedAt: request.leaseStatus === "active" ? new Date().toISOString() : request.leaseReleasedAt,
+    });
+    clearAgentLeaseForRequest(archivedRequest);
+    archived.push(archivedRequest);
   }
 
   if (archived.length > 0) {
@@ -276,7 +280,25 @@ async function handleRequestAction(requestId: string, action: string) {
   }
 
   if (action === "cancel") {
-    const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router UI.");
+    const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router UI.", "ui");
+    clearAgentLeaseForRequest(updated);
+    context.save();
+    return updated;
+  }
+
+  if (action === "interrupt") {
+    const updated = interruptRequest(requestId, "ui");
+    context.save();
+    return updated;
+  }
+
+  if (action === "recover") {
+    const updated = context.requestStore.markRecovered(
+      requestId,
+      "ui",
+      "Marked recovered by operator from Mina AI Router UI.",
+    );
+    clearAgentLeaseForRequest(updated);
     context.save();
     return updated;
   }
@@ -294,6 +316,42 @@ async function handleRequestAction(requestId: string, action: string) {
   }
 
   throw new Error(`Unsupported request action "${action}".`);
+}
+
+function interruptRequest(requestId: string, source: "cli" | "http" | "ui") {
+  const request = context.requestStore.require(requestId);
+  context.requestStore.assertActionAllowed(request, "interrupt");
+  const agentId = request.leaseOwnerAgentId ?? request.targetAgent;
+  const agent = context.registry.require(agentId);
+  if (agent.transport !== "tmux") {
+    throw new Error(`Request "${requestId}" targets ${agent.transport}, not tmux; open the session manually.`);
+  }
+
+  const target = agent.tmuxTarget ?? agent.sessionId;
+  new TmuxClient().sendInterrupt(target);
+  return context.requestStore.recordInterrupt(requestId, {
+    source,
+    terminalTarget: target,
+    message: `Terminal interrupt sent to ${target}.`,
+  });
+}
+
+function clearAgentLeaseForRequest(request: { leaseOwnerAgentId?: string; id: string }) {
+  if (!request.leaseOwnerAgentId) {
+    return;
+  }
+
+  const agent = context.registry.get(request.leaseOwnerAgentId);
+  if (!agent || agent.activeRequestId !== request.id) {
+    return;
+  }
+
+  context.registry.register({
+    ...agent,
+    activeRequestId: undefined,
+    leaseStatus: "released",
+    leaseReleasedAt: new Date().toISOString(),
+  });
 }
 
 async function handleMcp(
@@ -403,6 +461,7 @@ function registerAgent(body: Record<string, unknown>): Agent {
     startupCommand: stringValue(body.startupCommand),
     capabilitySummary: stringValue(body.capabilitySummary) ?? capabilityNotice.summary,
     capabilitySources: stringValue(body.capabilitySources) ?? capabilityNotice.sources,
+    capabilityProfile: capabilityProfileValue(body.capabilityProfile),
     bootstrapStatus: stringValue(body.bootstrapStatus) ?? "ready",
     registrationSource: stringValue(body.registrationSource) ?? "manual",
     registrationStatus: stringValue(body.registrationStatus) ?? "confirmed",
@@ -419,6 +478,33 @@ function registerAgent(body: Record<string, unknown>): Agent {
   });
   context.save();
   return registered;
+}
+
+function capabilityProfileValue(value: unknown): Agent["capabilityProfile"] | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    projectPurpose: stringValue(record.projectPurpose),
+    primaryLanguages: stringArrayValue(record.primaryLanguages),
+    keyAreas: stringArrayValue(record.keyAreas),
+    canAnswer: stringArrayValue(record.canAnswer),
+    cannotAnswerYet: stringArrayValue(record.cannotAnswerYet),
+    evidence: stringArrayValue(record.evidence),
+    quality: "missing",
+  };
+}
+
+function stringArrayValue(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const values = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    .map((item) => item.trim());
+  return values.length ? values : undefined;
 }
 
 function updateAgent(id: string, body: Record<string, unknown>): Agent {

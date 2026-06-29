@@ -1,4 +1,5 @@
 export * from "./ids";
+export * from "./capability-profile";
 export * from "./file-state";
 export * from "./mcp-preflight";
 export * from "./prompt-envelope";

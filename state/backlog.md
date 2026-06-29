@@ -13,10 +13,10 @@
 - [x] permission-trust-readiness — Permission and trust readiness
 - [x] mcp-preflight-agent-create — MCP preflight for agent creation
 - [x] idempotent-registration-handshake — Idempotent registration handshake
-- [ ] caller-identity-self-avoidance — Caller identity and self-call avoidance ← current
-- [ ] capability-profile-schema-scoring — Capability profile schema and scoring
-- [ ] capability-profile-ui-cli — Capability profile UI and CLI
-- [ ] request-lease-state — Request lease state
-- [ ] transaction-recovery-controls — Transaction recovery controls
-- [ ] bootstrap-docs-and-smoke-hardening — Bootstrap documentation and smoke hardening
+- [x] caller-identity-self-avoidance — Caller identity and self-call avoidance
+- [x] capability-profile-schema-scoring — Capability profile schema and scoring
+- [x] capability-profile-ui-cli — Capability profile UI and CLI
+- [x] request-lease-state — Request lease state
+- [x] transaction-recovery-controls — Transaction recovery controls
+- [x] bootstrap-docs-and-smoke-hardening — Bootstrap documentation and smoke hardening
 

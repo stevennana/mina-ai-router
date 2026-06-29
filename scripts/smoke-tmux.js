@@ -35,7 +35,7 @@ function main() {
       "    '<<<MINA_AGENT_RESPONSE_END '*)",
       "      if [ -n \"$rid\" ]; then",
       "      if [ \"$mode\" = 'refresh' ]; then",
-      "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\n{\"capabilitySummary\":\"Smoke agent refreshed from local docs.\",\"capabilitySources\":\"AGENTS.md, package.json\"}\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
+      "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\n{\"capabilitySummary\":\"Shell tmux smoke helper for router request diagnostics, capability refresh workflows, and terminal transport checks.\",\"capabilitySources\":\"AGENTS.md, package.json, scripts/smoke-tmux.js\",\"capabilityProfile\":{\"projectPurpose\":\"tmux smoke helper for Mina router CLI verification\",\"primaryLanguages\":[\"Shell\",\"JavaScript\"],\"keyAreas\":[\"tmux transport\",\"request diagnostics\"],\"canAnswer\":[\"How the tmux smoke responder returns marker wrapped answers\",\"How capability refresh stores structured profile evidence\"],\"cannotAnswerYet\":[\"Production deployment policy\"],\"evidence\":[\"scripts/smoke-tmux.js\",\"package.json\",\"AGENTS.md\"]}}\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
       "      else",
       "      printf '<<<MINA_AGENT_RESPONSE_START %s>>>\\nhello from tmux smoke\\n<<<MINA_AGENT_RESPONSE_END %s>>>\\n' \"$rid\" \"$rid\"",
       "      fi",
@@ -80,9 +80,11 @@ function main() {
 
     const refreshed = JSON.parse(runNode(["agent", "refresh-capabilities", "smoke", "--timeout-ms", "5000"]));
     assert.equal(refreshed.agent.id, "smoke");
-    assert.equal(refreshed.agent.capabilitySummary, "Smoke agent refreshed from local docs.");
-    assert.equal(refreshed.agent.capabilitySources, "AGENTS.md, package.json");
+    assert.equal(refreshed.agent.capabilitySummary, "Shell tmux smoke helper for router request diagnostics, capability refresh workflows, and terminal transport checks.");
+    assert.equal(refreshed.agent.capabilitySources, "AGENTS.md, package.json, scripts/smoke-tmux.js");
     assert.equal(refreshed.agent.capabilitySource, "generated");
+    assert.equal(refreshed.agent.capabilityProfile.quality, "strong");
+    assert.deepEqual(refreshed.agent.capabilityProfile.evidence, ["scripts/smoke-tmux.js", "package.json", "AGENTS.md"]);
     assert.ok(refreshed.agent.lastCapabilityRefreshAt);
 
     console.log("tmux smoke passed");

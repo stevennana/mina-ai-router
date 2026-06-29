@@ -34,6 +34,8 @@ Shipped in `0.1.x`:
 
 Goal: make agent-to-agent work dependable enough for daily local development.
 
+Status: implementation wave completed through request diagnostics, capability refresh, health/readiness, self-call avoidance, structured capability profiles, request leases, and manual transaction recovery. The remaining work for this milestone is documentation, smoke hardening, release review, and any fixes found while using the feature branch.
+
 ### 0.2.1 Request Protocol Hardening
 
 - Define a documented request envelope for `call_agent`.

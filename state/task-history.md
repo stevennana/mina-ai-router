@@ -19,3 +19,9 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-29T05:24:16.670Z: promoted permission-trust-readiness -> mcp-preflight-agent-create
 - 2026-06-29T05:36:38.374Z: promoted mcp-preflight-agent-create -> idempotent-registration-handshake
 - 2026-06-29T05:50:08.686Z: promoted idempotent-registration-handshake -> caller-identity-self-avoidance
+- 2026-06-29T05:57:08.488Z: promoted caller-identity-self-avoidance -> capability-profile-schema-scoring
+- 2026-06-29T06:01:40.037Z: promoted capability-profile-schema-scoring -> capability-profile-ui-cli
+- 2026-06-29T06:14:06.287Z: promoted capability-profile-ui-cli -> request-lease-state
+- 2026-06-29T06:30:19.886Z: promoted request-lease-state -> transaction-recovery-controls
+- 2026-06-29T06:44:36.359Z: promoted transaction-recovery-controls -> bootstrap-docs-and-smoke-hardening
+- 2026-06-29T06:51:04.765Z: promoted bootstrap-docs-and-smoke-hardening -> NONE

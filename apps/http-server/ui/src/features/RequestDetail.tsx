@@ -6,7 +6,7 @@ import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
 import { Icon } from "../primitives/Icon";
 
-export type RequestDetailAction = "retry" | "cancel" | "archive" | "unarchive";
+export type RequestDetailAction = "retry" | "cancel" | "archive" | "unarchive" | "interrupt" | "recover";
 
 export function RequestDetail({
   request,
@@ -17,7 +17,9 @@ export function RequestDetail({
 }) {
   const parser = request.parserDiagnostics;
   const rawEvidence = request.rawEvidence;
-  const actions = validActions(request.status);
+  const promptEvidence = request.promptEvidence;
+  const actions = validActions(request);
+  const isOrphaned = request.leaseStatus === "orphaned";
 
   return (
     <div className="section request-detail">
@@ -47,7 +49,22 @@ export function RequestDetail({
         {request.retriedByRequestId ? <Kv label="Retried by">{request.retriedByRequestId}</Kv> : null}
         {request.archivedFromStatus ? <Kv label="Archived from">{request.archivedFromStatus}</Kv> : null}
         {request.archivedAt ? <Kv label="Archived">{formatTimestamp(request.archivedAt)}</Kv> : null}
+        {request.leaseStatus ? <Kv label="Lease">{request.leaseStatus}</Kv> : null}
+        {request.leaseOwnerAgentId ? <Kv label="Lease owner">{request.leaseOwnerAgentId}</Kv> : null}
+        {request.leaseTargetSessionId ? <Kv label="Lease session">{request.leaseTargetSessionId}</Kv> : null}
+        {request.leaseStartedAt ? <Kv label="Lease started">{formatTimestamp(request.leaseStartedAt)}</Kv> : null}
+        {request.leaseExpiresAt ? <Kv label="Lease expires">{formatTimestamp(request.leaseExpiresAt)}</Kv> : null}
+        {request.leaseReleasedAt ? <Kv label="Lease released">{formatTimestamp(request.leaseReleasedAt)}</Kv> : null}
+        {request.recoveryStatus ? <Kv label="Recovery">{request.recoveryStatus}</Kv> : null}
       </div>
+
+      {isOrphaned ? (
+        <DiagnosticSection title="Recovery needed">
+          <div className="recovery-banner">
+            Router timeout ended this transaction, but the target terminal lease is still orphaned. Use Interrupt Terminal to send Ctrl-C, or Mark Recovered after confirming the agent is idle.
+          </div>
+        </DiagnosticSection>
+      ) : null}
 
       <Kv label="Task">{request.task}</Kv>
 
@@ -95,9 +112,40 @@ export function RequestDetail({
         </DiagnosticSection>
       )}
 
+      {promptEvidence ? (
+        <DiagnosticSection title="Prompt evidence">
+          <div className="diagnostic-grid">
+            <Kv label="Evidence kind">{promptEvidence.kind}</Kv>
+            <Kv label="Captured">{formatTimestamp(promptEvidence.capturedAt)}</Kv>
+            <Kv label="Characters">{promptEvidence.characterCount}</Kv>
+            <Kv label="Excerpt truncated">{formatBoolean(promptEvidence.truncated)}</Kv>
+          </div>
+          <pre>{promptEvidence.excerpt}</pre>
+        </DiagnosticSection>
+      ) : null}
+
+      {request.recoveryEvents?.length ? (
+        <DiagnosticSection title="Recovery history">
+          <div className="recovery-events">
+            {request.recoveryEvents.map((event) => (
+              <div className="recovery-event" key={`${event.at}-${event.action}`}>
+                <div>
+                  <strong>{event.action}</strong>
+                  <span className="muted"> by {event.source} at {formatTimestamp(event.at)}</span>
+                </div>
+                <p>{event.message}</p>
+                {event.terminalTarget ? <code>{event.terminalTarget}</code> : null}
+              </div>
+            ))}
+          </div>
+        </DiagnosticSection>
+      ) : null}
+
       <div className="actions">
         {actions.includes("retry") ? <Button onClick={() => onAction("retry", request.id)}><Icon name="restart_alt" />Retry</Button> : null}
         {actions.includes("cancel") ? <Button tone="secondary" onClick={() => onAction("cancel", request.id)}><Icon name="delete" />Cancel</Button> : null}
+        {actions.includes("interrupt") ? <Button tone="secondary" onClick={() => onAction("interrupt", request.id)}><Icon name="terminal" />Interrupt Terminal</Button> : null}
+        {actions.includes("recover") ? <Button tone="secondary" onClick={() => onAction("recover", request.id)}><Icon name="keyboard_return" />Mark Recovered</Button> : null}
         {actions.includes("archive") ? <Button tone="secondary" onClick={() => onAction("archive", request.id)}><Icon name="archive" />Archive</Button> : null}
         {actions.includes("unarchive") ? <Button tone="secondary" onClick={() => onAction("unarchive", request.id)}><Icon name="unarchive" />Unarchive</Button> : null}
       </div>
@@ -137,12 +185,19 @@ function describeLifecycle(request: RouterRequest): string {
   }
 }
 
-function validActions(status: RouterRequest["status"]): RequestDetailAction[] {
-  if (status === "archived") {
+function validActions(request: RouterRequest): RequestDetailAction[] {
+  if (request.status === "archived") {
     return ["retry", "unarchive"];
   }
 
-  if (["created", "sent", "waiting"].includes(status)) {
+  if (request.leaseStatus === "orphaned") {
+    const recoveryActions: RequestDetailAction[] = request.recoveryStatus === "interrupted"
+      ? ["recover"]
+      : ["interrupt", "recover"];
+    return [...recoveryActions, "retry", "archive"];
+  }
+
+  if (["created", "sent", "waiting"].includes(request.status)) {
     return ["cancel"];
   }
 

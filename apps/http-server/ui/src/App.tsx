@@ -318,6 +318,8 @@ export function App() {
       return <Modal title={request.id} subtitle={`${request.targetAgent}`} onClose={() => setModal({ kind: "none" })}>
         <RequestDetail request={request} onAction={(action, requestId) => void run(async () => {
           if (action === "cancel" && !confirm(`Mark request "${requestId}" as cancelled?`)) return;
+          if (action === "interrupt" && !confirm(`Send Ctrl-C to the terminal for request "${requestId}"?`)) return;
+          if (action === "recover" && !confirm(`Mark request "${requestId}" as recovered and release its lease?`)) return;
           if (action === "archive" && !confirm(`Archive request "${requestId}"?`)) return;
           if (action === "unarchive" && !confirm(`Unarchive request "${requestId}"?`)) return;
           const result = await routerApi.requestAction(requestId, action);

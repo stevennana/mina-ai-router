@@ -5,18 +5,21 @@ This queue is the task-level promotion source of truth for the Agent Bootstrap R
 Only task files in this directory that contain a `taskmeta` JSON block are eligible for automatic selection, evaluation, and promotion.
 Filenames may be ordered or customized for readability; `taskmeta.id` is the stable id used by `state/current-task.txt` and `taskmeta.next_task_on_success`.
 
-## Current recommended sequence
+## Current active task
 
-1. `bootstrap-state-model`
-2. `permission-trust-readiness`
-3. `mcp-preflight-agent-create`
-4. `idempotent-registration-handshake`
-5. `caller-identity-self-avoidance`
-6. `capability-profile-schema-scoring`
-7. `capability-profile-ui-cli`
-8. `request-lease-state`
-9. `transaction-recovery-controls`
-10. `bootstrap-docs-and-smoke-hardening`
+- `bootstrap-docs-and-smoke-hardening`
+
+## Completed in this wave
+
+- `bootstrap-state-model`
+- `permission-trust-readiness`
+- `mcp-preflight-agent-create`
+- `idempotent-registration-handshake`
+- `caller-identity-self-avoidance`
+- `capability-profile-schema-scoring`
+- `capability-profile-ui-cli`
+- `request-lease-state`
+- `transaction-recovery-controls`
 
 ## Operating rule
 

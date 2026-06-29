@@ -5,7 +5,7 @@
   "id": "capability-profile-schema-scoring",
   "title": "Capability profile schema and scoring",
   "order": 14,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "capability-profile-ui-cli",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -24,7 +24,8 @@
     "The scoring labels generic file mentions as strong",
     "Manual capability summaries can no longer be preserved",
     "The task depends on live LLM output for deterministic tests"
-  ]
+  ],
+  "completed_at": "2026-06-29T06:01:40.037Z"
 }
 ```
 
@@ -64,3 +65,6 @@ This slice intentionally stops before UI. Keep the quality gate deterministic an
 ## Progress log
 
 - 2026-06-29: Split from the broader capability profiler quality gate plan.
+- 2026-06-29T05:57:08.488Z: restored as current task after caller-identity-self-avoidance promotion.
+- 2026-06-29T06:01:05.300Z: added structured capability profile storage, deterministic strong/thin/missing scoring, registry propagation, router status exposure, and fixture-backed core tests.
+- 2026-06-29T06:01:40.037Z: automatically promoted after deterministic checks and evaluator approval.

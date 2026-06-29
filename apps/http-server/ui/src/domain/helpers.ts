@@ -74,6 +74,22 @@ export function mcpPreflightLabel(agent: RouterAgent): string {
   return agent.mcpPreflightStatus || "unknown";
 }
 
+export function capabilityQualityLabel(agent: RouterAgent): string {
+  return agent.capabilityProfile?.quality ?? "missing";
+}
+
+export function capabilityQualityDetail(agent: RouterAgent): string {
+  const reason = agent.capabilityProfile?.qualityReasons?.[0];
+  if (reason) return reason;
+  if (agent.capabilityProfile?.quality === "strong") return "Profile includes answerable domains and evidence.";
+  if (agent.capabilityProfile?.quality === "thin") return "Profile needs clearer answerable domains or stronger evidence.";
+  return "No structured capability profile has been recorded.";
+}
+
+export function capabilityProfileList(value?: string[], fallback = "No evidence recorded."): string[] {
+  return value?.filter(Boolean).length ? value.filter(Boolean) : [fallback];
+}
+
 export function latestRequestFor(agentId: string, requests: RouterRequest[]): RouterRequest | undefined {
   return requests.slice().reverse().find((request) => request.targetAgent === agentId);
 }

@@ -28,6 +28,17 @@ export type AgentRegistrationEvent = {
   agentId: string;
   sessionFingerprint?: string;
 };
+
+export type AgentCapabilityProfile = {
+  projectPurpose?: string;
+  primaryLanguages?: string[];
+  keyAreas?: string[];
+  canAnswer?: string[];
+  cannotAnswerYet?: string[];
+  evidence?: string[];
+  quality: "strong" | "thin" | "missing";
+  qualityReasons?: string[];
+};
 export type RequestStatus = "created" | "sent" | "waiting" | "answered" | "failed" | "timeout" | "cancelled" | "archived" | string;
 export type RequestDiagnosticStatus =
   | "pending"
@@ -52,11 +63,24 @@ export type ResponseParserDiagnostics = {
 };
 
 export type RequestRawEvidence = {
-  kind: "transport_capture" | string;
+  kind: "transport_capture" | "prompt_envelope" | string;
   capturedAt: string;
   characterCount: number;
   excerpt: string;
   truncated: boolean;
+};
+
+export type RequestLeaseStatus = "active" | "released" | "orphaned" | string;
+export type RequestRecoveryStatus = "interrupted" | "recovered" | string;
+
+export type RequestRecoveryEvent = {
+  at: string;
+  action: "cancel" | "interrupt" | "recover" | string;
+  source: "cli" | "http" | "ui" | "system" | string;
+  message: string;
+  previousLeaseStatus?: RequestLeaseStatus;
+  activeRequestId?: string;
+  terminalTarget?: string;
 };
 
 export type RouterAgent = {
@@ -72,6 +96,7 @@ export type RouterAgent = {
   capabilitySource?: "manual" | "generated";
   capabilityUpdatedAt?: string;
   lastCapabilityRefreshAt?: string;
+  capabilityProfile?: AgentCapabilityProfile;
   bootstrapStatus?: AgentBootstrapStatus;
   registrationSource?: AgentRegistrationSource;
   registrationStatus?: AgentRegistrationStatus;
@@ -92,11 +117,17 @@ export type RouterAgent = {
   mcpUrl?: string;
   lastSeenAt?: string;
   lastActivityAt?: string;
+  activeRequestId?: string;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
   healthCheckedAt?: string;
   staleAfterMs?: number;
   detail?: string;
   status: AgentStatus;
   lastRequestStatus?: string;
+  isSelf?: boolean;
 };
 
 export type RouterRequest = {
@@ -114,6 +145,18 @@ export type RouterRequest = {
   diagnosticStatus?: RequestDiagnosticStatus;
   parserDiagnostics?: ResponseParserDiagnostics;
   rawEvidence?: RequestRawEvidence;
+  promptEvidence?: RequestRawEvidence;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
+  leaseOwnerAgentId?: string;
+  leaseTargetSessionId?: string;
+  leaseTargetSessionFingerprint?: string;
+  recoveryStatus?: RequestRecoveryStatus;
+  recoveryEvents?: RequestRecoveryEvent[];
+  interruptedAt?: string;
+  recoveredAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };

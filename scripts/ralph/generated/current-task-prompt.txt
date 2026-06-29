@@ -2,49 +2,50 @@ Read the following repository documents before making changes:
 - AGENTS.md
 - docs/product-specs/agent-bootstrap-reliability.md
 - docs/design-docs/agent-bootstrap-reliability.md
-- docs/MCP-CLIENT-SETUP.md
-- docs/exec-plans/active/013-caller-identity-self-avoidance.md
+- docs/product-specs/request-diagnostics-and-controls.md
+- docs/exec-plans/active/017-transaction-recovery-controls.md
 
-Current task id: caller-identity-self-avoidance
-Current task title: Caller identity and self-call avoidance
+Current task id: transaction-recovery-controls
+Current task title: Transaction recovery controls
 
 Objective:
-Let an agent recognize its own registry entry and prevent accidental self-targeted calls.
+Add explicit operator controls for long transactions that outlive router timeout.
 
 Scope:
-- Add caller identity inference or explicit caller context to MCP handling.
-- Mark the caller's own entry as `isSelf` in `list_agents` results when known.
-- Make `call_agent` reject self-targets by default with a clear error.
-- Allow an explicit override such as `allowSelfCall: true` for diagnostic cases.
-- Update collaboration prompt docs.
+- Detect or surface post-timeout session activity as `needs-attention` or orphaned-running detail.
+- Add explicit actions for cancel request only, send interrupt, and mark recovered.
+- Surface recovery state in Web UI request detail, agent detail, and CLI controls.
+- Record an auditable event when an operator recovery action is taken.
 
 Out of scope:
-- Authentication.
-- Cross-machine identity.
-- Team routing policies.
+- Autonomous interruption without user action.
+- Full workflow engine.
+- Changing the lease persistence contract except where required to consume it.
 
 Exit criteria:
-1. MCP `list_agents` can mark the current caller as self.
-2. MCP `call_agent` blocks accidental self-calls with actionable output.
-3. The first implementation uses explicit `sourceAgent` or a persisted session fingerprint before falling back to unknown; display name alone is not a valid identity source.
-4. Existing callers without identity remain backward compatible.
-5. Required checks pass.
+1. Continued terminal activity after timeout is visible to the operator.
+2. Cancel request, interrupt terminal, and mark recovered are separate actions with clear labels.
+3. Recovery actions preserve an audit trail or request history entry.
+4. Required checks pass.
 
 Required checks:
-- `npm run test`
-- `npm run smoke:mcp`
+- `npm run build`
+- `npm run smoke:http`
+- `npm run smoke:tmux`
 
 Evaluator notes:
-Prefer a stable session fingerprint or explicit source id over fragile name matching.
+This task depends on `request-lease-state`. Keep request cancellation and terminal interruption separate.
 
 Required repository artifacts for this task:
-- packages/mcp/src
 - packages/core/src
-- scripts/smoke-mcp.js
+- apps/cli/src/index.ts
+- apps/http-server/src/index.ts
+- apps/http-server/ui/src
 
 Required commands for this task:
-- npm run test
-- npm run smoke:mcp
+- npm run build
+- npm run smoke:http
+- npm run smoke:tmux
 
 Previous known gaps from the last evaluation:
 - none

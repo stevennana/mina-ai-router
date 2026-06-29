@@ -5,7 +5,7 @@
   "id": "bootstrap-docs-and-smoke-hardening",
   "title": "Bootstrap documentation and smoke hardening",
   "order": 18,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "NONE",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -30,7 +30,8 @@
     "Docs claim an automatic permission or MCP setup path that the code does not implement",
     "Smoke docs become coupled to generated asset hashes",
     "The active queue still describes completed tasks as next work"
-  ]
+  ],
+  "completed_at": "2026-06-29T06:51:04.765Z"
 }
 ```
 
@@ -69,3 +70,6 @@ This task closes the queue. Do not promote it until docs match actual implementa
 ## Progress log
 
 - 2026-06-29: Renumbered as final documentation and smoke hardening task after splitting capability and transaction work into smaller slices.
+- 2026-06-29T06:44:36.359Z: restored as current task after transaction-recovery-controls promotion.
+- 2026-06-29T07:22:00+09:00: refreshed README, User Start Guide, MCP Client Setup, roadmap status, active queue wording, and `scripts/smoke-docs.js` for the completed 0.2 bootstrap reliability wave. Docs now cover source-checkout install, readiness states, MCP preflight, idempotent registration, self-call avoidance, capability quality, request leases, and transaction recovery controls. Required checks passed: `npm run smoke:docs`, `npm run test`, and `git diff --check`.
+- 2026-06-29T06:51:04.765Z: automatically promoted after deterministic checks and evaluator approval.

@@ -11,6 +11,7 @@ const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
 const promptSession = `mina-http-permission-${process.pid}`;
+const timeoutSession = `mina-http-timeout-${process.pid}`;
 let serverLog = "";
 writeFileSync(statePath, `${JSON.stringify({
   agents: [
@@ -275,6 +276,13 @@ async function main() {
     assert.equal(answeredRequest.parserDiagnostics.startMarkerFound, true);
     assert.equal(answeredRequest.parserDiagnostics.endMarkerFound, true);
     assert.equal(answeredRequest.rawEvidence.kind, "transport_capture");
+    assert.equal(answeredRequest.promptEvidence.kind, "prompt_envelope");
+    assert.equal(answeredRequest.leaseStatus, "released");
+    assert.ok(answeredRequest.leaseStartedAt);
+    assert.ok(answeredRequest.leaseExpiresAt);
+    assert.ok(answeredRequest.leaseReleasedAt);
+    assert.equal(answeredRequest.leaseOwnerAgentId, "http-smoke");
+    assert.equal(answeredRequest.leaseTargetSessionId, "http-smoke");
     assert.equal(typeof answeredRequest.rawEvidence.excerpt, "string");
     assert.match(answeredRequest.rawEvidence.excerpt, /MINA_AGENT_RESPONSE_START/);
     assert.equal(answeredRequest.rawEvidence.truncated, false);
@@ -310,6 +318,57 @@ async function main() {
 
     const rearchived = await postJson(`${baseUrl}/api/requests/${asked.result.requestId}/archive`, {});
     assert.equal(findRequest(rearchived.state, asked.result.requestId).status, "archived");
+
+    const timeoutAgent = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "http-timeout",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: timeoutSession,
+      startupCommand: "/bin/sh",
+      sendRegistrationPrompt: false,
+      mcpConfigured: true,
+    });
+    assert.equal(timeoutAgent.agent.id, "http-timeout");
+    const timedOutAsk = await expectPostJsonFailure(`${baseUrl}/api/ask`, {
+      target: "http-timeout",
+      task: "HTTP timeout lease request",
+      timeoutMs: 20,
+    });
+    assert.equal(timedOutAsk.status, 500);
+    const timeoutRequest = timedOutAsk.body.state.requests.find((request) => request.targetAgent === "http-timeout");
+    assert.equal(timeoutRequest.status, "timeout");
+    assert.equal(timeoutRequest.diagnosticStatus, "timeout");
+    assert.equal(timeoutRequest.leaseStatus, "orphaned");
+    assert.ok(timeoutRequest.leaseStartedAt);
+    assert.ok(timeoutRequest.leaseExpiresAt);
+    assert.equal(timeoutRequest.leaseReleasedAt, undefined);
+    assert.equal(timeoutRequest.leaseOwnerAgentId, "http-timeout");
+    assert.equal(timeoutRequest.leaseTargetSessionId, timeoutSession);
+    assert.equal(timeoutRequest.promptEvidence.kind, "prompt_envelope");
+    assert.equal(timeoutRequest.rawEvidence.kind, "transport_capture");
+    const timeoutAgentState = timedOutAsk.body.state.agents.find((agent) => agent.id === "http-timeout");
+    assert.equal(timeoutAgentState.activeRequestId, timeoutRequest.id);
+    assert.equal(timeoutAgentState.leaseStatus, "orphaned");
+    assert.equal(timeoutAgentState.status, "busy");
+    assert.match(timeoutAgentState.detail, /timed out/);
+
+    const interrupted = await postJson(`${baseUrl}/api/requests/${timeoutRequest.id}/interrupt`, {});
+    assert.equal(interrupted.result.leaseStatus, "orphaned");
+    assert.equal(interrupted.result.recoveryStatus, "interrupted");
+    assert.equal(interrupted.result.recoveryEvents.at(-1).action, "interrupt");
+    assert.equal(interrupted.result.recoveryEvents.at(-1).terminalTarget, timeoutSession);
+    const interruptedAgent = interrupted.state.agents.find((agent) => agent.id === "http-timeout");
+    assert.equal(interruptedAgent.activeRequestId, timeoutRequest.id);
+    assert.equal(interruptedAgent.leaseStatus, "orphaned");
+
+    const recovered = await postJson(`${baseUrl}/api/requests/${timeoutRequest.id}/recover`, {});
+    assert.equal(recovered.result.leaseStatus, "released");
+    assert.equal(recovered.result.recoveryStatus, "recovered");
+    assert.ok(recovered.result.leaseReleasedAt);
+    assert.equal(recovered.result.recoveryEvents.at(-1).action, "recover");
+    const recoveredAgent = recovered.state.agents.find((agent) => agent.id === "http-timeout");
+    assert.equal(recoveredAgent.activeRequestId, undefined);
+    assert.equal(recoveredAgent.leaseStatus, "released");
 
     const stale = await postJson(`${baseUrl}/api/requests/archive-stale`, { olderThanMs: 0 });
     assert.ok(Array.isArray(stale.archived));
@@ -351,6 +410,13 @@ async function main() {
       });
     } catch {
       // Temporary permission fixture session may not exist.
+    }
+    try {
+      execFileSync("tmux", ["kill-session", "-t", timeoutSession], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      // Temporary timeout fixture session may not exist.
     }
     try {
       execFileSync("tmux", ["kill-session", "-t", `mina-http-mcp-${process.pid}`], {
@@ -411,7 +477,12 @@ function assertUiFreshnessSurfaceFromBuild() {
 
 function assertUiFreshnessSurfaceContent(script, stylesheet) {
   assert.match(script, /data-capability-state/);
+  assert.match(script, /data-capability-quality/);
   assert.match(script, /capability-card/);
+  assert.match(script, /Capability quality/);
+  assert.match(script, /Can answer/);
+  assert.match(script, /Evidence/);
+  assert.match(script, /No answerable domains recorded/);
   assert.match(script, /Missing/);
   assert.match(script, /Stale/);
   assert.match(script, /Fresh/);
@@ -425,6 +496,10 @@ function assertUiFreshnessSurfaceContent(script, stylesheet) {
   assert.match(script, /needs attention/);
 
   assert.match(stylesheet, /capability-fresh/);
+  assert.match(stylesheet, /capability-profile/);
+  assert.match(stylesheet, /profile-tags/);
+  assert.match(stylesheet, /quality-strong/);
+  assert.match(stylesheet, /quality-thin/);
   assert.match(stylesheet, /capability-stale/);
   assert.match(stylesheet, /capability-manual/);
   assert.match(stylesheet, /capability-missing/);
@@ -461,6 +536,8 @@ function assertStaticVisualFixture(stylesheet) {
   assert.match(fixture, /data-capability-state="stale"/);
   assert.match(fixture, /data-capability-state="fresh"/);
   assert.match(fixture, /data-capability-state="manual"/);
+  assert.match(fixture, /data-capability-quality="strong"/);
+  assert.match(fixture, /profile-tag/);
   assert.match(fixture, /Copy Refresh Command/);
   assert.match(fixture, /Edit Capabilities/);
   assert.match(fixture, /activity-table/);
@@ -470,18 +547,24 @@ function assertStaticVisualFixture(stylesheet) {
 
 function buildStaticVisualFixture(stylesheet) {
   const cards = [
-    ["missing", "Missing", "unknown source", "No capability notice registered yet.", "No sources recorded."],
-    ["stale", "Stale", "agent-generated", "Stale generated capability notice.", "AGENTS.md"],
-    ["fresh", "Fresh", "agent-generated", "Fresh generated capability notice.", "README.md"],
-    ["manual", "Manual", "manual edit", "Operator-curated capability notice.", "operator notes"],
-  ].map(([state, label, source, summary, sources]) => `
-    <div class="capability-card capability-${state}" data-capability-state="${state}" data-capability-source="${source}">
+    ["missing", "Missing", "missing", "unknown source", "No capability notice registered yet.", "No sources recorded."],
+    ["stale", "Stale", "thin", "agent-generated", "Stale generated capability notice.", "AGENTS.md"],
+    ["fresh", "Fresh", "strong", "agent-generated", "Fresh generated capability notice.", "README.md"],
+    ["manual", "Manual", "strong", "manual edit", "Operator-curated capability notice.", "operator notes"],
+  ].map(([state, label, quality, source, summary, sources]) => `
+    <div class="capability-card capability-${state}" data-capability-state="${state}" data-capability-source="${source}" data-capability-quality="${quality}">
       <div class="capability-card-head">
         <span class="status capability-status ${state}">${label}</span>
+        <span class="status capability-status quality-${quality}">${quality}</span>
         <span class="subtitle">${source}</span>
       </div>
       <p>${summary}</p>
       <p class="subtitle">${sources}</p>
+      <div class="capability-profile">
+        <div class="profile-row"><span class="subtitle">Quality</span><span>Profile quality is visible.</span></div>
+        <div class="profile-row"><span class="subtitle">Can answer</span><div class="profile-tags"><span class="profile-tag">routing workflow</span><span class="profile-tag">request diagnostics</span></div></div>
+        <div class="profile-row"><span class="subtitle">Evidence</span><div class="profile-tags"><span class="profile-tag">${sources}</span></div></div>
+      </div>
       <div class="capability-meta">
         <span>Updated ${state === "missing" ? "never" : "2026-06-29 00:00"}</span>
         <span>${state === "manual" ? "This capability card was edited by an operator and is not agent-generated." : "Generated capability metadata state is visible."}</span>
@@ -623,18 +706,24 @@ function extractVisualMeasurement(rendered, viewportName) {
 
 function buildRenderedVisualPage(stylesheet, viewportName) {
   const cards = [
-    ["missing", "Missing", "unknown source", "No capability notice registered yet.", "No sources recorded."],
-    ["stale", "Stale", "agent-generated", "Stale generated capability notice.", "AGENTS.md"],
-    ["fresh", "Fresh", "agent-generated", "Fresh generated capability notice.", "README.md"],
-    ["manual", "Manual", "manual edit", "Operator-curated capability notice.", "operator notes"],
-  ].map(([state, label, source, summary, sources]) => `
-    <div class="capability-card capability-${state}" data-capability-state="${state}" data-capability-source="${source}">
+    ["missing", "Missing", "missing", "unknown source", "No capability notice registered yet.", "No sources recorded."],
+    ["stale", "Stale", "thin", "agent-generated", "Stale generated capability notice.", "AGENTS.md"],
+    ["fresh", "Fresh", "strong", "agent-generated", "Fresh generated capability notice.", "README.md"],
+    ["manual", "Manual", "strong", "manual edit", "Operator-curated capability notice.", "operator notes"],
+  ].map(([state, label, quality, source, summary, sources]) => `
+    <div class="capability-card capability-${state}" data-capability-state="${state}" data-capability-source="${source}" data-capability-quality="${quality}">
       <div class="capability-card-head">
         <span class="status capability-status ${state}">${label}</span>
+        <span class="status capability-status quality-${quality}">${quality}</span>
         <span class="subtitle">${source}</span>
       </div>
       <p>${summary}</p>
       <p class="subtitle">${sources}</p>
+      <div class="capability-profile">
+        <div class="profile-row"><span class="subtitle">Quality</span><span>Profile quality is visible.</span></div>
+        <div class="profile-row"><span class="subtitle">Can answer</span><div class="profile-tags"><span class="profile-tag">routing workflow</span><span class="profile-tag">request diagnostics</span></div></div>
+        <div class="profile-row"><span class="subtitle">Evidence</span><div class="profile-tags"><span class="profile-tag">${sources}</span></div></div>
+      </div>
       <div class="capability-meta">
         <span>Updated ${state === "missing" ? "never" : "2026-06-29 00:00"}</span>
         <span>${state === "manual" ? "This capability card was edited by an operator and is not agent-generated." : "Generated capability metadata state is visible."}</span>

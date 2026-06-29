@@ -1,4 +1,5 @@
-import type { Agent } from "./types";
+import type { Agent, AgentCapabilityProfile } from "./types";
+import { buildCapabilityProfile } from "./capability-profile";
 
 export interface AgentRegistrationOptions {
   capabilitySource?: Agent["capabilitySource"];
@@ -10,6 +11,7 @@ export interface AgentCapabilityUpdate {
   sources?: string;
   source: Agent["capabilitySource"];
   refreshedAt?: string;
+  profile?: Partial<AgentCapabilityProfile>;
 }
 
 export interface AgentHealthUpdate {
@@ -47,6 +49,11 @@ export class AgentRegistry {
       capabilitySource: agent.capabilitySource ?? current?.capabilitySource,
       capabilityUpdatedAt: agent.capabilityUpdatedAt ?? current?.capabilityUpdatedAt,
       lastCapabilityRefreshAt: agent.lastCapabilityRefreshAt ?? current?.lastCapabilityRefreshAt,
+      capabilityProfile: buildCapabilityProfile({
+        capabilitySummary: agent.capabilitySummary ?? current?.capabilitySummary,
+        capabilitySources: agent.capabilitySources ?? current?.capabilitySources,
+        capabilityProfile: agent.capabilityProfile ?? current?.capabilityProfile,
+      }),
       bootstrapStatus: agent.bootstrapStatus ?? current?.bootstrapStatus ?? "ready",
       registrationSource: agent.registrationSource ?? current?.registrationSource ?? "unknown",
       registrationStatus: agent.registrationStatus ?? current?.registrationStatus ?? "confirmed",
@@ -66,6 +73,11 @@ export class AgentRegistry {
       mcpUrl: agent.mcpUrl ?? current?.mcpUrl,
       lastSeenAt: agent.lastSeenAt ?? current?.lastSeenAt,
       lastActivityAt: agent.lastActivityAt ?? current?.lastActivityAt,
+      activeRequestId: valueOrCurrent(agent, current, "activeRequestId"),
+      leaseStatus: valueOrCurrent(agent, current, "leaseStatus"),
+      leaseStartedAt: valueOrCurrent(agent, current, "leaseStartedAt"),
+      leaseExpiresAt: valueOrCurrent(agent, current, "leaseExpiresAt"),
+      leaseReleasedAt: valueOrCurrent(agent, current, "leaseReleasedAt"),
     };
 
     if ((agent.capabilitySummary !== undefined || agent.capabilitySources !== undefined)
@@ -120,6 +132,11 @@ export class AgentRegistry {
       capabilitySource: update.source,
       capabilityUpdatedAt: timestamp,
       lastCapabilityRefreshAt: update.source === "generated" ? timestamp : agent.lastCapabilityRefreshAt,
+      capabilityProfile: buildCapabilityProfile({
+        capabilitySummary: update.summary ?? agent.capabilitySummary,
+        capabilitySources: update.sources ?? agent.capabilitySources,
+        capabilityProfile: update.profile ?? agent.capabilityProfile,
+      }),
     };
 
     this.agents.set(id, next);
@@ -177,4 +194,8 @@ function mergeRegistrationWarnings(current: string[] = [], next?: string): strin
   }
 
   return current.includes(next) ? current : [...current, next];
+}
+
+function valueOrCurrent<K extends keyof Agent>(agent: Agent, current: Agent | undefined, key: K): Agent[K] | undefined {
+  return Object.prototype.hasOwnProperty.call(agent, key) ? agent[key] : current?.[key];
 }

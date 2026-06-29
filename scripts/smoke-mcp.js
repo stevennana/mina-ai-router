@@ -85,14 +85,31 @@ async function main() {
 
       const agents = JSON.parse((await mcp.callTool("list_agents", {})).content[0].text);
       assert.equal(agents.agents[0].id, "payment");
+      assert.equal(agents.agents[0].isSelf, undefined);
       assert.equal(agents.agents[0].status, "available");
       assert.equal(agents.agents[0].capabilitySources, "AGENTS.md, package.json");
       assert.equal(agents.agents[0].capabilitySource, "generated");
+
+      const callerAgents = JSON.parse((await mcp.callTool("list_agents", {
+        callerSessionFingerprint: session,
+      })).content[0].text);
+      assert.equal(callerAgents.agents[0].id, "payment");
+      assert.equal(callerAgents.agents[0].isSelf, true);
+
+      const blockedSelfCall = await mcp.callTool("call_agent", {
+        target: "payment",
+        task: "MCP self-call should be blocked",
+        callerSessionFingerprint: session,
+        timeoutMs: 1_000,
+      });
+      assert.match(JSON.stringify(blockedSelfCall), /Refusing self-call/);
 
       const call = JSON.parse(
         (await mcp.callTool("call_agent", {
           target: "payment",
           task: "MCP tmux smoke",
+          callerSessionFingerprint: session,
+          allowSelfCall: true,
           timeoutMs: 5_000,
         })).content[0].text,
       );

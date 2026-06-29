@@ -2,8 +2,10 @@ const assert = require("node:assert/strict");
 const {
   AgentRegistry,
   AgentRouter,
+  buildCapabilityProfile,
   buildMcpPreflight,
   RequestStore,
+  scoreCapabilityProfile,
   buildPromptEnvelope,
   inspectMarkedResponse,
   parseMarkedResponse,
@@ -13,12 +15,14 @@ const { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport
 async function main() {
   testParser();
   testPromptEnvelope();
+  testCapabilityProfileScoring();
   testRegistryCapabilityMetadata();
   testRegistryIdempotentRegistration();
   testMcpPreflight();
   testPermissionPromptDetection();
   testRequestStoreDiagnostics();
   await testRouterLifecycle();
+  await testRouterBlocksSelfCall();
   await testRouterCancelStaysTerminal();
   await testRouterParseFailure();
   await testRouterTimeout();
@@ -125,6 +129,7 @@ function testRegistryCapabilityMetadata() {
   });
   assert.equal(merged.capabilitySummary, "Existing manual summary.");
   assert.equal(merged.capabilitySource, "manual");
+  assert.equal(merged.capabilityProfile.quality, "thin");
   assert.equal(merged.bootstrapStatus, "ready");
   assert.equal(merged.registrationSource, "unknown");
   assert.equal(merged.registrationStatus, "confirmed");
@@ -158,8 +163,57 @@ function testRegistryCapabilityMetadata() {
   assert.equal(refreshed.capabilitySource, "generated");
   assert.equal(refreshed.capabilityUpdatedAt, "2026-01-02T00:00:00.000Z");
   assert.equal(refreshed.lastCapabilityRefreshAt, "2026-01-02T00:00:00.000Z");
+  assert.equal(refreshed.capabilityProfile.quality, "thin");
   assert.equal(refreshed.bootstrapStatus, "created");
   assert.equal(refreshed.registrationStatus, "pending");
+}
+
+function testCapabilityProfileScoring() {
+  const missing = scoreCapabilityProfile({});
+  assert.equal(missing.quality, "missing");
+
+  const thin = buildCapabilityProfile({
+    capabilitySummary: "CLAUDE.md provides guidance. The project has a src directory and package.json.",
+    capabilitySources: "CLAUDE.md, src, package.json",
+  });
+  assert.equal(thin.quality, "thin");
+  assert.match(thin.qualityReasons.join(" "), /generic file references|answerable domains/);
+
+  const strong = buildCapabilityProfile({
+    capabilitySummary: "TypeScript MCP router for coordinating local Codex and Claude agents over HTTP, tmux transports, request diagnostics, and CLI workflows.",
+    capabilitySources: "README.md, packages/core/src/router.ts, packages/mcp/src/provider.ts",
+    capabilityProfile: {
+      projectPurpose: "Local AI agent collaboration router for MCP, tmux, and HTTP workflows.",
+      primaryLanguages: ["TypeScript"],
+      keyAreas: ["MCP router", "tmux transport", "request diagnostics"],
+      canAnswer: [
+        "How routed requests flow through the MCP provider and core router.",
+        "How tmux-backed agents are registered and monitored.",
+      ],
+      cannotAnswerYet: ["Hosted multi-user deployment questions."],
+      evidence: ["README.md", "packages/core/src/router.ts", "packages/mcp/src/provider.ts"],
+    },
+  });
+  assert.equal(strong.quality, "strong");
+  assert.deepEqual(strong.primaryLanguages, ["TypeScript"]);
+  assert.ok(strong.qualityReasons[0].includes("Structured profile"));
+
+  const registry = new AgentRegistry();
+  const registered = registry.register({
+    id: "api",
+    name: "api",
+    agentType: "codex",
+    projectRoot: "/tmp/api",
+    transport: "headless",
+    sessionId: "api",
+    capabilitySummary: "TypeScript API router that can answer endpoint, schema, request, and response workflow questions.",
+    capabilitySources: "README.md, src/router.ts",
+    capabilityProfile: strong,
+  });
+  assert.equal(registered.capabilitySummary, "TypeScript API router that can answer endpoint, schema, request, and response workflow questions.");
+  assert.equal(registered.capabilitySources, "README.md, src/router.ts");
+  assert.equal(registered.capabilityProfile.quality, "strong");
+  assert.equal(registered.capabilityProfile.projectPurpose, strong.projectPurpose);
 }
 
 function testRegistryIdempotentRegistration() {
@@ -300,6 +354,32 @@ function testRequestStoreDiagnostics() {
   assert.equal(unarchived.diagnosticStatus, "cancelled");
   assert.throws(() => store.cancel("store-test"), /Cannot cancel request/);
   assert.equal(store.recordRetry("store-test", "retry-test").retriedByRequestId, "retry-test");
+
+  const orphaned = store.create({
+    id: "orphaned-test",
+    sourceAgent: "source",
+    targetAgent: "target",
+    task: "long task",
+    status: "timeout",
+    createdAt: now,
+    updatedAt: now,
+    leaseStatus: "orphaned",
+    leaseOwnerAgentId: "target",
+  });
+  assert.deepEqual(store.validActions(orphaned), ["interrupt", "recover", "retry", "archive"]);
+  const interrupted = store.recordInterrupt("orphaned-test", {
+    source: "cli",
+    terminalTarget: "target",
+  });
+  assert.equal(interrupted.leaseStatus, "orphaned");
+  assert.equal(interrupted.recoveryStatus, "interrupted");
+  assert.equal(interrupted.recoveryEvents.at(-1).action, "interrupt");
+  assert.deepEqual(store.validActions(interrupted), ["recover", "retry", "archive"]);
+  const recovered = store.markRecovered("orphaned-test", "cli");
+  assert.equal(recovered.leaseStatus, "released");
+  assert.equal(recovered.recoveryStatus, "recovered");
+  assert.ok(recovered.leaseReleasedAt);
+  assert.equal(recovered.recoveryEvents.at(-1).action, "recover");
 }
 
 function testPromptEnvelope() {
@@ -363,6 +443,15 @@ async function testRouterLifecycle() {
   assert.match(request.answer, /Headless response from payment/);
   assert.equal(request.parserDiagnostics.kind, "parsed");
   assert.equal(request.rawEvidence.kind, "transport_capture");
+  assert.equal(request.promptEvidence.kind, "prompt_envelope");
+  assert.equal(request.leaseStatus, "released");
+  assert.ok(request.leaseStartedAt);
+  assert.ok(request.leaseExpiresAt);
+  assert.ok(request.leaseReleasedAt);
+  assert.equal(request.leaseOwnerAgentId, "payment");
+  const [releasedAgent] = await router.listAgentStatuses();
+  assert.equal(releasedAgent.activeRequestId, undefined);
+  assert.equal(releasedAgent.leaseStatus, "released");
   assert.equal(request.task, "question with --literal flag text");
   assert.ok(persisted >= 4);
 
@@ -374,6 +463,44 @@ async function testRouterLifecycle() {
   });
   const retryRequest = router.getRequest(retry.requestId);
   assert.equal(retryRequest.retryOfRequestId, request.id);
+}
+
+async function testRouterBlocksSelfCall() {
+  const registry = new AgentRegistry([
+    {
+      id: "payment",
+      name: "payment",
+      agentType: "shell",
+      projectRoot: "/tmp/payment",
+      transport: "headless",
+      sessionId: "payment",
+    },
+  ]);
+  const requestStore = new RequestStore();
+  const router = new AgentRouter({
+    registry,
+    requestStore,
+    transports: new DefaultTransportRegistry().register("headless", new HeadlessTransport()),
+  });
+
+  await assert.rejects(
+    () => router.callAgent({
+      sourceAgent: "payment",
+      target: "payment",
+      task: "self call",
+    }),
+    /Refusing self-call/,
+  );
+  assert.equal(requestStore.list().length, 0);
+
+  const allowed = await router.callAgent({
+    sourceAgent: "payment",
+    target: "payment",
+    task: "diagnostic self call",
+    allowSelfCall: true,
+  });
+  assert.equal(allowed.target, "payment");
+  assert.equal(requestStore.list()[0].sourceAgent, "payment");
 }
 
 async function testRouterCancelStaysTerminal() {
@@ -420,9 +547,12 @@ async function testRouterCancelStaysTerminal() {
   assert.equal(cancelled.status, "cancelled");
   assert.equal(cancelled.diagnosticStatus, "cancelled");
   assert.equal(cancelled.answer, undefined);
+  assert.equal(cancelled.leaseStatus, "released");
+  assert.ok(cancelled.leaseReleasedAt);
 
   const [agentStatus] = await router.listAgentStatuses();
   assert.equal(agentStatus.lastRequestStatus, "cancelled");
+  assert.equal(agentStatus.activeRequestId, undefined);
 }
 
 async function testRouterParseFailure() {
@@ -451,8 +581,20 @@ async function testRouterTimeout() {
   const request = router.listRequests()[0];
   assert.equal(request.status, "timeout");
   assert.equal(request.diagnosticStatus, "timeout");
+  assert.equal(request.leaseStatus, "orphaned");
+  assert.ok(request.leaseStartedAt);
+  assert.ok(request.leaseExpiresAt);
+  assert.equal(request.leaseReleasedAt, undefined);
+  assert.equal(request.leaseOwnerAgentId, "payment");
+  assert.equal(request.leaseTargetSessionId, "payment");
+  assert.equal(request.promptEvidence.kind, "prompt_envelope");
   assert.match(request.error, /Last capture/);
   assert.equal(request.rawEvidence.excerpt, "partial terminal capture");
+  const [agent] = await router.listAgentStatuses();
+  assert.equal(agent.activeRequestId, request.id);
+  assert.equal(agent.leaseStatus, "orphaned");
+  assert.equal(agent.status, "busy");
+  assert.match(agent.detail, /timed out/);
 }
 
 async function testRouterHealthClassification() {
@@ -545,6 +687,8 @@ async function testRouterHealthClassification() {
   assert.equal(byId.attention.status, "needs-attention");
   assert.match(byId.attention.detail, /transport failed/);
   assert.equal(byId.busy.status, "busy");
+  assert.ok(byId.busy.activeRequestId);
+  assert.equal(byId.busy.leaseStatus, "active");
   assert.ok(byId.busy.lastActivityAt);
 
   deferred.resolve([

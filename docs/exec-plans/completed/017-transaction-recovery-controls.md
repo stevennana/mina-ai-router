@@ -5,7 +5,7 @@
   "id": "transaction-recovery-controls",
   "title": "Transaction recovery controls",
   "order": 17,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "bootstrap-docs-and-smoke-hardening",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -29,7 +29,8 @@
     "The task sends terminal interrupts without an explicit operator action",
     "Cancel request and interrupt terminal are collapsed into one action",
     "The UI clears an orphaned-running state without preserving an audit trail"
-  ]
+  ],
+  "completed_at": "2026-06-29T06:44:36.359Z"
 }
 ```
 
@@ -70,3 +71,6 @@ This task depends on `request-lease-state`. Keep request cancellation and termin
 ## Progress log
 
 - 2026-06-29: Split from the broader transaction lease monitor plan.
+- 2026-06-29T06:30:19.886Z: restored as current task after request-lease-state promotion.
+- 2026-06-29T07:07:00+09:00: added request recovery events, explicit interrupt/recover actions, UI recovery surfaces, CLI/HTTP recovery handlers, and tmux Ctrl-C support. Verified with `npm run build`, `npm run test`, `npm run smoke:http`, and `npm run smoke:tmux`.
+- 2026-06-29T06:44:36.359Z: automatically promoted after deterministic checks and evaluator approval.

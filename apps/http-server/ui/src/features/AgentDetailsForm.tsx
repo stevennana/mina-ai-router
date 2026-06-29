@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { RouterAgent } from "../domain/types";
-import { attachCommand, capabilityFreshness, healthMessage, mairAttachCommand, mairRefreshCapabilitiesCommand } from "../domain/helpers";
+import { attachCommand, capabilityFreshness, capabilityProfileList, capabilityQualityDetail, capabilityQualityLabel, healthMessage, mairAttachCommand, mairRefreshCapabilitiesCommand } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { Icon } from "../primitives/Icon";
@@ -15,6 +15,7 @@ export function AgentDetailsForm({
   const [summary, setSummary] = useState(agent.capabilitySummary || "");
   const [sources, setSources] = useState(agent.capabilitySources || "");
   const freshness = capabilityFreshness(agent);
+  const quality = capabilityQualityLabel(agent);
 
   return (
     <>
@@ -25,13 +26,33 @@ export function AgentDetailsForm({
           data-testid="capability-card"
           data-capability-state={freshness.state}
           data-capability-source={agent.capabilitySource || "unknown"}
+          data-capability-quality={quality}
           style={{ gridColumn: "1 / -1" }}
         >
           <div className="capability-card-head">
             <span className={`status capability-status ${freshness.state}`}>{freshness.label}</span>
+            <span className={`status capability-status quality-${quality}`}>{quality}</span>
             <span className="subtitle">{freshness.sourceLabel}</span>
           </div>
           <p>{freshness.detail}</p>
+          <div className="capability-profile">
+            <div className="profile-row">
+              <span className="subtitle">Quality</span>
+              <span>{capabilityQualityDetail(agent)}</span>
+            </div>
+            <div className="profile-row">
+              <span className="subtitle">Can answer</span>
+              <div className="profile-tags">
+                {capabilityProfileList(agent.capabilityProfile?.canAnswer, "No answerable domains recorded.").map((item) => <span className="profile-tag" key={item}>{item}</span>)}
+              </div>
+            </div>
+            <div className="profile-row">
+              <span className="subtitle">Evidence</span>
+              <div className="profile-tags">
+                {capabilityProfileList(agent.capabilityProfile?.evidence ?? agent.capabilitySources?.split(","), "No evidence recorded.").map((item) => <span className="profile-tag" key={item}>{item.trim()}</span>)}
+              </div>
+            </div>
+          </div>
           <div className="capability-meta">
             <span>Updated {freshness.timestampLabel}</span>
             <span>Saving this form marks the capability card as manual.</span>
@@ -43,6 +64,7 @@ export function AgentDetailsForm({
         <Kv label="Capabilities">{agent.capabilitySummary || "No capability notice registered yet."}</Kv>
         <Kv label="Capability sources">{agent.capabilitySources || "-"}</Kv>
         <Kv label="Capability source">{freshness.sourceLabel}</Kv>
+        <Kv label="Capability quality">{quality}</Kv>
         <Kv label="Capability updated">{freshness.timestampLabel}</Kv>
         <Kv label="Refresh command">{mairRefreshCapabilitiesCommand(agent)}</Kv>
         <Kv label="Detail">{agent.detail || "-"}</Kv>

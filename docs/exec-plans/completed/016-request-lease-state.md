@@ -5,7 +5,7 @@
   "id": "request-lease-state",
   "title": "Request lease state",
   "order": 16,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "transaction-recovery-controls",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -27,7 +27,8 @@
     "Timed-out requests lose raw evidence",
     "Agent busy state is cleared while a lease is still active",
     "The task adds terminal interrupt behavior"
-  ]
+  ],
+  "completed_at": "2026-06-29T06:30:19.886Z"
 }
 ```
 
@@ -67,3 +68,6 @@ This is the state slice only. Do not add operator recovery actions here.
 ## Progress log
 
 - 2026-06-29: Split from the broader transaction lease monitor plan.
+- 2026-06-29T06:14:06.287Z: restored as current task after capability-profile-ui-cli promotion.
+- 2026-06-29T06:24:55.000Z: added request and agent lease fields, prompt evidence capture, active/released/orphaned lease lifecycle handling, timeout lease preservation, HTTP state exposure, and deterministic core/HTTP smoke coverage.
+- 2026-06-29T06:30:19.886Z: automatically promoted after deterministic checks and evaluator approval.

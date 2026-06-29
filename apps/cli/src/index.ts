@@ -9,6 +9,7 @@ import {
   FileState,
   RequestStore,
   type Agent,
+  type AgentCapabilityProfile,
   type TransportType,
 } from "../../../packages/core/src";
 import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
@@ -583,6 +584,7 @@ async function refreshAgentCapabilities(args: string[], context: ReturnType<type
     sources: notice.capabilitySources,
     source: "generated",
     refreshedAt,
+    profile: notice.capabilityProfile,
   });
   context.save();
 
@@ -607,7 +609,15 @@ function buildCapabilityRefreshTask(agent: Agent): string {
     "Return only JSON with these string fields:",
     "{",
     '  "capabilitySummary": "2-5 short bullets or one short paragraph under 800 characters",',
-    '  "capabilitySources": "comma-separated file paths or project signals used"',
+    '  "capabilitySources": "comma-separated file paths or project signals used",',
+    '  "capabilityProfile": {',
+    '    "projectPurpose": "what this project implements",',
+    '    "primaryLanguages": ["TypeScript"],',
+    '    "keyAreas": ["router", "MCP endpoint"],',
+    '    "canAnswer": ["specific question domains this agent can answer"],',
+    '    "cannotAnswerYet": ["known limits"],',
+    '    "evidence": ["README.md", "package.json", "src/..."]',
+    "  }",
     "}",
     "",
     "Do not include markdown fences or extra commentary in the JSON body.",
@@ -621,7 +631,7 @@ function buildCapabilityRefreshTask(agent: Agent): string {
   ].join("\n");
 }
 
-function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: string; capabilitySources: string } {
+function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: string; capabilitySources: string; capabilityProfile?: Partial<AgentCapabilityProfile> } {
   const trimmed = answer.trim();
   const jsonText = trimmed.startsWith("{") ? trimmed : trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1);
 
@@ -632,6 +642,7 @@ function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: stri
   const parsed = JSON.parse(jsonText) as {
     capabilitySummary?: unknown;
     capabilitySources?: unknown;
+    capabilityProfile?: unknown;
   };
   const capabilitySummary = typeof parsed.capabilitySummary === "string" ? parsed.capabilitySummary.trim() : "";
   const capabilitySources = typeof parsed.capabilitySources === "string" ? parsed.capabilitySources.trim() : "";
@@ -644,7 +655,41 @@ function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: stri
     throw new Error("Capability refresh JSON capabilitySummary must be under 800 characters.");
   }
 
-  return { capabilitySummary, capabilitySources };
+  return {
+    capabilitySummary,
+    capabilitySources,
+    capabilityProfile: capabilityProfileValue(parsed.capabilityProfile),
+  };
+}
+
+function capabilityProfileValue(value: unknown): Partial<AgentCapabilityProfile> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    projectPurpose: stringObjectValue(record.projectPurpose),
+    primaryLanguages: stringArrayValue(record.primaryLanguages),
+    keyAreas: stringArrayValue(record.keyAreas),
+    canAnswer: stringArrayValue(record.canAnswer),
+    cannotAnswerYet: stringArrayValue(record.cannotAnswerYet),
+    evidence: stringArrayValue(record.evidence),
+  };
+}
+
+function stringObjectValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function stringArrayValue(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const values = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    .map((item) => item.trim());
+  return values.length ? values : undefined;
 }
 
 function showAttach(args: string[], context: ReturnType<typeof createContext>): void {
@@ -699,7 +744,7 @@ function listRequests(args: string[], context: ReturnType<typeof createContext>)
 async function handleRequest(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
   const requestId = args[0];
   if (!requestId) {
-    throw new Error("Usage: mair request <request-id> [retry|cancel|archive|unarchive]");
+    throw new Error("Usage: mair request <request-id> [retry|cancel|archive|unarchive|interrupt|recover]");
   }
 
   const action = args[1];
@@ -740,7 +785,25 @@ async function runRequestAction(
       return;
     }
     case "cancel": {
-      const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router CLI.");
+      const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router CLI.", "cli");
+      clearAgentLeaseForRequest(updated, context);
+      context.save();
+      printJson(updated);
+      return;
+    }
+    case "interrupt": {
+      const updated = interruptRequest(requestId, context);
+      context.save();
+      printJson(updated);
+      return;
+    }
+    case "recover": {
+      const updated = context.requestStore.markRecovered(
+        requestId,
+        "cli",
+        "Marked recovered by operator from Mina AI Router CLI.",
+      );
+      clearAgentLeaseForRequest(updated, context);
       context.save();
       printJson(updated);
       return;
@@ -758,12 +821,53 @@ async function runRequestAction(
       return;
     }
     default:
-      throw new Error(`Unsupported request action "${action}". Use retry, cancel, archive, or unarchive.`);
+      throw new Error(`Unsupported request action "${action}". Use retry, cancel, archive, unarchive, interrupt, or recover.`);
   }
 }
 
-function isRequestAction(action: string): action is "retry" | "cancel" | "archive" | "unarchive" {
-  return action === "retry" || action === "cancel" || action === "archive" || action === "unarchive";
+function interruptRequest(requestId: string, context: ReturnType<typeof createContext>) {
+  const request = context.requestStore.require(requestId);
+  context.requestStore.assertActionAllowed(request, "interrupt");
+  const agentId = request.leaseOwnerAgentId ?? request.targetAgent;
+  const agent = context.registry.require(agentId);
+  if (agent.transport !== "tmux") {
+    throw new Error(`Request "${requestId}" targets ${agent.transport}, not tmux; open the session manually.`);
+  }
+
+  const target = agent.tmuxTarget ?? agent.sessionId;
+  new TmuxClient().sendInterrupt(target);
+  return context.requestStore.recordInterrupt(requestId, {
+    source: "cli",
+    terminalTarget: target,
+    message: `Terminal interrupt sent to ${target}.`,
+  });
+}
+
+function clearAgentLeaseForRequest(request: { leaseOwnerAgentId?: string; id: string }, context: ReturnType<typeof createContext>): void {
+  if (!request.leaseOwnerAgentId) {
+    return;
+  }
+
+  const agent = context.registry.get(request.leaseOwnerAgentId);
+  if (!agent || agent.activeRequestId !== request.id) {
+    return;
+  }
+
+  context.registry.register({
+    ...agent,
+    activeRequestId: undefined,
+    leaseStatus: "released",
+    leaseReleasedAt: new Date().toISOString(),
+  });
+}
+
+function isRequestAction(action: string): action is "retry" | "cancel" | "archive" | "unarchive" | "interrupt" | "recover" {
+  return action === "retry"
+    || action === "cancel"
+    || action === "archive"
+    || action === "unarchive"
+    || action === "interrupt"
+    || action === "recover";
 }
 
 async function runServerRequestAction(requestId: string, action: string): Promise<boolean> {
@@ -898,7 +1002,7 @@ Commands:
   mair serve [--port 3333]
   mair ask <target> "question"
   mair requests [--target <id>]
-  mair request <request-id> [retry|cancel|archive|unarchive]
+  mair request <request-id> [retry|cancel|archive|unarchive|interrupt|recover]
 
 Example:
   mair register payment --agent gemini --transport headless --session payment --root ./payment

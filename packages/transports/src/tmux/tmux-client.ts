@@ -83,6 +83,10 @@ export class TmuxClient {
     this.run(["send-keys", "-t", target, this.submitKey]);
   }
 
+  sendInterrupt(target: string): void {
+    this.run(["send-keys", "-t", target, "C-c"]);
+  }
+
   sendCodexText(target: string, text: string): void {
     const prompt = asSingleLinePrompt(text);
     for (const key of this.clearInputKeys) {

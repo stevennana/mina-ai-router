@@ -19,7 +19,11 @@ const tools: McpTool[] = [
     description: "List registered Mina helper agents.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        callerAgentId: { type: "string" },
+        sourceAgent: { type: "string" },
+        callerSessionFingerprint: { type: "string" },
+      },
       additionalProperties: false,
     },
   },
@@ -56,6 +60,10 @@ const tools: McpTool[] = [
       properties: {
         target: { type: "string" },
         task: { type: "string" },
+        sourceAgent: { type: "string" },
+        callerAgentId: { type: "string" },
+        callerSessionFingerprint: { type: "string" },
+        allowSelfCall: { type: "boolean" },
         timeoutMs: { type: "number" },
       },
       required: ["target", "task"],
@@ -100,7 +108,8 @@ async function callTool(
 ): Promise<McpToolCallResult> {
   switch (name) {
     case "list_agents": {
-      const agents = await context.router.listAgentStatuses();
+      const caller = resolveCallerAgent(context.registry, args);
+      const agents = await context.router.listAgentStatuses({ callerAgentId: caller?.id });
       return jsonToolResult({ agents });
     }
     case "register_agent": {
@@ -135,13 +144,21 @@ async function callTool(
       const target = typeof args.target === "string" ? args.target : "";
       const task = typeof args.task === "string" ? args.task : "";
       const timeoutMs = typeof args.timeoutMs === "number" ? args.timeoutMs : undefined;
+      const caller = resolveCallerAgent(context.registry, args);
+      const allowSelfCall = args.allowSelfCall === true;
 
       if (!target || !task) {
         return { kind: "invalid_params", message: "call_agent requires string target and task." };
       }
 
       try {
-        const response = await context.router.callAgent({ target, task, timeoutMs });
+        const response = await context.router.callAgent({
+          sourceAgent: caller?.id,
+          target,
+          task,
+          timeoutMs,
+          allowSelfCall,
+        });
         return jsonToolResult(response);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -178,6 +195,19 @@ async function callTool(
     default:
       return { kind: "not_found", message: `Unknown tool "${name}".` };
   }
+}
+
+function resolveCallerAgent(
+  registry: AgentRegistry,
+  args: Record<string, JsonValue>,
+): Agent | undefined {
+  const callerAgentId = stringValue(args.callerAgentId) ?? stringValue(args.sourceAgent);
+  if (callerAgentId) {
+    return registry.get(callerAgentId);
+  }
+
+  const fingerprint = stringValue(args.callerSessionFingerprint);
+  return fingerprint ? registry.findBySessionFingerprint(fingerprint) : undefined;
 }
 
 function agentFromArgs(args: Record<string, JsonValue>): Agent {

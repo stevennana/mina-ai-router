@@ -19,10 +19,14 @@ You will:
 
 ## 1. Install the `mair` Command
 
-Install the published package:
+Use the GitHub checkout:
 
 ```sh
-npm install -g @minasoft/mina-ai-router
+git clone https://github.com/stevennana/mina-ai-router.git
+cd mina-ai-router
+npm install
+npm run build
+npm link
 ```
 
 Verify:
@@ -89,6 +93,8 @@ It automatically infers:
 - capability summary
 - capability sources
 
+Registration is idempotent. If the Web UI already created the agent placeholder, the skill should confirm and enrich that same agent instead of registering a second copy for the same tmux session.
+
 ## 5. Create an Agent From the Web UI
 
 This is the easiest path for most users.
@@ -99,9 +105,18 @@ This is the easiest path for most users.
 4. Select a project directory.
 5. Click `Create Agent`.
 
-Mina creates or reuses a tmux session and registers the agent in the router.
+Mina creates or reuses a tmux session and registers the agent in the router. If the same tmux session later self-registers from the agent CLI, Mina updates the existing agent record instead of creating a duplicate.
 
-If Codex or Claude needs trust approval, the Web UI shows the terminal so you can respond.
+Watch the readiness state after creation:
+
+- `created`: Mina created or reused the tmux session.
+- `permission-required`: Codex or Claude is waiting for trust or permission approval. Open the terminal and approve it.
+- `mcp-configuring`: the session does not yet have the Mina MCP server configured. Run the setup command shown in the inspector.
+- `registration-pending`: Mina is waiting for the agent to confirm self-registration.
+- `ready`: the session is reachable, registered, and safe to route work to.
+- `failed`: creation or preflight hit a blocker that needs operator repair.
+
+If Codex or Claude needs trust approval, the Web UI shows the terminal so you can respond. If MCP setup is missing, the inspector shows the exact setup, verify, and remove commands for the CLI profile.
 
 ## 6. Alternative: Create an Agent From a Terminal
 
@@ -144,6 +159,9 @@ You can view and edit:
 
 - capability summary
 - capability sources
+- structured capability quality
+- answerable domains
+- evidence sources
 - project root
 - tmux session
 - attach commands
@@ -180,7 +198,7 @@ Summarize method, endpoint, parameters, and source files.
 Expected flow:
 
 1. The source agent calls `list_agents`.
-2. It chooses the target agent.
+2. It chooses a target agent where `isSelf` is not true.
 3. It calls `call_agent`.
 4. MAIR sends the task into the target tmux session.
 5. The target agent answers with Mina response markers.
@@ -196,9 +214,12 @@ Use this view to check:
 
 - source and target agent
 - current lifecycle status
+- request lease state
 - parsed answer or error
 - parser diagnostics for missing or malformed response markers
+- prompt evidence sent to the target
 - raw terminal evidence captured from the target agent
+- recovery history for operator actions
 - retry lineage when a request was retried
 
 The detail view is the fastest way to understand whether a collaboration failed because the target timed out, the terminal transport failed, or the answer did not include Mina response markers.
@@ -209,10 +230,12 @@ Use the activity panel actions when a collaboration needs operator help:
 
 - `Retry` sends the same task again and links the new request back to the original.
 - `Cancel` stops an open created, sent, or waiting request from being updated by a late terminal response.
+- `Interrupt Terminal` sends Ctrl-C to the target tmux session for an orphaned timed-out request.
+- `Mark Recovered` releases an orphaned request lease after you confirm the target session is idle or repaired.
 - `Archive` hides old terminal noise without deleting the request history.
 - `Unarchive` restores a request when you need to inspect it again.
 
-These controls are intentionally local and explicit. They do not hide the original request; they preserve enough lineage to explain what happened.
+These controls are intentionally local and explicit. Cancel request, interrupt terminal, and mark recovered are separate actions. They do not hide the original request; they preserve enough lineage and recovery history to explain what happened.
 
 ## 13. Refresh Capabilities
 
@@ -224,6 +247,8 @@ Capability states mean:
 - `Fresh`: generated capability metadata was refreshed recently.
 - `Stale`: generated capability metadata is old or missing a refresh timestamp.
 - `Manual`: you edited the capability card yourself.
+- `Strong`: the profile explains what the project does, what the agent can answer, and what evidence supports that claim.
+- `Thin`: the profile exists but is too generic to trust for routing decisions.
 
 From the inspector, use `Edit Capabilities` for manual corrections or `Copy Refresh Command` to copy:
 

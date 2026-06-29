@@ -1,6 +1,12 @@
-import type { AgentRequest, RequestDiagnosticStatus, RequestStatus } from "./types";
+import type {
+  AgentRequest,
+  RequestDiagnosticStatus,
+  RequestRecoveryEvent,
+  RequestRecoverySource,
+  RequestStatus,
+} from "./types";
 
-export type RequestAction = "retry" | "cancel" | "archive" | "unarchive";
+export type RequestAction = "retry" | "cancel" | "archive" | "unarchive" | "interrupt" | "recover";
 
 const openStatuses = new Set<RequestStatus>(["created", "sent", "waiting"]);
 
@@ -60,11 +66,22 @@ export class RequestStore {
     return this.updateStatus(id, status, patch);
   }
 
-  cancel(id: string, reason = "Cancelled by operator."): AgentRequest {
+  cancel(id: string, reason = "Cancelled by operator.", source: RequestRecoverySource = "system"): AgentRequest {
     const current = this.require(id);
     this.assertActionAllowed(current, "cancel");
+    const now = new Date().toISOString();
     return this.updateStatus(id, "cancelled", {
       error: reason,
+      leaseStatus: "released",
+      leaseReleasedAt: now,
+      recoveryEvents: appendRecoveryEvent(current, {
+        at: now,
+        action: "cancel",
+        source,
+        message: reason,
+        previousLeaseStatus: current.leaseStatus,
+        activeRequestId: current.id,
+      }),
     });
   }
 
@@ -75,6 +92,8 @@ export class RequestStore {
       archivedAt: new Date().toISOString(),
       archivedFromStatus: current.status,
       error: current.error ?? reason,
+      leaseStatus: current.leaseStatus === "active" ? "released" : current.leaseStatus,
+      leaseReleasedAt: current.leaseStatus === "active" ? new Date().toISOString() : current.leaseReleasedAt,
     });
   }
 
@@ -95,6 +114,48 @@ export class RequestStore {
     });
   }
 
+  recordInterrupt(
+    id: string,
+    options: { source: RequestRecoverySource; message?: string; terminalTarget?: string },
+  ): AgentRequest {
+    const current = this.require(id);
+    this.assertActionAllowed(current, "interrupt");
+    const now = new Date().toISOString();
+    return this.patch(current.id, {
+      recoveryStatus: "interrupted",
+      interruptedAt: now,
+      recoveryEvents: appendRecoveryEvent(current, {
+        at: now,
+        action: "interrupt",
+        source: options.source,
+        message: options.message ?? "Terminal interrupt sent by operator.",
+        previousLeaseStatus: current.leaseStatus,
+        activeRequestId: current.id,
+        terminalTarget: options.terminalTarget,
+      }),
+    });
+  }
+
+  markRecovered(id: string, source: RequestRecoverySource, message = "Marked recovered by operator."): AgentRequest {
+    const current = this.require(id);
+    this.assertActionAllowed(current, "recover");
+    const now = new Date().toISOString();
+    return this.patch(current.id, {
+      leaseStatus: "released",
+      leaseReleasedAt: now,
+      recoveryStatus: "recovered",
+      recoveredAt: now,
+      recoveryEvents: appendRecoveryEvent(current, {
+        at: now,
+        action: "recover",
+        source,
+        message,
+        previousLeaseStatus: current.leaseStatus,
+        activeRequestId: current.id,
+      }),
+    });
+  }
+
   assertActionAllowed(request: AgentRequest, action: RequestAction): void {
     const validActions = this.validActions(request);
     if (!validActions.includes(action)) {
@@ -107,6 +168,13 @@ export class RequestStore {
   validActions(request: AgentRequest): RequestAction[] {
     if (request.status === "archived") {
       return ["retry", "unarchive"];
+    }
+
+    if (request.leaseStatus === "orphaned") {
+      const recoveryActions: RequestAction[] = request.recoveryStatus === "interrupted"
+        ? ["recover"]
+        : ["interrupt", "recover"];
+      return [...recoveryActions, "retry", "archive"];
     }
 
     if (openStatuses.has(request.status)) {
@@ -126,6 +194,10 @@ export class RequestStore {
     this.requests.set(id, updated);
     return updated;
   }
+}
+
+function appendRecoveryEvent(request: AgentRequest, event: RequestRecoveryEvent): RequestRecoveryEvent[] {
+  return [...(request.recoveryEvents ?? []), event];
 }
 
 function diagnosticStatusFor(status: RequestStatus): RequestDiagnosticStatus {

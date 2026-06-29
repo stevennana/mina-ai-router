@@ -5,7 +5,7 @@
   "id": "caller-identity-self-avoidance",
   "title": "Caller identity and self-call avoidance",
   "order": 13,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "capability-profile-schema-scoring",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -27,7 +27,8 @@
     "The task makes caller identity depend only on display name",
     "Self-calls are silently rerouted",
     "The MCP API response shape changes without docs or compatibility handling"
-  ]
+  ],
+  "completed_at": "2026-06-29T05:57:08.488Z"
 }
 ```
 
@@ -70,3 +71,5 @@ Prefer a stable session fingerprint or explicit source id over fragile name matc
 
 - 2026-06-29: Seeded from pain point 4.
 - 2026-06-29T05:50:08.686Z: restored as current task after idempotent-registration-handshake promotion.
+- 2026-06-29T05:56:27.300Z: added explicit MCP caller identity fields, self markers in list_agents, default self-call rejection, diagnostic allowSelfCall override, and deterministic core/MCP smoke coverage.
+- 2026-06-29T05:57:08.488Z: automatically promoted after deterministic checks and evaluator approval.

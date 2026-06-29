@@ -1,5 +1,5 @@
 import type { RouterAgent, RouterRequest } from "../domain/types";
-import { agentRequests, attachCommand, bootstrapLabel, capabilityFreshness, displayAgentName, formatDateTime, healthMessage, mcpPreflightLabel, permissionProfileLabel } from "../domain/helpers";
+import { agentRequests, attachCommand, bootstrapLabel, capabilityFreshness, capabilityProfileList, capabilityQualityDetail, capabilityQualityLabel, displayAgentName, formatDateTime, healthMessage, mcpPreflightLabel, permissionProfileLabel } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
@@ -29,6 +29,7 @@ export function Inspector({
 
   const recent = agentRequests(agent.id, requests).slice().reverse().slice(0, 3);
   const freshness = capabilityFreshness(agent);
+  const quality = capabilityQualityLabel(agent);
 
   return (
     <aside className={["inspector floating-inspector", collapsed ? "is-collapsed" : ""].filter(Boolean).join(" ")} aria-label="Selected agent inspector">
@@ -57,7 +58,15 @@ export function Inspector({
             <Kv label="Bootstrap">{bootstrapLabel(agent)}</Kv>
             <Kv label="Permission profile">{permissionProfileLabel(agent)}</Kv>
             <Kv label="MCP preflight">{mcpPreflightLabel(agent)}</Kv>
+            {agent.activeRequestId ? <Kv label="Active request">{agent.activeRequestId}</Kv> : null}
+            {agent.leaseStatus ? <Kv label="Lease">{agent.leaseStatus}</Kv> : null}
           </div>
+          {agent.activeRequestId ? (
+            <div className="notice notice-recovery">
+              <span>Agent is attached to {agent.activeRequestId}{agent.leaseStatus ? ` (${agent.leaseStatus})` : ""}.</span>
+              <Button tone="secondary" onClick={() => onRequest(agent.activeRequestId!)}><Icon name="open_in_new" />Open Request</Button>
+            </div>
+          ) : null}
           {agent.permissionProfileDetail ? <div className="notice">{agent.permissionProfileDetail}</div> : null}
           {agent.mcpPreflightDetail ? <div className="notice">{agent.mcpPreflightDetail}</div> : null}
           {agent.registrationWarnings?.length ? <div className="notice">{agent.registrationWarnings.join(" ")}</div> : null}
@@ -88,13 +97,33 @@ export function Inspector({
             data-testid="capability-card"
             data-capability-state={freshness.state}
             data-capability-source={agent.capabilitySource || "unknown"}
+            data-capability-quality={quality}
           >
             <div className="capability-card-head">
               <span className={`status capability-status ${freshness.state}`}>{freshness.label}</span>
+              <span className={`status capability-status quality-${quality}`}>{quality}</span>
               <span className="subtitle">{freshness.sourceLabel}</span>
             </div>
             <p>{agent.capabilitySummary || "No capability notice registered yet."}</p>
             <p className="subtitle">{agent.capabilitySources || "No sources recorded."}</p>
+            <div className="capability-profile">
+              <div className="profile-row">
+                <span className="subtitle">Quality</span>
+                <span>{capabilityQualityDetail(agent)}</span>
+              </div>
+              <div className="profile-row">
+                <span className="subtitle">Can answer</span>
+                <div className="profile-tags">
+                  {capabilityProfileList(agent.capabilityProfile?.canAnswer, "No answerable domains recorded.").map((item) => <span className="profile-tag" key={item}>{item}</span>)}
+                </div>
+              </div>
+              <div className="profile-row">
+                <span className="subtitle">Evidence</span>
+                <div className="profile-tags">
+                  {capabilityProfileList(agent.capabilityProfile?.evidence ?? agent.capabilitySources?.split(","), "No evidence recorded.").map((item) => <span className="profile-tag" key={item}>{item.trim()}</span>)}
+                </div>
+              </div>
+            </div>
             <div className="capability-meta">
               <span>Updated {freshness.timestampLabel}</span>
               <span>{freshness.detail}</span>

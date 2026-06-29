@@ -22,6 +22,26 @@ export type RequestDiagnosticStatus =
   | "transport_failure"
   | "unknown_failure";
 
+export type RequestLeaseStatus =
+  | "active"
+  | "released"
+  | "orphaned";
+
+export type RequestRecoveryStatus =
+  | "interrupted"
+  | "recovered";
+
+export type RequestRecoveryAction =
+  | "cancel"
+  | "interrupt"
+  | "recover";
+
+export type RequestRecoverySource =
+  | "cli"
+  | "http"
+  | "ui"
+  | "system";
+
 export type ResponseParserDiagnosticKind =
   | "parsed"
   | "missing_markers"
@@ -40,11 +60,21 @@ export interface ResponseParserDiagnostics {
 }
 
 export interface RequestRawEvidence {
-  kind: "transport_capture";
+  kind: "transport_capture" | "prompt_envelope";
   capturedAt: string;
   characterCount: number;
   excerpt: string;
   truncated: boolean;
+}
+
+export interface RequestRecoveryEvent {
+  at: string;
+  action: RequestRecoveryAction;
+  source: RequestRecoverySource;
+  message: string;
+  previousLeaseStatus?: RequestLeaseStatus;
+  activeRequestId?: string;
+  terminalTarget?: string;
 }
 
 export type AgentHealthStatus =
@@ -119,6 +149,19 @@ export interface AgentRegistrationEvent {
   sessionFingerprint?: string;
 }
 
+export type CapabilityQuality = "strong" | "thin" | "missing";
+
+export interface AgentCapabilityProfile {
+  projectPurpose?: string;
+  primaryLanguages?: string[];
+  keyAreas?: string[];
+  canAnswer?: string[];
+  cannotAnswerYet?: string[];
+  evidence?: string[];
+  quality: CapabilityQuality;
+  qualityReasons?: string[];
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -133,6 +176,7 @@ export interface Agent {
   capabilitySource?: "manual" | "generated";
   capabilityUpdatedAt?: string;
   lastCapabilityRefreshAt?: string;
+  capabilityProfile?: AgentCapabilityProfile;
   bootstrapStatus?: AgentBootstrapStatus;
   registrationSource?: AgentRegistrationSource;
   registrationStatus?: AgentRegistrationStatus;
@@ -152,6 +196,11 @@ export interface Agent {
   mcpUrl?: string;
   lastSeenAt?: string;
   lastActivityAt?: string;
+  activeRequestId?: string;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
 }
 
 export interface AgentRequest {
@@ -171,6 +220,18 @@ export interface AgentRequest {
   diagnosticStatus?: RequestDiagnosticStatus;
   parserDiagnostics?: ResponseParserDiagnostics;
   rawEvidence?: RequestRawEvidence;
+  promptEvidence?: RequestRawEvidence;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
+  leaseOwnerAgentId?: string;
+  leaseTargetSessionId?: string;
+  leaseTargetSessionFingerprint?: string;
+  recoveryStatus?: RequestRecoveryStatus;
+  recoveryEvents?: RequestRecoveryEvent[];
+  interruptedAt?: string;
+  recoveredAt?: string;
 }
 
 export interface AgentResponse {
@@ -185,6 +246,7 @@ export interface CallAgentInput {
   task: string;
   timeoutMs?: number;
   retryOfRequestId?: string;
+  allowSelfCall?: boolean;
 }
 
 export interface AgentStatus {
@@ -199,6 +261,7 @@ export interface AgentStatus {
   capabilitySource?: "manual" | "generated";
   capabilityUpdatedAt?: string;
   lastCapabilityRefreshAt?: string;
+  capabilityProfile?: AgentCapabilityProfile;
   bootstrapStatus?: AgentBootstrapStatus;
   registrationSource?: AgentRegistrationSource;
   registrationStatus?: AgentRegistrationStatus;
@@ -219,11 +282,17 @@ export interface AgentStatus {
   mcpUrl?: string;
   lastSeenAt?: string;
   lastActivityAt?: string;
+  activeRequestId?: string;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
   healthCheckedAt: string;
   staleAfterMs: number;
   status: AgentHealthStatus;
   detail?: string;
   lastRequestStatus?: RequestStatus;
+  isSelf?: boolean;
 }
 
 export interface AgentTransport {

@@ -18,10 +18,14 @@ Use Mina AI Router when you want several CLI agents to work together across loca
 - see live agent status, capabilities, terminal previews, and request history in one browser console
 - keep orchestration local-first on your machine
 
-## Install
+## Install From GitHub
 
 ```sh
-npm install -g @minasoft/mina-ai-router
+git clone https://github.com/stevennana/mina-ai-router.git
+cd mina-ai-router
+npm install
+npm run build
+npm link
 mair version
 ```
 
@@ -72,6 +76,8 @@ mair claude
 
 You can also create agents from the Web UI by right-clicking the `Live Agent Flow` area and choosing `Create tmux Agent`.
 
+Newly created agents move through explicit readiness states instead of silently appearing ready. The UI and CLI can show `created`, `permission-required`, `mcp-configuring`, `registration-pending`, `ready`, or `failed`. If a Codex or Claude session is waiting for trust approval or MCP setup, the agent is not treated as ready for collaboration until that blocker is visible and resolved.
+
 ## Collaborate Between Agents
 
 From a registered Codex or Claude session, ask it to use Mina AI Router:
@@ -84,13 +90,17 @@ Summarize the method, endpoint, parameters, and source files.
 
 The source agent calls MCP `list_agents`, selects a target, sends the task with `call_agent`, and waits for the routed answer.
 
+Mina passes caller identity into MCP results so an agent can recognize itself. `list_agents` marks the caller with `isSelf`, and `call_agent` rejects accidental self-calls unless `allowSelfCall: true` is provided for diagnostics.
+
 ## Inspect Reliability
 
 The browser console is built for local live operations, not hidden background orchestration. During a two-agent collaboration you can:
 
 - open the routed request detail to inspect lifecycle, parsed answer, raw terminal evidence, and parser diagnostics
-- retry, cancel, archive, or unarchive requests from the activity panel
-- distinguish fresh, stale, missing, generated, and manually edited capability summaries
+- retry, cancel, archive, unarchive, interrupt, or mark recovered requests from the activity panel
+- distinguish fresh, stale, missing, generated, manually edited, strong, thin, and missing capability profiles
+- inspect MCP preflight state and permission/trust blockers before a new CLI session is routed work
+- recover long transactions where the router timed out but the target terminal may still be running
 - see health states shared by the CLI and UI: `available`, `busy`, `stale`, `missing`, `needs-attention`, and `unknown`
 - use `mair health`, `mair agents`, and `mair agent <id>` to confirm the same status model from a terminal
 
@@ -100,7 +110,7 @@ The browser console is built for local live operations, not hidden background or
 - Local MCP endpoint at `http://127.0.0.1:3333/mcp`
 - `mair` CLI for server and agent controls
 - Browser operations console with live flow, inspector, terminal preview, and activity log
-- Agent capability summaries and editable metadata
+- Agent capability summaries, structured capability profiles, readiness state, and editable metadata
 - MCP tools: `list_agents`, `register_agent`, `call_agent`, `get_request_status`
 - Repo-local skill for agent self-registration
 

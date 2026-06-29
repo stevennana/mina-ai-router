@@ -5,7 +5,7 @@
   "id": "capability-profile-ui-cli",
   "title": "Capability profile UI and CLI",
   "order": 15,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "request-lease-state",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -28,7 +28,8 @@
     "Thin capability summaries are presented as strong",
     "Manual capability editing is removed",
     "The UI hides the evidence behind the capability profile"
-  ]
+  ],
+  "completed_at": "2026-06-29T06:14:06.287Z"
 }
 ```
 
@@ -69,3 +70,6 @@ This task depends on `capability-profile-schema-scoring`. It should not change t
 ## Progress log
 
 - 2026-06-29: Split from the broader capability profiler quality gate plan.
+- 2026-06-29T06:01:40.037Z: restored as current task after capability-profile-schema-scoring promotion.
+- 2026-06-29T06:08:22.300Z: exposed capability quality, can-answer domains, and evidence in Web UI inspector/details; extended CLI refresh to parse/store structured profile data; added HTTP and tmux smoke coverage for profile surfaces.
+- 2026-06-29T06:14:06.287Z: automatically promoted after deterministic checks and evaluator approval.

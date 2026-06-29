@@ -37,7 +37,7 @@ export const routerApi = {
     method: "POST",
     body: JSON.stringify({ target, task, timeoutMs: 300000 }),
   }),
-  requestAction: (requestId: string, action: "retry" | "cancel" | "archive" | "unarchive") =>
+  requestAction: (requestId: string, action: "retry" | "cancel" | "archive" | "unarchive" | "interrupt" | "recover") =>
     api<{ result: { requestId?: string; targetAgent?: string }; state: UiState }>(`/api/requests/${encodeURIComponent(requestId)}/${action}`, {
       method: "POST",
     }),
