@@ -84,6 +84,16 @@ Summarize the method, endpoint, parameters, and source files.
 
 The source agent calls MCP `list_agents`, selects a target, sends the task with `call_agent`, and waits for the routed answer.
 
+## Inspect Reliability
+
+The browser console is built for local live operations, not hidden background orchestration. During a two-agent collaboration you can:
+
+- open the routed request detail to inspect lifecycle, parsed answer, raw terminal evidence, and parser diagnostics
+- retry, cancel, archive, or unarchive requests from the activity panel
+- distinguish fresh, stale, missing, generated, and manually edited capability summaries
+- see health states shared by the CLI and UI: `available`, `busy`, `stale`, `missing`, `needs-attention`, and `unknown`
+- use `mair health`, `mair agents`, and `mair agent <id>` to confirm the same status model from a terminal
+
 ## What You Get
 
 - Local HTTP UI at `http://127.0.0.1:3333/`

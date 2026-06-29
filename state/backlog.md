@@ -8,5 +8,5 @@
 - [x] capability-freshness-ui — Capability freshness UI
 - [x] agent-health-core-api — Agent health core and API
 - [x] agent-health-ui-cli — Agent health UI and CLI
-- [ ] collaboration-doc-walkthrough — Collaboration documentation walkthrough ← current
+- [x] collaboration-doc-walkthrough — Collaboration documentation walkthrough
 

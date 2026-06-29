@@ -188,7 +188,73 @@ Expected flow:
 
 You can watch the routed request in the bottom activity panel. Selecting the target agent filters that panel to only that agent's work.
 
-## 11. Stop the Router
+## 11. Inspect the Routed Request
+
+After the request appears in the activity panel, click the row to open the request detail view.
+
+Use this view to check:
+
+- source and target agent
+- current lifecycle status
+- parsed answer or error
+- parser diagnostics for missing or malformed response markers
+- raw terminal evidence captured from the target agent
+- retry lineage when a request was retried
+
+The detail view is the fastest way to understand whether a collaboration failed because the target timed out, the terminal transport failed, or the answer did not include Mina response markers.
+
+## 12. Recover From a Bad Request
+
+Use the activity panel actions when a collaboration needs operator help:
+
+- `Retry` sends the same task again and links the new request back to the original.
+- `Cancel` stops an open created, sent, or waiting request from being updated by a late terminal response.
+- `Archive` hides old terminal noise without deleting the request history.
+- `Unarchive` restores a request when you need to inspect it again.
+
+These controls are intentionally local and explicit. They do not hide the original request; they preserve enough lineage to explain what happened.
+
+## 13. Refresh Capabilities
+
+Each agent has a capability card that helps you decide where to route work.
+
+Capability states mean:
+
+- `Missing`: the agent has not registered a useful capability summary.
+- `Fresh`: generated capability metadata was refreshed recently.
+- `Stale`: generated capability metadata is old or missing a refresh timestamp.
+- `Manual`: you edited the capability card yourself.
+
+From the inspector, use `Edit Capabilities` for manual corrections or `Copy Refresh Command` to copy:
+
+```sh
+mair agent refresh-capabilities <agent-id>
+```
+
+Run the command when an agent's project changed and you want it to inspect local docs again.
+
+## 14. Read Health States
+
+The UI and CLI use the same health states:
+
+- `available`: the session is reachable and can receive routed work.
+- `busy`: Mina is already routing a request to that agent.
+- `stale`: Mina has not recently confirmed reachability.
+- `missing`: the tmux session or transport target is gone.
+- `needs-attention`: the last routed request failed or timed out.
+- `unknown`: this transport does not expose a live health check.
+
+Useful CLI checks:
+
+```sh
+mair health
+mair agents
+mair agent <agent-id>
+```
+
+Use these before routing important work, especially after restarting terminals or deleting tmux sessions.
+
+## 15. Stop the Router
 
 ```sh
 mair server stop

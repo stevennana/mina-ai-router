@@ -74,6 +74,18 @@ Review the README changes and summarize what a first-time user should understand
 
 The source agent should call `list_agents`, choose the target agent, send the work with `call_agent`, and check progress with `get_request_status`.
 
+For a stronger first test, ask for both the routed answer and the request id:
+
+```text
+Use Mina AI Router to ask api_server:
+Which endpoint should the frontend call for user lookup?
+Return the routed answer and the Mina request id you used.
+```
+
+Then open the browser console and inspect that request in the activity panel. The request detail should show lifecycle status, parsed answer or error, parser diagnostics, and raw terminal evidence.
+
+If the target is stale, missing, or needs attention, ask the source agent to call `list_agents` again and select another available target or tell you which session needs repair.
+
 ## Available MCP Tools
 
 - `list_agents`: list known agents and their statuses
