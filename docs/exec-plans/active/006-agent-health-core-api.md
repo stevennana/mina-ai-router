@@ -5,7 +5,7 @@
   "id": "agent-health-core-api",
   "title": "Agent health core and API",
   "order": 6,
-  "status": "queued",
+  "status": "active",
   "next_task_on_success": "agent-health-ui-cli",
   "prompt_docs": [
     "AGENTS.md",
@@ -68,3 +68,4 @@ Do not promote if health status is only a UI label with no core/API backing.
 ## Progress log
 
 - Split from broad `agent-heartbeat-health` after exec-plan quality review.
+- 2026-06-29T02:47:06.797Z: restored as current task after capability-freshness-ui promotion.

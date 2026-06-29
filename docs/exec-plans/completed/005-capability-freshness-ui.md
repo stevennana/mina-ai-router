@@ -5,7 +5,7 @@
   "id": "capability-freshness-ui",
   "title": "Capability freshness UI",
   "order": 5,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "agent-health-core-api",
   "prompt_docs": [
     "AGENTS.md",
@@ -26,7 +26,14 @@
     "Freshness UI is visually confusing",
     "Mobile or floating inspector layout breaks",
     "Refresh UI triggers an unsafe or ambiguous action"
-  ]
+  ],
+  "completed_at": "2026-06-29T02:47:06.797Z",
+  "manual_override": {
+    "reason": "manual completion of 005 after browser permission blocker; live in-app browser desktop/mobile layout verified",
+    "artifact": "state/artifacts/manual-005-browser-evidence",
+    "previous_evaluation_status": "not_done",
+    "promoted_at": "2026-06-29T02:47:06.797Z"
+  }
 }
 ```
 
@@ -73,3 +80,6 @@ This is a UI task. Require visual sanity in the inspector and activity layout be
 - 2026-06-29T00:22:39+09:00: strengthened `npm run smoke:http` with a deterministic static visual fixture for the inspector and activity layout using the built UI stylesheet. The fixture includes desktop and mobile viewports, missing/stale/fresh/manual capability cards, `Edit Capabilities`, `Copy Refresh Command`, and activity table overflow containment checks. Required checks run: `npm run build` passed; `npm run smoke:http` passed through the sandbox `EPERM` HTTP-listener path after built-asset and visual-fixture assertions; `npm run smoke:docs` passed. In-app browser verification was attempted again, but the `iab` browser backend was unavailable in this session.
 - 2026-06-29T00:27:59+09:00: re-ran focused verification for the current task. Required checks passed: `npm run build`; `npm run smoke:http`, which generated `/var/folders/kr/td7d63zs2sz_hy_11mm05f6w0000gn/T/mina-http-smoke-1DgWwp/capability-freshness-visual-fixture.html` and exited 0 through the sandbox `EPERM` HTTP-listener path; and `npm run smoke:docs`. Actual rendered browser verification remains unavailable because browser backend discovery returned no registered backends (`[]`) and local Playwright/Puppeteer/Chrome binaries are not installed.
 - 2026-06-29T00:32:56+09:00: re-read required task docs plus repository guidance, inspected the existing inspector/edit-modal freshness UI, and confirmed the task surface is already present: missing/stale/fresh/manual card states, manual-vs-generated labels, `Edit Capabilities`, and a non-destructive `Copy Refresh Command` path. Required checks passed: `npm run build`; `npm run smoke:http`, which generated `/var/folders/kr/td7d63zs2sz_hy_11mm05f6w0000gn/T/mina-http-smoke-WST7Eo/capability-freshness-visual-fixture.html` and exited 0 after built-asset and static visual-fixture assertions through the sandbox `listen EPERM` HTTP-listener skip path; and `npm run smoke:docs`. Actual in-app browser DOM/screenshot verification was attempted, but browser backend discovery returned `[]`, so live rendered overflow measurement remains unavailable in this session.
+- 2026-06-29T00:39:30+09:00: added an optional headless Chrome render pass to `npm run smoke:http` for the capability freshness visual fixture. When Chrome can run, the smoke now renders desktop `1280x720` and mobile `390x844` fixture pages, captures screenshot paths, parses DOM geometry from the rendered page, asserts inspector/activity panels fit horizontally, asserts panel horizontal overflow is contained, and verifies all missing/stale/fresh/manual states are present. Required checks passed: `npm run build`; `npm run smoke:http`, which generated `/var/folders/kr/td7d63zs2sz_hy_11mm05f6w0000gn/T/mina-http-smoke-Z5Rb6W/capability-freshness-visual-fixture.html`, attempted Chrome rendering, reported sandbox `SIGABRT` for both viewports, then exited 0 through the existing `listen EPERM` HTTP-listener path after built-asset and visual-fixture assertions; and `npm run smoke:docs`. In-app browser discovery still returned `[]`, so actual live screenshot verification remains blocked by this session environment, but the smoke now performs rendered DOM overflow checks automatically in environments where Chrome is executable.
+- 2026-06-29T11:46:23+09:00: manually verified the live console in the Codex in-app browser at `http://127.0.0.1:3334/`. Desktop `1280x720` with an agent selected rendered `Live Agent Flow`, stale capability state, floating inspector, and floating activity with document `scrollWidth=1280`/`clientWidth=1280`; flow, inspector, and activity panels were within viewport and contained horizontal overflow. Mobile `390x844` rendered the selected-agent inspector and activity panel with document `scrollWidth=390`/`clientWidth=390`; flow, inspector, and activity panels fit horizontally, and the wider activity table was contained by the scrollable activity body. Screenshot evidence was captured under `state/artifacts/manual-005-browser-evidence/`. Hardened `npm run smoke:http` so optional Chrome rendering cannot hang and transient GET `ECONNRESET` startup reads are retried safely. Required checks passed: `npm run build`, `npm run smoke:http`, `npm run smoke:docs`, and `git diff --check`.
+- 2026-06-29T02:47:06.797Z: manually promoted by operator override. Reason: manual completion of 005 after browser permission blocker; live in-app browser desktop/mobile layout verified Artifact: state/artifacts/manual-005-browser-evidence.

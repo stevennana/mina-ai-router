@@ -1,53 +1,55 @@
 Read the following repository documents before making changes:
 - AGENTS.md
-- docs/FRONTEND.md
-- docs/product-specs/agent-capability-refresh.md
-- docs/design-docs/collaboration-reliability.md
-- docs/exec-plans/active/005-capability-freshness-ui.md
+- ARCHITECTURE.md
+- docs/product-specs/agent-health-and-heartbeat.md
+- docs/RELIABILITY.md
+- docs/exec-plans/active/006-agent-health-core-api.md
 
-Current task id: capability-freshness-ui
-Current task title: Capability freshness UI
+Current task id: agent-health-core-api
+Current task title: Agent health core and API
 
 Objective:
-Show capability freshness in the browser console and expose a safe refresh/edit path.
+Add core/API health semantics for stale or missing local agent sessions.
 
 Scope:
-- Display missing/stale/fresh/manual states in the inspector.
-- Provide a refresh affordance if the API exists from the prior task.
-- Preserve manual editing through `Edit Capabilities`.
-- Verify desktop and mobile layout does not overflow.
+- Track last seen or last activity fields where practical.
+- Add core classification for available, busy, stale, missing, and needs-attention where the data supports it.
+- Expose consistent health data through HTTP APIs.
+- Extend tmux or HTTP smoke coverage for health behavior.
 
 Out of scope:
-- New CLI command behavior.
-- Scheduled refresh.
-- Team-wide capability comparison.
+- UI rendering polish.
+- CLI watch mode.
+- Full semantic prompt detection.
+- Hosted monitoring.
 
 Exit criteria:
-1. Users can tell whether an agent capability card is fresh enough to trust.
-2. Manual and generated capability summaries are not visually confused.
-3. Focused verification proves the relevant UI/API data is exposed and docs links remain valid.
-4. UI build, HTTP smoke, and docs smoke pass.
+1. API/core state can identify stale or missing agents without relying on UI-only labels.
+2. Existing available/busy behavior remains compatible.
+3. Required tests pass.
 
 Required checks:
-- `npm run build`
+- `npm run test`
 - `npm run smoke:http`
-- `npm run smoke:docs`
+- `npm run smoke:tmux`
 
 Evaluator notes:
-This is a UI task. Require visual sanity in the inspector and activity layout before promotion.
+Do not promote if health status is only a UI label with no core/API backing.
 
 Required repository artifacts for this task:
-- apps/http-server/ui/src/features/Inspector.tsx
-- apps/http-server/ui/src/features/AgentDetailsForm.tsx
+- packages/core/src/registry.ts
+- packages/core/src/types.ts
+- apps/http-server/src/index.ts
 
 Required commands for this task:
-- npm run build
+- npm run test
 - npm run smoke:http
-- npm run smoke:docs
+- npm run smoke:tmux
 
 Previous known gaps from the last evaluation:
-- Rendered desktop and mobile visual sanity for the floating inspector and activity layout is still unproven.
-- No screenshot or real DOM overflow measurement verifies the UI does not overflow in the actual browser console.
+- No actual live rendered desktop/mobile screenshot or DOM overflow verification for the inspector and activity layout.
+- HTTP smoke falls back on listen EPERM to built-asset and static visual-fixture assertions; it does not render the real browser console when the local listener is unavailable.
+- The explicit evaluator note requiring visual sanity in the inspector and activity layout is not satisfied in substance by regex/static fixture checks alone.
 
 
 

@@ -1,1 +1,1 @@
-capability-freshness-ui
+agent-health-core-api

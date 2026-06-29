@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
+const { pathToFileURL } = require("node:url");
 
 const port = 3344;
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -331,6 +332,7 @@ function assertStaticVisualFixture(stylesheet) {
   assert.match(fixture, /Edit Capabilities/);
   assert.match(fixture, /activity-table/);
   console.log(`visual fixture: ${visualFixturePath}`);
+  assertRenderedVisualFixture(stylesheet);
 }
 
 function buildStaticVisualFixture(stylesheet) {
@@ -396,16 +398,214 @@ function buildStaticVisualFixture(stylesheet) {
 </html>`;
 }
 
+function assertRenderedVisualFixture(stylesheet) {
+  const chromePath = findChromePath();
+  if (!chromePath) {
+    console.log("visual render skipped: no local Chrome/Chromium binary found");
+    return;
+  }
+
+  const viewports = [
+    { name: "desktop", width: 1280, height: 720 },
+    { name: "mobile", width: 390, height: 844 },
+  ];
+
+  for (const viewport of viewports) {
+    const pagePath = join(tempDir, `capability-freshness-${viewport.name}.html`);
+    const screenshotPath = join(tempDir, `capability-freshness-${viewport.name}.png`);
+    writeFileSync(pagePath, buildRenderedVisualPage(stylesheet, viewport.name), "utf8");
+    const rendered = renderWithChrome(chromePath, pagePath, screenshotPath, viewport);
+    if (!rendered) {
+      continue;
+    }
+    const measurement = extractVisualMeasurement(rendered, viewport.name);
+    assert.equal(measurement.viewport.width, viewport.width);
+    assert.equal(measurement.viewport.height, viewport.height);
+    assert.ok(
+      measurement.document.scrollWidth <= measurement.viewport.width + 1,
+      `${viewport.name} page should not horizontally overflow`,
+    );
+    for (const panel of measurement.panels) {
+      assert.ok(panel.present, `${viewport.name} ${panel.name} should render`);
+      assert.ok(panel.withinViewportX, `${viewport.name} ${panel.name} should fit horizontally in viewport`);
+      assert.ok(panel.clientWidth > 0, `${viewport.name} ${panel.name} should have width`);
+      assert.ok(panel.clientHeight > 0, `${viewport.name} ${panel.name} should have height`);
+      assert.ok(panel.scrollWidth <= panel.clientWidth + 1, `${viewport.name} ${panel.name} should contain horizontal overflow`);
+    }
+    const activityBody = measurement.containers.find((container) => container.name === "activity-body");
+    assert.ok(activityBody.present, `${viewport.name} activity body should render`);
+    assert.ok(activityBody.scrollWidth >= activityBody.clientWidth, `${viewport.name} activity body should contain table width`);
+    assert.equal(measurement.capabilityStates.sort().join(","), "fresh,manual,missing,stale");
+    console.log(`visual render ${viewport.name}: ${screenshotPath}`);
+  }
+}
+
+function findChromePath() {
+  const candidates = [
+    process.env.CHROME_BIN,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+  ].filter(Boolean);
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+function renderWithChrome(chromePath, pagePath, screenshotPath, viewport) {
+  try {
+    return execFileSync(chromePath, [
+      "--headless=new",
+      "--disable-gpu",
+      "--disable-dev-shm-usage",
+      "--no-sandbox",
+      "--no-first-run",
+      "--no-default-browser-check",
+      `--user-data-dir=${join(tempDir, `chrome-${viewport.name}`)}`,
+      `--window-size=${viewport.width},${viewport.height}`,
+      "--hide-scrollbars",
+      "--virtual-time-budget=1000",
+      `--screenshot=${screenshotPath}`,
+      "--dump-dom",
+      pathToFileURL(pagePath).href,
+    ], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 10000,
+    });
+  } catch (error) {
+    const reason = error.signal ? `signal ${error.signal}` : `exit ${error.status}`;
+    console.log(`visual render skipped: Chrome could not run in this environment (${reason})`);
+    return "";
+  }
+}
+
+function extractVisualMeasurement(rendered, viewportName) {
+  const match = rendered.match(/<pre id="visual-measurement">([^<]+)<\/pre>/);
+  assert.ok(match, `${viewportName} visual measurement should be present in rendered DOM`);
+  return JSON.parse(match[1].replace(/&quot;/g, "\"").replace(/&amp;/g, "&"));
+}
+
+function buildRenderedVisualPage(stylesheet, viewportName) {
+  const cards = [
+    ["missing", "Missing", "unknown source", "No capability notice registered yet.", "No sources recorded."],
+    ["stale", "Stale", "agent-generated", "Stale generated capability notice.", "AGENTS.md"],
+    ["fresh", "Fresh", "agent-generated", "Fresh generated capability notice.", "README.md"],
+    ["manual", "Manual", "manual edit", "Operator-curated capability notice.", "operator notes"],
+  ].map(([state, label, source, summary, sources]) => `
+    <div class="capability-card capability-${state}" data-capability-state="${state}" data-capability-source="${source}">
+      <div class="capability-card-head">
+        <span class="status capability-status ${state}">${label}</span>
+        <span class="subtitle">${source}</span>
+      </div>
+      <p>${summary}</p>
+      <p class="subtitle">${sources}</p>
+      <div class="capability-meta">
+        <span>Updated ${state === "missing" ? "never" : "2026-06-29 00:00"}</span>
+        <span>${state === "manual" ? "This capability card was edited by an operator and is not agent-generated." : "Generated capability metadata state is visible."}</span>
+      </div>
+      <div class="capability-actions">
+        <button class="secondary"><span class="material-symbols-outlined">bolt</span>Edit Capabilities</button>
+        <button class="ghost"><span class="material-symbols-outlined">refresh</span>Copy Refresh Command</button>
+      </div>
+    </div>`).join("");
+
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>${stylesheet}</style>
+<style>
+  html, body, #root { width: 100%; min-height: 100%; margin: 0; }
+  body { overflow-x: hidden; }
+  .visual-app { min-height: 100vh; position: relative; background: var(--surface-low); }
+  .visual-app .floating-activity { height: 12rem; }
+</style>
+</head>
+<body data-viewport="${viewportName}">
+  <main class="visual-app">
+    <aside class="inspector floating-inspector" aria-label="Selected agent inspector">
+      <div class="inspector-head"><div><h2>Agent Details</h2><p class="subtitle">ui-${viewportName}</p></div><button class="ghost">Hide</button></div>
+      <div class="inspector-body">
+        <div class="section"><div class="section-title">Capabilities</div>${cards}</div>
+      </div>
+    </aside>
+    <section class="activity floating-activity">
+      <div class="activity-head"><div><h2>System Activity</h2><p class="subtitle">Recent routed requests from the local state store.</p></div></div>
+      <div class="activity-body"><table class="activity-table"><tbody><tr><td>${viewportName}-request-id-that-is-long-enough-to-force-contained-table-scroll</td><td>answered</td></tr></tbody></table></div>
+    </section>
+  </main>
+  <pre id="visual-measurement"></pre>
+  <script>
+    const panelFor = (name, selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return { name, present: false };
+      const rect = element.getBoundingClientRect();
+      return {
+        name,
+        present: true,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        clientWidth: element.clientWidth,
+        clientHeight: element.clientHeight,
+        scrollWidth: element.scrollWidth,
+        scrollHeight: element.scrollHeight,
+        withinViewportX: rect.left >= -1 && rect.right <= window.innerWidth + 1,
+      };
+    };
+    const measurement = {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      document: {
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      },
+      panels: [
+        panelFor("inspector", ".floating-inspector"),
+        panelFor("activity", ".floating-activity"),
+      ],
+      containers: [
+        panelFor("inspector-body", ".inspector-body"),
+        panelFor("activity-body", ".activity-body"),
+      ],
+      capabilityStates: Array.from(document.querySelectorAll("[data-capability-state]")).map((element) => element.getAttribute("data-capability-state")),
+    };
+    document.getElementById("visual-measurement").textContent = JSON.stringify(measurement);
+  </script>
+</body>
+</html>`;
+}
+
 async function json(url) {
-  const response = await fetch(url);
+  const response = await getWithRetry(url);
   if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
   return response.json();
 }
 
 async function text(url) {
-  const response = await fetch(url);
+  const response = await getWithRetry(url);
   if (!response.ok) throw new Error(`${url} failed: ${response.status}`);
   return response.text();
+}
+
+async function getWithRetry(url) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await fetch(url);
+    } catch (error) {
+      lastError = error;
+      const code = error?.cause?.code ?? error?.code;
+      if (!["ECONNRESET", "ECONNREFUSED", "EPIPE"].includes(code)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 async function postMcp(body) {

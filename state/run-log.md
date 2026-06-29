@@ -316,3 +316,16 @@
 - worker-summary: Focused pass complete.
 - evaluator: started
 - evaluator: status=not_done promotion=false The UI implementation substantially covers the feature: inspector and edit modal expose missing/stale/fresh/manual states, distinguish manual from generated capability metadata, preserve manual editing, and provide a safe copy-only refresh command. The required checks are reported passing. I would not promote yet because the task explicitly requires visual sanity for inspector/activity layout and desktop/mobile overflow; current verification is static asset/CSS/fixture regex coverage, while actual rendered browser screenshot or DOM overflow verification remains unavailable. -> state/artifacts/20260629T003128-capability-freshness-ui/evaluator.log
+- commit: commit: created
+- promote: Task capability-freshness-ui not eligible for promotion.
+- backlog: rendered current=capability-freshness-ui
+- health: ooxxxxxxxxxxxxxooxxxxx
+- cycle: finished
+
+### cycle 2026-06-29T00:36:13+09:00 task=capability-freshness-ui
+- artifacts: state/artifacts/20260629T003613-capability-freshness-ui
+- prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
+- worker: started
+- worker: completed -> state/artifacts/20260629T003613-capability-freshness-ui/worker.jsonl
+- worker-summary: Implemented the focused verification improvement.
+- evaluator: started
