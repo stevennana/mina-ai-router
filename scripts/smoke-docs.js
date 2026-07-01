@@ -54,6 +54,8 @@ const markdownFiles = [
   "docs/exec-plans/completed/051-cli-controls-dynamic-ports.md",
   "docs/exec-plans/completed/052-installed-cli-version-source.md",
   "docs/exec-plans/completed/053-installed-cli-verify-contract.md",
+  "docs/exec-plans/completed/054-installed-verify-success-details.md",
+  "docs/exec-plans/completed/055-installed-web-ui-asset-verify.md",
   ...reviewFiles,
 ];
 
@@ -178,11 +180,13 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /leav
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /fixed derived ports/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair version` reads the consumer project's version/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair verify` runs the consumer project's npm script/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair verify` success details read like failure/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair verify` misses Web UI static assets/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-053/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-055/);
 assert.match(read("docs/exec-plans/completed/023-cli-server-proxy-register-ask.md"), /CLI server proxy for register and ask/);
 assert.match(read("docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md"), /CLI server proxy for agent start and refresh/);
 assert.match(read("docs/exec-plans/completed/025-health-running-server-mcp-url.md"), /Health running server MCP URL/);
@@ -240,6 +244,10 @@ assert.match(read("docs/exec-plans/completed/052-installed-cli-version-source.md
 assert.match(read("docs/exec-plans/completed/052-installed-cli-version-source.md"), /consumer project's `package.json.version`/);
 assert.match(read("docs/exec-plans/completed/053-installed-cli-verify-contract.md"), /Installed CLI verify contract/);
 assert.match(read("docs/exec-plans/completed/053-installed-cli-verify-contract.md"), /consumer project npm scripts/);
+assert.match(read("docs/exec-plans/completed/054-installed-verify-success-details.md"), /Installed verify success details/);
+assert.match(read("docs/exec-plans/completed/054-installed-verify-success-details.md"), /success-language detail/);
+assert.match(read("docs/exec-plans/completed/055-installed-web-ui-asset-verify.md"), /Installed Web UI asset verify/);
+assert.match(read("docs/exec-plans/completed/055-installed-web-ui-asset-verify.md"), /200 HTML/);
 assert.doesNotMatch(read("docs/GETTING-STARTED.md"), /Required Setup Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /Setup Reference Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /mair setup codex/);

@@ -54,3 +54,5 @@
 - [x] cli-controls-dynamic-ports — CLI controls dynamic ports
 - [x] installed-cli-version-source — Installed CLI version source
 - [x] installed-cli-verify-contract — Installed CLI verify contract
+- [x] installed-verify-success-details — Installed verify success details
+- [x] installed-web-ui-asset-verify — Installed Web UI asset verify

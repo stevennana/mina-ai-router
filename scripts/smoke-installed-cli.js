@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
 const { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } = require("node:fs");
+const { createServer } = require("node:net");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -10,6 +11,7 @@ const tempDir = mkdtempSync(join(tmpdir(), "mina-installed-cli-"));
 const packDir = join(tempDir, "pack");
 const consumerWithVerify = join(tempDir, "consumer-with-verify");
 const consumerWithoutVerify = join(tempDir, "consumer-without-verify");
+const consumerMissingAssets = join(tempDir, "consumer-missing-assets");
 
 async function main() {
   try {
@@ -37,6 +39,12 @@ async function main() {
     assert.equal(verify.ok, true);
     assert.equal(verify.command, "mair verify");
     assert.equal(verify.version, packageVersion);
+    assertSuccessDetails(verify);
+    assert.equal(checkByName(verify, "web ui index").detail, "Web UI index found.");
+    assert.equal(checkByName(verify, "web ui js asset").detail, "Web UI JavaScript asset found.");
+    assert.equal(checkByName(verify, "web ui css asset").detail, "Web UI CSS asset found.");
+    assert.equal(checkByName(verify, "user guide").detail, "Packaged user documentation found.");
+    assert.equal(checkByName(verify, "registration skill").detail, "Packaged registration skill found.");
     assert.equal(
       existsSync(join(consumerWithVerify, "consumer-verify-ran.txt")),
       false,
@@ -55,6 +63,28 @@ async function main() {
       await mcp.close();
     }
 
+    const serverPort = await getFreePort();
+    const serverEnv = {
+      ...process.env,
+      MINA_ROUTER_STATE: join(tempDir, "installed-router-state.json"),
+      MINA_SERVER_PID: join(tempDir, "installed-server.json"),
+    };
+    try {
+      const started = JSON.parse(runWithEnv(mair, ["server", "start", "--port", String(serverPort)], consumerWithVerify, serverEnv));
+      assert.equal(started.running, true);
+      assert.equal(started.uiUrl, `http://127.0.0.1:${serverPort}/`);
+      const root = await fetchText(`http://127.0.0.1:${serverPort}/`);
+      assert.equal(root.status, 200);
+      assert.match(root.headers.get("content-type") ?? "", /text\/html/);
+      assert.match(root.body, /<div id="root"><\/div>/);
+    } finally {
+      try {
+        runWithEnv(mair, ["server", "stop"], consumerWithVerify, serverEnv);
+      } catch {
+        // server may already be stopped if startup failed
+      }
+    }
+
     installConsumer(consumerWithoutVerify, {
       name: "consumer-without-verify",
       version: "9.9.9",
@@ -63,6 +93,21 @@ async function main() {
     const secondVerify = JSON.parse(run(secondMair, ["verify"], consumerWithoutVerify));
     assert.equal(secondVerify.ok, true);
     assert.equal(secondVerify.command, "mair verify");
+    assertSuccessDetails(secondVerify);
+
+    installConsumer(consumerMissingAssets, {
+      name: "consumer-missing-assets",
+      version: "3.3.3",
+    }, packPath);
+    const missingMair = join(consumerMissingAssets, "node_modules", ".bin", "mair");
+    const missingPackageRoot = join(consumerMissingAssets, "node_modules", "@minasoft", "mina-ai-router");
+    rmSync(join(missingPackageRoot, "dist", "apps", "http-server", "src", "public"), { recursive: true, force: true });
+    const missingAssetsVerify = JSON.parse(expectFailure(missingMair, ["verify"], consumerMissingAssets));
+    assert.equal(missingAssetsVerify.ok, false);
+    assert.equal(checkByName(missingAssetsVerify, "web ui index").ok, false);
+    assert.match(checkByName(missingAssetsVerify, "web ui index").detail, /missing built Web UI index/);
+    assert.equal(checkByName(missingAssetsVerify, "web ui js asset").ok, false);
+    assert.equal(checkByName(missingAssetsVerify, "web ui css asset").ok, false);
 
     console.log("installed cli smoke passed");
   } finally {
@@ -78,10 +123,71 @@ function installConsumer(dir, packageJson, packPath) {
 }
 
 function run(file, args, cwd) {
+  return runWithEnv(file, args, cwd, process.env);
+}
+
+function runWithEnv(file, args, cwd, env) {
   return execFileSync(file, args, {
     cwd,
+    env,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
+function expectFailure(file, args, cwd) {
+  try {
+    run(file, args, cwd);
+  } catch (error) {
+    const output = `${error.stdout ?? ""}`.trim();
+    assert.ok(output, `expected failure output for ${args.join(" ")}`);
+    return output;
+  }
+
+  throw new Error(`Expected command to fail: ${args.join(" ")}`);
+}
+
+function checkByName(verify, name) {
+  const check = verify.checks.find((candidate) => candidate.name === name);
+  assert.ok(check, `verify output must include ${name}`);
+  return check;
+}
+
+function assertSuccessDetails(verify) {
+  for (const check of verify.checks) {
+    if (!check.ok) continue;
+    assert.doesNotMatch(
+      check.detail,
+      /\b(missing|required|not found)\b/i,
+      `${check.name} success detail should read like success: ${check.detail}`,
+    );
+  }
+}
+
+async function fetchText(url) {
+  const response = await fetch(url);
+  return {
+    status: response.status,
+    headers: response.headers,
+    body: await response.text(),
+  };
+}
+
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => {
+        if (!address || typeof address === "string") {
+          reject(new Error("Could not allocate a free port"));
+          return;
+        }
+        resolve(address.port);
+      });
+    });
   });
 }
 

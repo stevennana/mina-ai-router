@@ -22,6 +22,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user OOB agent-start findings are summarized in completed exec plans 048-049.
 - First-user OOB revalidation findings for Web UI create state and local smoke robustness are summarized in completed exec plans 050-051.
 - First-user installed CLI findings are summarized in completed exec plans 052-053.
+- First-user installed verify output findings are summarized in completed exec plans 054-055.
 
 ## User Story
 
@@ -63,6 +64,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | CLI controls smoke uses fixed derived ports | Smoke helper ports are dynamically allocated and listen failures include stderr |
 | Installed `mair version` reads the consumer project's version | Package version lookup is anchored to the Mina package root and ignores consumer cwd package metadata |
 | Installed `mair verify` runs the consumer project's npm script | `mair verify` is a Mina package self-check and never executes the current project's npm scripts |
+| Installed `mair verify` success details read like failure | Successful install checks use success-language details while failures keep actionable missing/repair details |
+| Installed `mair verify` misses Web UI static assets | Install verification checks the packaged Web UI index and JS/CSS assets used by the first browser screen |
 
 ## Functional Requirements
 
@@ -103,6 +106,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 35. CLI controls smoke must avoid fixed local port assumptions and surface helper listen failures.
 36. Installed CLI and MCP version surfaces must resolve the Mina package version from the installed package root, not from `process.cwd()`.
 37. Installed `mair verify` must inspect Mina's packaged files or checkout root and must never run a consumer project's `npm run verify`.
+38. Successful installed `mair verify` checks must describe found assets with success-language details.
+39. Installed `mair verify` must fail when the packaged Web UI index or required static JS/CSS assets are missing.
 
 ## Non-goals
 
@@ -146,3 +151,5 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - CLI controls smoke dynamically allocates helper ports and reports `EADDRINUSE` style listen errors directly.
 - In a temporary consumer project whose `package.json.version` is `2.3.4`, installed `mair version` and MCP `serverInfo.version` report the Mina package version.
 - In a temporary consumer project with or without its own `verify` script, installed `mair verify` succeeds as a Mina package self-check and does not execute the consumer script.
+- Installed `mair verify` success details do not contain failure-language terms such as missing, required, or not found.
+- Installed smoke starts `mair server`, confirms `/` returns 200 HTML, and verifies that deleting packaged Web UI assets makes `mair verify` return `ok: false`.

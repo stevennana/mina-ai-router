@@ -65,3 +65,5 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T18:40:00+09:00: manually completed cli-controls-dynamic-ports -> NONE | reason=CLI controls smoke uses dynamic loopback ports with helper diagnostics
 - 2026-07-01T19:25:00+09:00: manually completed installed-cli-version-source -> installed-cli-verify-contract | reason=installed CLI and MCP versions resolve from Mina package root
 - 2026-07-01T19:25:00+09:00: manually completed installed-cli-verify-contract -> NONE | reason=installed mair verify is a Mina package self-check and ignores consumer npm scripts
+- 2026-07-01T21:50:00+09:00: manually completed installed-verify-success-details -> installed-web-ui-asset-verify | reason=installed verify success checks now use success-language details
+- 2026-07-01T21:50:00+09:00: manually completed installed-web-ui-asset-verify -> NONE | reason=installed verify and smoke now cover packaged Web UI assets and root HTML

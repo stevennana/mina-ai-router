@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { basename, dirname, join, resolve } from "node:path";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
 import {
   AgentRegistry,
@@ -562,12 +562,15 @@ function runVerify(): void {
   }
 
   const checks = [
-    verifyInstallCheck("package root", true, root),
-    verifyInstallCheck("cli dist", existsSync(join(root, "dist", "apps", "cli", "src", "index.js")), "Required for mair."),
-    verifyInstallCheck("mcp dist", existsSync(join(root, "dist", "apps", "mcp-server", "src", "index.js")), "Required for mair-mcp."),
-    verifyInstallCheck("http dist", existsSync(join(root, "dist", "apps", "http-server", "src", "index.js")), "Required for mair-http."),
-    verifyInstallCheck("user guide", existsSync(join(root, "docs", "USER-START-GUIDE.md")), "Packaged user documentation is missing."),
-    verifyInstallCheck("registration skill", existsSync(join(root, "skills", "mina-ai-router-agent", "SKILL.md")), "Packaged registration skill is missing."),
+    verifyInstallCheck("package root", true, "Mina package root found.", `Could not locate ${root}.`),
+    verifyInstallCheck("cli dist", existsSync(join(root, "dist", "apps", "cli", "src", "index.js")), "CLI dist found.", "Package is missing CLI dist. Run npm run build before packaging."),
+    verifyInstallCheck("mcp dist", existsSync(join(root, "dist", "apps", "mcp-server", "src", "index.js")), "MCP server dist found.", "Package is missing MCP server dist. Run npm run build before packaging."),
+    verifyInstallCheck("http server dist", existsSync(join(root, "dist", "apps", "http-server", "src", "index.js")), "HTTP server dist found.", "Package is missing HTTP server dist. Run npm run build before packaging."),
+    verifyInstallCheck("web ui index", existsSync(join(root, "dist", "apps", "http-server", "src", "public", "index.html")), "Web UI index found.", "Package is missing built Web UI index. Run npm run build before packaging."),
+    verifyInstallCheck("web ui js asset", hasWebUiAsset(root, ".js"), "Web UI JavaScript asset found.", "Package is missing built Web UI JavaScript assets. Run npm run build before packaging."),
+    verifyInstallCheck("web ui css asset", hasWebUiAsset(root, ".css"), "Web UI CSS asset found.", "Package is missing built Web UI CSS assets. Run npm run build before packaging."),
+    verifyInstallCheck("user guide", existsSync(join(root, "docs", "USER-START-GUIDE.md")), "Packaged user documentation found.", "Packaged user documentation is missing."),
+    verifyInstallCheck("registration skill", existsSync(join(root, "skills", "mina-ai-router-agent", "SKILL.md")), "Packaged registration skill found.", "Packaged registration skill is missing."),
   ];
   const ok = checks.every((check) => check.ok);
   printJson({
@@ -583,8 +586,24 @@ function runVerify(): void {
   }
 }
 
-function verifyInstallCheck(name: string, ok: boolean, detail: string): { name: string; ok: boolean; detail: string } {
-  return { name, ok, detail };
+function verifyInstallCheck(name: string, ok: boolean, okDetail: string, failDetail: string): { name: string; ok: boolean; detail: string } {
+  return { name, ok, detail: ok ? okDetail : failDetail };
+}
+
+function hasWebUiAsset(root: string, extension: ".js" | ".css"): boolean {
+  const assetRoot = join(root, "dist", "apps", "http-server", "src", "public", "assets");
+  if (!existsSync(assetRoot)) {
+    return false;
+  }
+
+  try {
+    return readdirSync(assetRoot).some((file) => {
+      const filePath = join(assetRoot, file);
+      return statSync(filePath).isFile() && file.endsWith(extension);
+    });
+  } catch {
+    return false;
+  }
 }
 
 async function runDoctor(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
