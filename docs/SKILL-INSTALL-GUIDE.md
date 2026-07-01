@@ -13,10 +13,16 @@ The skill lets Codex or Claude register the current visible tmux-backed CLI sess
 Use first-run setup instead of linking the skill by hand:
 
 ```sh
+# Codex users
 mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
 mair setup claude --project /path/to/project
-mair doctor --client all --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
+
+If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
 
 `mair setup` links this skill into the right client location and verifies MCP config for the running router URL. Use the manual steps below only for custom profiles or repair.
 

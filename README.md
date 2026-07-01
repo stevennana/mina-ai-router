@@ -51,10 +51,16 @@ While this server is running, it owns the live router state for that state file.
 Run setup from the project you want an agent to work in. It discovers the matching running router URL, configures MCP, installs the registration skill, and verifies the client profile.
 
 ```sh
+# Codex users
 mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
 mair setup claude --project /path/to/project
-mair doctor --client all --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
+
+If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
 
 Manual MCP repair commands are still documented in the MCP Client Setup guide for unusual client profiles.
 

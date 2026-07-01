@@ -47,10 +47,16 @@ mair server stop
 ## Connect Codex or Claude CLI
 
 ```sh
+# Codex users
 mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
 mair setup claude --project /path/to/project
-mair doctor --client all --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
+
+Use `mair doctor --client all --project /path/to/project` only when you use both clients.
 
 The Connect Agent guide in the UI shows the same setup commands with the live MCP URL for the current server. Manual repair commands are still available in the inspector when a selected agent is stuck in `mcp-configuring`.
 

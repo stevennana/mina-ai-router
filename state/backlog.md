@@ -45,3 +45,6 @@
 - [x] first-run-setup-codex-claude — First-run setup for Codex and Claude
 - [x] ui-setup-surface — UI setup surface
 - [x] demo-helper-demotion — Demo helper demotion
+- [x] doctor-blocked-agent-readiness — Doctor blocked agent readiness
+- [x] choose-one-setup-docs-ui — Choose-one setup docs and UI
+- [x] getting-started-oob-cleanup — Getting Started OOB cleanup

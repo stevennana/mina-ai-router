@@ -68,10 +68,16 @@ While the router server is running, it owns the live state for that `MINA_ROUTER
 Run setup from the project directory you want the agent to work in:
 
 ```sh
+# Codex users
 mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
 mair setup claude --project /path/to/project
-mair doctor --client all --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
+
+If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
 
 `mair setup` discovers the matching running server's MCP URL, registers that URL with the chosen CLI, installs the registration skill, and verifies the client config. If your CLI uses a special profile, use the manual commands in [MCP Client Setup](./MCP-CLIENT-SETUP.md).
 

@@ -17,10 +17,16 @@ mair server start --port 3333
 Use the MAIR setup command from the project you want the agent to work in:
 
 ```sh
+# Codex users
 mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
 mair setup claude --project /path/to/project
-mair doctor --client all --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
+
+If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
 
 `mair setup` discovers the matching running server's MCP URL, configures the selected CLI, links the `mina-ai-router-agent` registration skill, and verifies that the client reports the same MCP URL. `mair doctor` prints a pass/fail matrix for the server, CLI binary, MCP config, skill install, and current blocked agents.
 

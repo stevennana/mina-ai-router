@@ -56,3 +56,6 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T15:30:00+09:00: manually completed first-run-setup-codex-claude -> ui-setup-surface | reason=mair setup codex/claude configures MCP and registration skill
 - 2026-07-01T15:30:00+09:00: manually completed ui-setup-surface -> demo-helper-demotion | reason=Connect guide and inspector expose setup/verify guidance
 - 2026-07-01T15:30:00+09:00: manually completed demo-helper-demotion -> NONE | reason=setup-codex-pair no longer uses maintainer-local defaults
+- 2026-07-01T16:20:00+09:00: manually completed doctor-blocked-agent-readiness -> choose-one-setup-docs-ui | reason=doctor fails on blocked route readiness by default
+- 2026-07-01T16:20:00+09:00: manually completed choose-one-setup-docs-ui -> getting-started-oob-cleanup | reason=first-user docs and UI use choose-one setup
+- 2026-07-01T16:20:00+09:00: manually completed getting-started-oob-cleanup -> NONE | reason=Getting Started points to automated OOB setup first

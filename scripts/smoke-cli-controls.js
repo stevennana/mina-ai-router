@@ -110,6 +110,7 @@ async function main() {
     } catch {
       // test pid file may already be gone
     }
+    clearHealthFixtures();
 
     const started = JSON.parse(runNode(["server", "start", "--port", String(port)]));
     if (!started.running) {
@@ -152,6 +153,28 @@ async function main() {
     assert.equal(doctor.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     assert.equal(doctor.clients.length, 2);
     assert.equal(doctor.clients.every((client) => client.ok), true);
+    await postJson(`${baseUrl}/api/register`, {
+      id: "blocked-codex",
+      name: "blocked-codex",
+      agentType: "codex",
+      transport: "tmux",
+      sessionId: "blocked-codex",
+      projectRoot: tempDir,
+      bootstrapStatus: "mcp-configuring",
+      registrationStatus: "pending",
+      mcpPreflightStatus: "missing",
+      mcpPreflightDetail: "fixture missing MCP setup",
+    });
+    const blockedDoctorFailure = expectNodeFailure(["doctor", "--client", "all", "--project", tempDir, "--json"], setupEnv);
+    const blockedDoctor = JSON.parse(blockedDoctorFailure.slice(
+      blockedDoctorFailure.indexOf("{"),
+      blockedDoctorFailure.lastIndexOf("}") + 1,
+    ));
+    assert.equal(blockedDoctor.ok, false);
+    assert.ok(blockedDoctor.checks.some((check) => check.name === "route-ready agents" && check.ok === false));
+    assert.ok(blockedDoctor.blockedAgents.some((agent) => agent.id === "blocked-codex" && agent.repairAction));
+    const ignoredBlockedDoctor = JSON.parse(runNode(["doctor", "--client", "all", "--project", tempDir, "--ignore-blocked-agents", "--json"], setupEnv));
+    assert.equal(ignoredBlockedDoctor.ok, true);
     const pairFailure = expectNodeFailure(["setup-codex-pair"], setupEnv);
     assert.match(pairFailure, /developer\/demo helper/);
     assert.match(pairFailure, /--main-root/);
@@ -656,6 +679,13 @@ function seedHealthFixtures() {
     updatedAt: "2026-01-02T00:00:00.000Z",
     error: "fixture transport failure",
   });
+  writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+function clearHealthFixtures() {
+  const state = JSON.parse(readFileSync(statePath, "utf8"));
+  state.agents = state.agents.filter((agent) => !["cli-stale", "cli-missing", "cli-attention"].includes(agent.id));
+  state.requests = state.requests.filter((request) => request.id !== "cli-attention-request");
   writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
 }
 

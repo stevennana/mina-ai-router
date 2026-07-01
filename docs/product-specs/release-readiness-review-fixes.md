@@ -18,6 +18,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user route readiness findings are summarized in completed exec plan 039.
 - First-user health documentation findings are summarized in completed exec plan 040.
 - First-user out-of-box setup automation findings are summarized in completed exec plans 041-044.
+- First-user OOB revalidation findings are summarized in completed exec plans 045-047.
 
 ## User Story
 
@@ -50,6 +51,9 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | User guide defines `needs-attention` too narrowly | Health docs explain that `needs-attention` covers both failed routed requests and first-run readiness blockers such as permission, MCP setup, and pending self-registration |
 | First-run MCP and skill setup is still manual | `mair setup codex`, `mair setup claude`, and `mair doctor` automate and verify client MCP plus registration-skill setup |
 | Demo `setup-codex-pair` looks like the general setup path | General docs and help prefer `mair setup`; the pair helper is labeled developer/demo and requires explicit roots |
+| `mair doctor` can report success while agents are not route-ready | Blocked agents make doctor fail by default and include repair guidance |
+| First-user docs imply both Codex and Claude setup are required | Docs and UI use a choose-one setup flow; `--client all` is only for users who run both clients |
+| Getting Started still frames manual setup guides as required | Getting Started points to automated setup first and treats manual MCP/skill docs as repair references |
 
 ## Functional Requirements
 
@@ -81,6 +85,9 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 26. First-run setup must configure and verify Codex and Claude MCP profiles against the matching running router URL, then install the registration skill in the expected client/project location.
 27. A doctor command must report server, client binary, MCP config, skill install, and blocked-agent readiness as a clear pass/fail matrix.
 28. Specialized demo helpers must not use maintainer-local defaults or appear as the primary onboarding path.
+29. Doctor must fail by default when any known agent is not route-ready, while offering an explicit environment-only override.
+30. First-user setup docs and UI must make Codex and Claude setup a choose-one flow unless the user runs both clients.
+31. Getting Started must not call manual MCP or skill installation required for the normal path.
 
 ## Non-goals
 
@@ -115,3 +122,5 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - `mair setup codex`, `mair setup claude`, and `mair doctor` exist, prefer the matching running server MCP URL, and are covered by CLI smoke with fake client binaries.
 - The Web UI Connect Agent guide exposes setup and doctor commands for Codex and Claude, and the inspector shows verify/reset guidance for MCP-blocked agents.
 - `setup-codex-pair` fails without explicit roots and is labeled as a developer/demo helper instead of a first-user setup path.
+- `mair doctor --json` returns `ok: false` and exits non-zero when a known agent has `routeReady: false`, unless `--ignore-blocked-agents` is explicitly provided.
+- README, Getting Started, User Start Guide, MCP Client Setup, Skill Install Guide, HTTP UI docs, and Connect Guide default to `mair setup <chosen-client>` plus `mair doctor --client <chosen-client>`.

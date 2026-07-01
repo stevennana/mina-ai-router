@@ -10,7 +10,7 @@
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
     "AGENTS.md",
-    "docs/reviews/2026-07-01-first-user-out-of-box-automation-review.md",
+    "docs/reviews/2026-07-01-first-user-oob-review.md",
     "apps/cli/src/index.ts",
     "scripts/smoke-cli-controls.js"
   ],

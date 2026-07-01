@@ -546,10 +546,11 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
   const flags = parseFlags(args);
   const projectRoot = resolve(flags.project ?? process.cwd());
   const clientFilter = normalizeSetupClientFilter(flags.client ?? flags.clients ?? "all");
+  const ignoreBlockedAgents = flags["ignore-blocked-agents"] === "true";
   const liveServer = matchingLiveServerStatus();
   const status = serverStatus();
   const mcpUrl = resolveMcpUrl(flags);
-  const checks = [
+  const environmentChecks = [
     doctorCheck("node", true, process.execPath),
     doctorCheck("npm", commandAvailable("npm"), "Required for build, verify, and local package workflows."),
     doctorCheck("tmux", commandAvailable("tmux"), "Required for visible CLI sessions."),
@@ -570,8 +571,19 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
       bootstrapStatus: agent.bootstrapStatus,
       mcpPreflightStatus: agent.mcpPreflightStatus,
       registrationStatus: agent.registrationStatus,
+      repairAction: doctorRepairAction(agent),
     }));
 
+  const checks = [
+    ...environmentChecks,
+    doctorCheck(
+      "route-ready agents",
+      ignoreBlockedAgents || blockers.length === 0,
+      blockers.length
+        ? `${blockers.length} agent(s) are blocked. Resolve the listed repairAction values or rerun with --ignore-blocked-agents for environment-only checks.`
+        : "No known agents are blocked from receiving routed work.",
+    ),
+  ];
   const ok = checks.every((check) => check.ok) && clients.every((client) => client.ok);
   printJson({
     ok,
@@ -587,6 +599,26 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
   if (!ok) {
     process.exitCode = 1;
   }
+}
+
+function doctorRepairAction(agent: AgentStatus): string {
+  if (agent.routeBlockedReason) {
+    return agent.routeBlockedReason;
+  }
+
+  if (agent.bootstrapStatus === "mcp-configuring" || agent.mcpPreflightStatus === "missing" || agent.mcpPreflightStatus === "stale") {
+    return `Run mair setup ${agent.agentType === "claude" ? "claude" : "codex"} --project ${shellQuote(agent.projectRoot || process.cwd())}, then rerun mair doctor.`;
+  }
+
+  if (agent.bootstrapStatus === "permission-required") {
+    return `Open the terminal for ${agent.id}, approve the CLI trust or permission prompt, then rerun mair doctor.`;
+  }
+
+  if (agent.bootstrapStatus === "registration-pending" || agent.registrationStatus === "pending") {
+    return `Ask ${agent.id} to register this session with Mina AI Router, then rerun mair doctor.`;
+  }
+
+  return `Open agent ${agent.id} in the Web UI inspector and resolve its readiness blocker.`;
 }
 
 function runSetup(args: string[]): void {
@@ -1701,9 +1733,10 @@ Developer/demo helper:
 
 Example:
   mair server start --port 3333
-  mair setup codex
+  mair setup codex --project ~/work/payment
+  mair doctor --client codex --project ~/work/payment
   mair setup claude --project ~/work/payment
-  mair doctor --client all --project ~/work/payment
+  mair doctor --client claude --project ~/work/payment
   mair register payment --agent gemini --transport headless --session payment --root ./payment
   mair register payment --agent gemini --transport tmux --session payment --root ~/work/payment
   mair serve
