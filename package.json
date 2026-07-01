@@ -49,10 +49,11 @@
     "smoke:http": "npm run build && node scripts/smoke-http.js",
     "smoke:docs": "node scripts/smoke-docs.js",
     "smoke:cli-controls": "npm run build && node scripts/smoke-cli-controls.js",
+    "smoke:installed-cli": "npm run build && node scripts/smoke-installed-cli.js",
     "smoke:tmux": "npm run build && node scripts/smoke-tmux.js",
     "smoke:mcp": "npm run build && node scripts/smoke-mcp.js",
     "smoke:multi": "npm run build && node scripts/smoke-multi-agent.js",
-    "verify": "npm run test && npm run smoke:docs && npm run smoke:http && npm run smoke:cli-controls && npm run smoke:tmux && npm run smoke:mcp && npm run smoke:multi",
+    "verify": "npm run test && npm run smoke:docs && npm run smoke:installed-cli && npm run smoke:http && npm run smoke:cli-controls && npm run smoke:tmux && npm run smoke:mcp && npm run smoke:multi",
     "ralph:status": "scripts/ralph/status.sh",
     "ralph:once": "scripts/ralph/run-once.sh",
     "ralph:loop": "scripts/ralph/run-loop.sh"

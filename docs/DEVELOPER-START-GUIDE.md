@@ -75,8 +75,12 @@ npm run smoke:http
 npm run smoke:mcp
 npm run smoke:tmux
 mair health
+npm run verify
 mair verify
 ```
+
+`npm run verify` is the checkout test suite. `mair verify` is the installed CLI
+self-check and must not run the current directory's npm scripts.
 
 ## 7. Local State
 

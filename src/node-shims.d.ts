@@ -118,6 +118,7 @@ declare module "node:child_process" {
     file: string,
     args?: readonly string[],
     options?: {
+      cwd?: string;
       encoding?: "utf8";
       input?: string;
       stdio?:

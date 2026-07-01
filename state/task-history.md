@@ -63,3 +63,5 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T17:15:00+09:00: manually completed doctor-mcp-repair-action -> NONE | reason=doctor MCP blockers now show concrete setup commands
 - 2026-07-01T18:40:00+09:00: manually completed http-create-registration-pending -> cli-controls-dynamic-ports | reason=HTTP create-agent now persists registration-pending after prompt send
 - 2026-07-01T18:40:00+09:00: manually completed cli-controls-dynamic-ports -> NONE | reason=CLI controls smoke uses dynamic loopback ports with helper diagnostics
+- 2026-07-01T19:25:00+09:00: manually completed installed-cli-version-source -> installed-cli-verify-contract | reason=installed CLI and MCP versions resolve from Mina package root
+- 2026-07-01T19:25:00+09:00: manually completed installed-cli-verify-contract -> NONE | reason=installed mair verify is a Mina package self-check and ignores consumer npm scripts

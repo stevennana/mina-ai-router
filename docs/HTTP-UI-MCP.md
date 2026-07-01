@@ -105,6 +105,9 @@ mair version
 mair verify
 ```
 
+`mair verify` checks the installed Mina package from its own package root. For
+repository development, use `npm run verify` to run the full checkout test suite.
+
 `mair health`, `mair agents`, and `mair agent <id>` prefer live status from a running server whose recorded state path matches the current CLI state path. This keeps health output correct when the server was started with a non-default port and when an agent is actively busy inside the server process.
 
 ## Visible Agent Commands

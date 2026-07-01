@@ -8,6 +8,7 @@ import {
   buildMcpPreflight,
   FileState,
   RequestStore,
+  packageRoot as minaPackageRoot,
   packageVersion,
   type Agent,
   type AgentCapabilityProfile,
@@ -539,11 +540,51 @@ async function showHealth(context: ReturnType<typeof createContext>): Promise<vo
 }
 
 function runVerify(): void {
-  execFileSync("npm", ["run", "verify"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+  const root = minaPackageRoot();
+  if (!root) {
+    printJson({
+      ok: false,
+      error: "Could not locate @minasoft/mina-ai-router package root.",
+    });
+    process.exitCode = 1;
+    return;
+  }
+
+  const checkoutVerifyScript = join(root, "scripts", "core-tests.js");
+  if (existsSync(checkoutVerifyScript)) {
+    execFileSync("npm", ["run", "verify"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    printJson({ ok: true, command: "npm run verify", cwd: root });
+    return;
+  }
+
+  const checks = [
+    verifyInstallCheck("package root", true, root),
+    verifyInstallCheck("cli dist", existsSync(join(root, "dist", "apps", "cli", "src", "index.js")), "Required for mair."),
+    verifyInstallCheck("mcp dist", existsSync(join(root, "dist", "apps", "mcp-server", "src", "index.js")), "Required for mair-mcp."),
+    verifyInstallCheck("http dist", existsSync(join(root, "dist", "apps", "http-server", "src", "index.js")), "Required for mair-http."),
+    verifyInstallCheck("user guide", existsSync(join(root, "docs", "USER-START-GUIDE.md")), "Packaged user documentation is missing."),
+    verifyInstallCheck("registration skill", existsSync(join(root, "skills", "mina-ai-router-agent", "SKILL.md")), "Packaged registration skill is missing."),
+  ];
+  const ok = checks.every((check) => check.ok);
+  printJson({
+    ok,
+    command: "mair verify",
+    packageRoot: root,
+    version,
+    checks,
   });
-  printJson({ ok: true, command: "npm run verify" });
+
+  if (!ok) {
+    process.exitCode = 1;
+  }
+}
+
+function verifyInstallCheck(name: string, ok: boolean, detail: string): { name: string; ok: boolean; detail: string } {
+  return { name, ok, detail };
 }
 
 async function runDoctor(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
@@ -1741,7 +1782,7 @@ Commands:
   mair version
   mair health
   mair doctor [--client <codex|claude|all>] [--project <path>] [--json]
-  mair verify
+  mair verify  # installed package self-check; use npm run verify in a checkout
   mair setup codex [--project <path>] [--mcp-url <url>] [--mcp-name mina-ai-router]
   mair setup claude [--project <path>] [--mcp-url <url>] [--mcp-name mina-ai-router]
   mair server start [--port 3333] [--host 127.0.0.1]

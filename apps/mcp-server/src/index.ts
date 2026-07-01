@@ -15,13 +15,12 @@ import type {
 type RuntimeModule = typeof import("@minasoft/mcp-runtime");
 
 declare const __dirname: string;
+declare const require: { resolve(specifier: string): string };
 
 const importEsm = new Function("specifier", "return import(specifier)") as (
   specifier: string,
 ) => Promise<RuntimeModule>;
-const runtimeModuleUrl = pathToFileURL(
-  join(__dirname, "../../../../node_modules/@minasoft/mcp-runtime/dist/index.js"),
-).href;
+const runtimeModuleUrl = pathToFileURL(require.resolve("@minasoft/mcp-runtime")).href;
 
 interface JsonRpcMessage {
   jsonrpc: "2.0";

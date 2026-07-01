@@ -21,6 +21,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user OOB revalidation findings are summarized in completed exec plans 045-047.
 - First-user OOB agent-start findings are summarized in completed exec plans 048-049.
 - First-user OOB revalidation findings for Web UI create state and local smoke robustness are summarized in completed exec plans 050-051.
+- First-user installed CLI findings are summarized in completed exec plans 052-053.
 
 ## User Story
 
@@ -60,6 +61,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Doctor MCP repair guidance repeats the blocker reason | MCP blockers show concrete `mair setup <client>` and follow-up doctor commands |
 | Web UI create-agent leaves prompt-sent agents as `created` | HTTP/Web UI prompt-success branch persists `registration-pending` like the CLI |
 | CLI controls smoke uses fixed derived ports | Smoke helper ports are dynamically allocated and listen failures include stderr |
+| Installed `mair version` reads the consumer project's version | Package version lookup is anchored to the Mina package root and ignores consumer cwd package metadata |
+| Installed `mair verify` runs the consumer project's npm script | `mair verify` is a Mina package self-check and never executes the current project's npm scripts |
 
 ## Functional Requirements
 
@@ -98,6 +101,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 33. Doctor repair actions for MCP blockers must be concrete setup commands, not only problem descriptions.
 34. Web UI/API create-agent must store `registration-pending` after sending the self-registration prompt.
 35. CLI controls smoke must avoid fixed local port assumptions and surface helper listen failures.
+36. Installed CLI and MCP version surfaces must resolve the Mina package version from the installed package root, not from `process.cwd()`.
+37. Installed `mair verify` must inspect Mina's packaged files or checkout root and must never run a consumer project's `npm run verify`.
 
 ## Non-goals
 
@@ -139,3 +144,5 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - MCP-blocked doctor output includes `mair setup <client> --project <root>` and a matching `mair doctor --client <client>` follow-up command.
 - HTTP/Web UI create-agent response and `/api/state` show `registration-pending` after the registration prompt is sent.
 - CLI controls smoke dynamically allocates helper ports and reports `EADDRINUSE` style listen errors directly.
+- In a temporary consumer project whose `package.json.version` is `2.3.4`, installed `mair version` and MCP `serverInfo.version` report the Mina package version.
+- In a temporary consumer project with or without its own `verify` script, installed `mair verify` succeeds as a Mina package self-check and does not execute the consumer script.

@@ -52,3 +52,5 @@
 - [x] doctor-mcp-repair-action — Doctor MCP repair action
 - [x] http-create-registration-pending — HTTP create registration pending
 - [x] cli-controls-dynamic-ports — CLI controls dynamic ports
+- [x] installed-cli-version-source — Installed CLI version source
+- [x] installed-cli-verify-contract — Installed CLI verify contract

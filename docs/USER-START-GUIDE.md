@@ -33,6 +33,7 @@ Verify:
 
 ```sh
 mair version
+mair verify
 ```
 
 Expected output:
@@ -43,6 +44,10 @@ Expected output:
   "version": "0.1.5"
 }
 ```
+
+`mair verify` is an installed-package self-check. It validates Mina's packaged CLI,
+MCP server, HTTP server, docs, and registration skill without running any npm
+script from your current project.
 
 ## 2. Start the Router
 
