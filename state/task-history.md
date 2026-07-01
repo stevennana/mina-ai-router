@@ -59,3 +59,5 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T16:20:00+09:00: manually completed doctor-blocked-agent-readiness -> choose-one-setup-docs-ui | reason=doctor fails on blocked route readiness by default
 - 2026-07-01T16:20:00+09:00: manually completed choose-one-setup-docs-ui -> getting-started-oob-cleanup | reason=first-user docs and UI use choose-one setup
 - 2026-07-01T16:20:00+09:00: manually completed getting-started-oob-cleanup -> NONE | reason=Getting Started points to automated OOB setup first
+- 2026-07-01T17:15:00+09:00: manually completed visible-agent-mcp-config-detection -> doctor-mcp-repair-action | reason=visible agent creation consumes verified MCP client config
+- 2026-07-01T17:15:00+09:00: manually completed doctor-mcp-repair-action -> NONE | reason=doctor MCP blockers now show concrete setup commands

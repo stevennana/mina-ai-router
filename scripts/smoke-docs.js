@@ -48,6 +48,8 @@ const markdownFiles = [
   "docs/exec-plans/completed/045-doctor-blocked-agent-readiness.md",
   "docs/exec-plans/completed/046-choose-one-setup-docs-ui.md",
   "docs/exec-plans/completed/047-getting-started-oob-cleanup.md",
+  "docs/exec-plans/completed/048-visible-agent-mcp-config-detection.md",
+  "docs/exec-plans/completed/049-doctor-mcp-repair-action.md",
   ...reviewFiles,
 ];
 
@@ -162,11 +164,13 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Demo
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /can report success while agents are not route-ready/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /choose-one setup flow/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /manual MCP or skill installation required/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Visible agent start does not consume verified MCP setup/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Doctor MCP repair guidance repeats the blocker reason/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-047/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-049/);
 assert.match(read("docs/exec-plans/completed/023-cli-server-proxy-register-ask.md"), /CLI server proxy for register and ask/);
 assert.match(read("docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md"), /CLI server proxy for agent start and refresh/);
 assert.match(read("docs/exec-plans/completed/025-health-running-server-mcp-url.md"), /Health running server MCP URL/);
@@ -212,6 +216,10 @@ assert.match(read("docs/exec-plans/completed/046-choose-one-setup-docs-ui.md"), 
 assert.match(read("docs/exec-plans/completed/046-choose-one-setup-docs-ui.md"), /single-client setup/);
 assert.match(read("docs/exec-plans/completed/047-getting-started-oob-cleanup.md"), /Getting Started OOB cleanup/);
 assert.match(read("docs/exec-plans/completed/047-getting-started-oob-cleanup.md"), /repair\/reference/);
+assert.match(read("docs/exec-plans/completed/048-visible-agent-mcp-config-detection.md"), /Visible agent MCP config detection/);
+assert.match(read("docs/exec-plans/completed/048-visible-agent-mcp-config-detection.md"), /configured preflight/);
+assert.match(read("docs/exec-plans/completed/049-doctor-mcp-repair-action.md"), /Doctor MCP repair action/);
+assert.match(read("docs/exec-plans/completed/049-doctor-mcp-repair-action.md"), /mair setup <client>/);
 assert.doesNotMatch(read("docs/GETTING-STARTED.md"), /Required Setup Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /Setup Reference Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /mair setup codex/);

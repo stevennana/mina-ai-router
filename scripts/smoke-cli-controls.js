@@ -11,6 +11,8 @@ const tempDir = mkdtempSync(join(tmpdir(), "mina-cli-controls-"));
 const statePath = join(tempDir, "router-state.json");
 const pidPath = join(tempDir, "mair-server.json");
 const session = `mina-cli-controls-${process.pid}`;
+const oobCodexSession = `${session}-oob-codex`;
+const oobClaudeSession = `${session}-oob-claude`;
 const liveSession = `${session}-live`;
 const refreshSession = `${session}-refresh`;
 const port = 3400 + (process.pid % 1000);
@@ -153,6 +155,42 @@ async function main() {
     assert.equal(doctor.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     assert.equal(doctor.clients.length, 2);
     assert.equal(doctor.clients.every((client) => client.ok), true);
+    const oobCodex = JSON.parse(runNode([
+      "codex",
+      "--id",
+      "oob-codex",
+      "--session",
+      oobCodexSession,
+      "--root",
+      tempDir,
+      "--command",
+      "/bin/sh",
+      "--no-attach",
+      "--register-delay-ms",
+      "0",
+    ], setupEnv));
+    assert.equal(oobCodex.registration, "registration prompt sent to agent");
+    assert.equal(oobCodex.agent.bootstrapStatus, "registration-pending");
+    assert.equal(oobCodex.agent.mcpPreflightStatus, "configured");
+    assert.equal(oobCodex.mcpPreflight.status, "configured");
+    const oobClaude = JSON.parse(runNode([
+      "claude",
+      "--id",
+      "oob-claude",
+      "--session",
+      oobClaudeSession,
+      "--root",
+      tempDir,
+      "--command",
+      "/bin/sh",
+      "--no-attach",
+      "--register-delay-ms",
+      "0",
+    ], setupEnv));
+    assert.equal(oobClaude.registration, "registration prompt sent to agent");
+    assert.equal(oobClaude.agent.bootstrapStatus, "registration-pending");
+    assert.equal(oobClaude.agent.mcpPreflightStatus, "configured");
+    assert.equal(oobClaude.mcpPreflight.status, "configured");
     await postJson(`${baseUrl}/api/register`, {
       id: "blocked-codex",
       name: "blocked-codex",
@@ -172,7 +210,7 @@ async function main() {
     ));
     assert.equal(blockedDoctor.ok, false);
     assert.ok(blockedDoctor.checks.some((check) => check.name === "route-ready agents" && check.ok === false));
-    assert.ok(blockedDoctor.blockedAgents.some((agent) => agent.id === "blocked-codex" && agent.repairAction));
+    assert.ok(blockedDoctor.blockedAgents.some((agent) => agent.id === "blocked-codex" && /mair setup codex --project/.test(agent.repairAction)));
     const ignoredBlockedDoctor = JSON.parse(runNode(["doctor", "--client", "all", "--project", tempDir, "--ignore-blocked-agents", "--json"], setupEnv));
     assert.equal(ignoredBlockedDoctor.ok, true);
     const pairFailure = expectNodeFailure(["setup-codex-pair"], setupEnv);
@@ -240,6 +278,8 @@ async function main() {
       "/bin/sh",
       "--permission-profile",
       "direct-workspace-read",
+      "--mcp-configured-url",
+      "http://127.0.0.1:1/mcp",
       "--no-attach",
       "--no-register",
     ]));
@@ -249,14 +289,14 @@ async function main() {
     assert.equal(visible.agent.permissionProfileStatus, "unsupported");
     assert.match(visible.agent.permissionProfileDetail, /No known codex startup flag/);
     assert.equal(visible.permissionProfile.permissionProfileStatus, "unsupported");
-    assert.equal(visible.agent.mcpPreflightStatus, "missing");
+    assert.equal(visible.agent.mcpPreflightStatus, "stale");
     assert.equal(visible.agent.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     assert.equal(visible.agent.bootstrapStatus, "mcp-configuring");
     assert.equal(visible.agent.registrationSource, "cli");
     assert.equal(visible.agent.registrationStatus, "pending");
     assert.equal(visible.agent.sessionFingerprint, session);
     assert.ok(visible.agent.lastRegistrationAttemptAt);
-    assert.equal(visible.mcpPreflight.status, "missing");
+    assert.equal(visible.mcpPreflight.status, "stale");
     assert.match(visible.mcpPreflight.mcpSetupCommand, /codex mcp add mina-ai-router --url/);
     assert.equal(visible.mcpPreflight.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     assert.match(visible.mcpPreflight.mcpSetupCommand, new RegExp(`127\\.0\\.0\\.1:${port}/mcp`));
@@ -274,7 +314,7 @@ async function main() {
     assert.equal(persistedVisibleDetail.agent.status, "needs-attention");
     assert.equal(persistedVisibleDetail.status.status, "needs-attention");
     assert.equal(persistedVisibleDetail.agent.bootstrapStatus, "mcp-configuring");
-    assert.equal(persistedVisibleDetail.agent.mcpPreflightStatus, "missing");
+    assert.equal(persistedVisibleDetail.agent.mcpPreflightStatus, "stale");
     const stateAfterVisible = await json(`${baseUrl}/api/state`);
     const visibleInServer = stateAfterVisible.agents.find((agent) => agent.id === visible.agent.id);
     assert.ok(visibleInServer, "expected CLI visible agent placeholder to proxy into running HTTP server state");
@@ -500,6 +540,22 @@ function cleanup() {
 
   try {
     execFileSync("tmux", ["kill-session", "-t", session], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    // The session may not exist.
+  }
+
+  try {
+    execFileSync("tmux", ["kill-session", "-t", oobCodexSession], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+  } catch {
+    // The session may not exist.
+  }
+
+  try {
+    execFileSync("tmux", ["kill-session", "-t", oobClaudeSession], {
       stdio: ["ignore", "ignore", "ignore"],
     });
   } catch {

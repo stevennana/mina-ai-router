@@ -773,12 +773,17 @@ function createTmuxAgent(body: Record<string, unknown>) {
     ?? (agentType === "codex" ? "codex --no-alt-screen" : "claude");
   const now = new Date().toISOString();
   const permissionProfile = resolvePermissionProfile(agentType, stringValue(body.permissionProfile) ?? "default", projectRoot);
+  const mcpUrl = `http://${host}:${port}/mcp`;
+  const mcpName = stringValue(body.mcpName) ?? "mina-ai-router";
+  const explicitConfiguredUrl = stringValue(body.mcpConfiguredUrl);
+  const detectedConfiguredUrl = explicitConfiguredUrl
+    ?? (body.mcpConfigured === true ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl));
   const mcpPreflight = buildMcpPreflight({
     agentType,
-    mcpUrl: `http://${host}:${port}/mcp`,
-    mcpName: stringValue(body.mcpName),
+    mcpUrl,
+    mcpName,
     configured: body.mcpConfigured === true,
-    configuredUrl: stringValue(body.mcpConfiguredUrl),
+    configuredUrl: detectedConfiguredUrl,
   });
   const command = startupCommand.split(/\s+/)[0];
   assertCommandAvailable("tmux");
@@ -1094,14 +1099,48 @@ function isPendingUiRegistration(agent: Agent): boolean {
 }
 
 function assertCommandAvailable(command: string): void {
+  if (commandAvailable(command)) {
+    return;
+  }
+
+  throw new Error(`Required command "${command}" is not available on PATH.`);
+}
+
+function commandAvailable(command: string): boolean {
   try {
     execFileSync("which", [command], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    return true;
   } catch {
-    throw new Error(`Required command "${command}" is not available on PATH.`);
+    return false;
   }
+}
+
+function detectClientMcpConfiguredUrl(client: "codex" | "claude", mcpName: string, mcpUrl: string): string | undefined {
+  if (!commandAvailable(client)) {
+    return undefined;
+  }
+
+  try {
+    const output = execFileSync(client, ["mcp", "get", mcpName], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return extractMcpUrl(output, mcpUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractMcpUrl(output: string, expectedUrl: string): string | undefined {
+  if (output.includes(expectedUrl)) {
+    return expectedUrl;
+  }
+
+  const match = output.match(/https?:\/\/[^\s"',)]+/);
+  return match?.[0];
 }
 
 function sanitizeName(value: string): string {

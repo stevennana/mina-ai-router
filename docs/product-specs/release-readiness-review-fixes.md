@@ -19,6 +19,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user health documentation findings are summarized in completed exec plan 040.
 - First-user out-of-box setup automation findings are summarized in completed exec plans 041-044.
 - First-user OOB revalidation findings are summarized in completed exec plans 045-047.
+- First-user OOB agent-start findings are summarized in completed exec plans 048-049.
 
 ## User Story
 
@@ -54,6 +55,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | `mair doctor` can report success while agents are not route-ready | Blocked agents make doctor fail by default and include repair guidance |
 | First-user docs imply both Codex and Claude setup are required | Docs and UI use a choose-one setup flow; `--client all` is only for users who run both clients |
 | Getting Started still frames manual setup guides as required | Getting Started points to automated setup first and treats manual MCP/skill docs as repair references |
+| Visible agent start does not consume verified MCP setup | CLI and Web UI create-agent inspect client MCP config before preflight |
+| Doctor MCP repair guidance repeats the blocker reason | MCP blockers show concrete `mair setup <client>` and follow-up doctor commands |
 
 ## Functional Requirements
 
@@ -88,6 +91,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 29. Doctor must fail by default when any known agent is not route-ready, while offering an explicit environment-only override.
 30. First-user setup docs and UI must make Codex and Claude setup a choose-one flow unless the user runs both clients.
 31. Getting Started must not call manual MCP or skill installation required for the normal path.
+32. Visible agent creation must detect already-configured Codex and Claude MCP profiles instead of requiring hidden flags after `mair setup`.
+33. Doctor repair actions for MCP blockers must be concrete setup commands, not only problem descriptions.
 
 ## Non-goals
 
@@ -124,3 +129,6 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - `setup-codex-pair` fails without explicit roots and is labeled as a developer/demo helper instead of a first-user setup path.
 - `mair doctor --json` returns `ok: false` and exits non-zero when a known agent has `routeReady: false`, unless `--ignore-blocked-agents` is explicitly provided.
 - README, Getting Started, User Start Guide, MCP Client Setup, Skill Install Guide, HTTP UI docs, and Connect Guide default to `mair setup <chosen-client>` plus `mair doctor --client <chosen-client>`.
+- `mair setup codex` followed by `mair codex` and `mair setup claude` followed by `mair claude` use configured MCP preflight without asking for setup again.
+- Web UI create-agent detects configured client MCP from the host environment without a hidden `mcpConfigured` request body.
+- MCP-blocked doctor output includes `mair setup <client> --project <root>` and a matching `mair doctor --client <client>` follow-up command.

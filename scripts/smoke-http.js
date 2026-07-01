@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
+const { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
@@ -13,7 +13,10 @@ const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
 const promptSession = `mina-http-permission-${process.pid}`;
 const timeoutSession = `mina-http-timeout-${process.pid}`;
+const fakeBinDir = join(tempDir, "fake-bin");
+const fakeClientLog = join(tempDir, "fake-client-calls.log");
 let serverLog = "";
+writeFakeClientBinaries();
 writeFileSync(statePath, `${JSON.stringify({
   agents: [
     {
@@ -58,6 +61,9 @@ const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
     ...process.env,
     PORT: String(port),
     MINA_ROUTER_STATE: statePath,
+    PATH: `${fakeBinDir}:${process.env.PATH}`,
+    FAKE_MCP_URL: `${baseUrl}/mcp`,
+    MINA_FAKE_CLIENT_LOG: fakeClientLog,
   },
   stdio: ["ignore", "ignore", "pipe"],
 });
@@ -133,9 +139,8 @@ async function main() {
     assert.equal(uiCreated.agent.permissionProfileStatus, "unsupported");
     assert.match(uiCreated.agent.permissionProfileDetail, /No known codex startup flag/);
     assert.equal(uiCreated.permissionProfile.permissionProfileStatus, "unsupported");
-    assert.equal(uiCreated.agent.mcpPreflightStatus, "missing");
-    assert.match(uiCreated.agent.mcpSetupCommand, /codex mcp add mina-ai-router --url/);
-    assert.equal(uiCreated.mcpPreflight.status, "missing");
+    assert.equal(uiCreated.agent.mcpPreflightStatus, "configured");
+    assert.equal(uiCreated.mcpPreflight.status, "configured");
     assert.ok(uiCreated.agent.lastRegistrationAttemptAt);
     assert.equal(uiCreated.attachCommand, `tmux attach -t ${uiSession}`);
     assert.equal(uiCreated.mairAttachCommand, "mair attach ui-created");
@@ -198,12 +203,13 @@ async function main() {
       projectRoot: tempDir,
       sessionId: `mina-http-mcp-${process.pid}`,
       startupCommand: "/bin/sh",
+      mcpName: "missing-fixture",
       registerDelayMs: 250,
     });
     assert.equal(mcpBlocked.registration, "waiting for MCP setup");
     assert.equal(mcpBlocked.agent.bootstrapStatus, "mcp-configuring");
     assert.equal(mcpBlocked.agent.mcpPreflightStatus, "missing");
-    assert.match(mcpBlocked.nextAction, /claude mcp add --transport http mina-ai-router/);
+    assert.match(mcpBlocked.nextAction, /claude mcp add --transport http missing-fixture/);
     const mcpBlockedState = await json(`${baseUrl}/api/state`);
     const mcpBlockedStatus = mcpBlockedState.agents.find((agent) => agent.id === "ui-mcp-missing");
     assert.equal(mcpBlockedStatus.status, "needs-attention");
@@ -223,6 +229,9 @@ async function main() {
       false,
       "readiness rejection must not create a routed request",
     );
+    const fakeClientCalls = readFileSync(fakeClientLog, "utf8");
+    assert.match(fakeClientCalls, /codex mcp get mina-ai-router/);
+    assert.match(fakeClientCalls, /claude mcp get missing-fixture/);
 
     const promptScriptPath = join(tempDir, "permission-prompt-fixture.sh");
     writeFileSync(promptScriptPath, [
@@ -1055,6 +1064,30 @@ function findRequest(state, requestId) {
   const request = state.requests.find((candidate) => candidate.id === requestId);
   assert.ok(request, `expected request ${requestId} in HTTP state`);
   return request;
+}
+
+function writeFakeClientBinaries() {
+  mkdirSync(fakeBinDir, { recursive: true });
+  writeFileSync(fakeClientLog, "");
+  const script = [
+    "#!/bin/sh",
+    "client=$(basename \"$0\")",
+    "printf '%s %s\\n' \"$client\" \"$*\" >> \"$MINA_FAKE_CLIENT_LOG\"",
+    "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'get' ]; then",
+    "  if [ \"$3\" = 'mina-ai-router' ]; then",
+    "    printf 'name: %s\\nurl: %s\\n' \"$3\" \"$FAKE_MCP_URL\"",
+    "    exit 0",
+    "  fi",
+    "  exit 1",
+    "fi",
+    "exit 0",
+    "",
+  ].join("\n");
+  for (const client of ["codex", "claude"]) {
+    const file = join(fakeBinDir, client);
+    writeFileSync(file, script);
+    chmodSync(file, 0o755);
+  }
 }
 
 main().catch((error) => {

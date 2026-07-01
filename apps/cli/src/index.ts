@@ -321,12 +321,16 @@ async function startVisibleAgent(
   const permissionProfile = resolvePermissionProfile(agentType, flags["permission-profile"] ?? "default", root);
   const mcpUrl = matchingLiveServerStatus()?.mcpUrl
     ?? `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`;
+  const mcpName = flags["mcp-name"] ?? "mina-ai-router";
+  const explicitConfiguredUrl = flags["mcp-configured-url"];
+  const detectedConfiguredUrl = explicitConfiguredUrl
+    ?? (flags["mcp-configured"] === "true" ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl));
   const mcpPreflight = buildMcpPreflight({
     agentType,
     mcpUrl,
-    mcpName: flags["mcp-name"],
+    mcpName,
     configured: flags["mcp-configured"] === "true",
-    configuredUrl: flags["mcp-configured-url"],
+    configuredUrl: detectedConfiguredUrl,
   });
   assertCommandAvailable(startupCommand.split(/\s+/)[0]);
   const shouldAttach = flags.attach !== "false" && flags["no-attach"] !== "true";
@@ -602,12 +606,10 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
 }
 
 function doctorRepairAction(agent: AgentStatus): string {
-  if (agent.routeBlockedReason) {
-    return agent.routeBlockedReason;
-  }
-
   if (agent.bootstrapStatus === "mcp-configuring" || agent.mcpPreflightStatus === "missing" || agent.mcpPreflightStatus === "stale") {
-    return `Run mair setup ${agent.agentType === "claude" ? "claude" : "codex"} --project ${shellQuote(agent.projectRoot || process.cwd())}, then rerun mair doctor.`;
+    const client = agent.agentType === "claude" ? "claude" : "codex";
+    const projectRoot = shellQuote(agent.projectRoot || process.cwd());
+    return `Run mair setup ${client} --project ${projectRoot}, then rerun mair doctor --client ${client} --project ${projectRoot}.`;
   }
 
   if (agent.bootstrapStatus === "permission-required") {
@@ -616,6 +618,10 @@ function doctorRepairAction(agent: AgentStatus): string {
 
   if (agent.bootstrapStatus === "registration-pending" || agent.registrationStatus === "pending") {
     return `Ask ${agent.id} to register this session with Mina AI Router, then rerun mair doctor.`;
+  }
+
+  if (agent.routeBlockedReason) {
+    return agent.routeBlockedReason;
   }
 
   return `Open agent ${agent.id} in the Web UI inspector and resolve its readiness blocker.`;
@@ -854,6 +860,31 @@ function inspectMcpConfig(client: SetupClient, mcpName: string, mcpUrl: string):
       detail: commandFailureMessage(error) || `Run mair setup ${client}.`,
     };
   }
+}
+
+function detectClientMcpConfiguredUrl(client: SetupClient, mcpName: string, mcpUrl: string): string | undefined {
+  if (!commandAvailable(client)) {
+    return undefined;
+  }
+
+  try {
+    const output = execFileSync(client, ["mcp", "get", mcpName], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return extractMcpUrl(output, mcpUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractMcpUrl(output: string, expectedUrl: string): string | undefined {
+  if (output.includes(expectedUrl)) {
+    return expectedUrl;
+  }
+
+  const match = output.match(/https?:\/\/[^\s"',)]+/);
+  return match?.[0];
 }
 
 function resolveMcpUrl(flags: Record<string, string>): string {

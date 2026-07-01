@@ -48,3 +48,5 @@
 - [x] doctor-blocked-agent-readiness — Doctor blocked agent readiness
 - [x] choose-one-setup-docs-ui — Choose-one setup docs and UI
 - [x] getting-started-oob-cleanup — Getting Started OOB cleanup
+- [x] visible-agent-mcp-config-detection — Visible agent MCP config detection
+- [x] doctor-mcp-repair-action — Doctor MCP repair action
