@@ -20,6 +20,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user out-of-box setup automation findings are summarized in completed exec plans 041-044.
 - First-user OOB revalidation findings are summarized in completed exec plans 045-047.
 - First-user OOB agent-start findings are summarized in completed exec plans 048-049.
+- First-user OOB revalidation findings for Web UI create state and local smoke robustness are summarized in completed exec plans 050-051.
 
 ## User Story
 
@@ -57,6 +58,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Getting Started still frames manual setup guides as required | Getting Started points to automated setup first and treats manual MCP/skill docs as repair references |
 | Visible agent start does not consume verified MCP setup | CLI and Web UI create-agent inspect client MCP config before preflight |
 | Doctor MCP repair guidance repeats the blocker reason | MCP blockers show concrete `mair setup <client>` and follow-up doctor commands |
+| Web UI create-agent leaves prompt-sent agents as `created` | HTTP/Web UI prompt-success branch persists `registration-pending` like the CLI |
+| CLI controls smoke uses fixed derived ports | Smoke helper ports are dynamically allocated and listen failures include stderr |
 
 ## Functional Requirements
 
@@ -93,6 +96,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 31. Getting Started must not call manual MCP or skill installation required for the normal path.
 32. Visible agent creation must detect already-configured Codex and Claude MCP profiles instead of requiring hidden flags after `mair setup`.
 33. Doctor repair actions for MCP blockers must be concrete setup commands, not only problem descriptions.
+34. Web UI/API create-agent must store `registration-pending` after sending the self-registration prompt.
+35. CLI controls smoke must avoid fixed local port assumptions and surface helper listen failures.
 
 ## Non-goals
 
@@ -132,3 +137,5 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - `mair setup codex` followed by `mair codex` and `mair setup claude` followed by `mair claude` use configured MCP preflight without asking for setup again.
 - Web UI create-agent detects configured client MCP from the host environment without a hidden `mcpConfigured` request body.
 - MCP-blocked doctor output includes `mair setup <client> --project <root>` and a matching `mair doctor --client <client>` follow-up command.
+- HTTP/Web UI create-agent response and `/api/state` show `registration-pending` after the registration prompt is sent.
+- CLI controls smoke dynamically allocates helper ports and reports `EADDRINUSE` style listen errors directly.

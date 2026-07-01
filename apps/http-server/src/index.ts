@@ -852,6 +852,12 @@ function createTmuxAgent(body: Record<string, unknown>) {
         tmux.sendText(sessionId, prompt);
       }
       registration = "registration prompt sent to agent";
+      registeredAgent = context.registry.register({
+        ...registeredAgent,
+        bootstrapStatus: "registration-pending",
+        registrationStatus: "pending",
+      });
+      context.save();
     }
   }
 

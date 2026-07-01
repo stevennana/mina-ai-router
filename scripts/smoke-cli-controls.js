@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
 const { chmodSync, existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } = require("node:fs");
+const { createServer } = require("node:net");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -15,9 +16,9 @@ const oobCodexSession = `${session}-oob-codex`;
 const oobClaudeSession = `${session}-oob-claude`;
 const liveSession = `${session}-live`;
 const refreshSession = `${session}-refresh`;
-const port = 3400 + (process.pid % 1000);
-const occupiedPort = port + 1000;
-const fakeServerPort = port + 1001;
+let port = 0;
+let occupiedPort = 0;
+let fakeServerPort = 0;
 const spawnedChildren = [];
 const env = {
   ...process.env,
@@ -27,6 +28,9 @@ const env = {
 };
 
 async function main() {
+  port = await getFreePort();
+  occupiedPort = await getFreePort();
+  fakeServerPort = await getFreePort();
   cleanup();
   writeRefreshResponder();
 
@@ -586,6 +590,7 @@ function cleanup() {
 }
 
 async function startPlainHttpServer(serverPort, bodyText) {
+  let stderr = "";
   const child = spawn(process.execPath, [
     "-e",
     [
@@ -596,6 +601,10 @@ async function startPlainHttpServer(serverPort, bodyText) {
       "  response.writeHead(200, { 'content-type': 'text/plain' });",
       "  response.end(body);",
       "});",
+      "server.on('error', (error) => {",
+      "  console.error(error && error.stack ? error.stack : String(error));",
+      "  process.exit(1);",
+      "});",
       "server.listen(port, '127.0.0.1');",
       "setInterval(() => {}, 1000);",
     ].join("\n"),
@@ -605,11 +614,18 @@ async function startPlainHttpServer(serverPort, bodyText) {
     cwd: repoRoot,
     stdio: ["ignore", "ignore", "pipe"],
   });
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
 
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`plain HTTP server exited early: ${child.exitCode}`);
+      throw new Error(`plain HTTP server on ${serverPort} exited early: ${child.exitCode}${stderr ? `\n${stderr.trim()}` : ""}`);
+    }
+    if (/EADDRINUSE|listen EADDRINUSE/.test(stderr)) {
+      stopChild(child);
+      throw new Error(`plain HTTP server on ${serverPort} failed to listen: ${stderr.trim()}`);
     }
     try {
       const response = await fetch(`http://127.0.0.1:${serverPort}/`);
@@ -622,7 +638,23 @@ async function startPlainHttpServer(serverPort, bodyText) {
   }
 
   stopChild(child);
-  throw new Error(`Timed out waiting for plain HTTP server on ${serverPort}`);
+  throw new Error(`Timed out waiting for plain HTTP server on ${serverPort}${stderr ? `\n${stderr.trim()}` : ""}`);
+}
+
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close(() => reject(new Error("Could not allocate a loopback port.")));
+        return;
+      }
+      const freePort = address.port;
+      server.close(() => resolve(freePort));
+    });
+  });
 }
 
 function stopChild(child) {

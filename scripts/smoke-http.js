@@ -11,6 +11,7 @@ const baseUrl = `http://127.0.0.1:${port}`;
 const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
 const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
+const uiPromptSession = `mina-http-ui-prompt-${process.pid}`;
 const promptSession = `mina-http-permission-${process.pid}`;
 const timeoutSession = `mina-http-timeout-${process.pid}`;
 const fakeBinDir = join(tempDir, "fake-bin");
@@ -144,6 +145,23 @@ async function main() {
     assert.ok(uiCreated.agent.lastRegistrationAttemptAt);
     assert.equal(uiCreated.attachCommand, `tmux attach -t ${uiSession}`);
     assert.equal(uiCreated.mairAttachCommand, "mair attach ui-created");
+
+    const uiPrompted = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-prompted",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: uiPromptSession,
+      startupCommand: "/bin/sh",
+      registerDelayMs: 0,
+    });
+    assert.equal(uiPrompted.registration, "registration prompt sent to agent");
+    assert.equal(uiPrompted.agent.bootstrapStatus, "registration-pending");
+    assert.equal(uiPrompted.agent.registrationStatus, "pending");
+    assert.equal(uiPrompted.agent.mcpPreflightStatus, "configured");
+    const stateAfterUiPrompted = await json(`${baseUrl}/api/state`);
+    const uiPromptedStatus = stateAfterUiPrompted.agents.find((agent) => agent.id === "ui-prompted");
+    assert.equal(uiPromptedStatus.bootstrapStatus, "registration-pending");
+    assert.equal(uiPromptedStatus.registrationStatus, "pending");
 
     const terminal = await json(`${baseUrl}/api/agents/ui-created/terminal`);
     assert.equal(terminal.agent.id, "ui-created");
@@ -541,6 +559,13 @@ async function main() {
       });
     } catch {
       // Temporary UI-created session may not exist.
+    }
+    try {
+      execFileSync("tmux", ["kill-session", "-t", uiPromptSession], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      // Temporary prompt-created session may not exist.
     }
     try {
       execFileSync("tmux", ["kill-session", "-t", promptSession], {

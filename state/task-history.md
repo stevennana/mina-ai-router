@@ -61,3 +61,5 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T16:20:00+09:00: manually completed getting-started-oob-cleanup -> NONE | reason=Getting Started points to automated OOB setup first
 - 2026-07-01T17:15:00+09:00: manually completed visible-agent-mcp-config-detection -> doctor-mcp-repair-action | reason=visible agent creation consumes verified MCP client config
 - 2026-07-01T17:15:00+09:00: manually completed doctor-mcp-repair-action -> NONE | reason=doctor MCP blockers now show concrete setup commands
+- 2026-07-01T18:40:00+09:00: manually completed http-create-registration-pending -> cli-controls-dynamic-ports | reason=HTTP create-agent now persists registration-pending after prompt send
+- 2026-07-01T18:40:00+09:00: manually completed cli-controls-dynamic-ports -> NONE | reason=CLI controls smoke uses dynamic loopback ports with helper diagnostics

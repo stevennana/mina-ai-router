@@ -50,3 +50,5 @@
 - [x] getting-started-oob-cleanup — Getting Started OOB cleanup
 - [x] visible-agent-mcp-config-detection — Visible agent MCP config detection
 - [x] doctor-mcp-repair-action — Doctor MCP repair action
+- [x] http-create-registration-pending — HTTP create registration pending
+- [x] cli-controls-dynamic-ports — CLI controls dynamic ports
