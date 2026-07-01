@@ -94,7 +94,7 @@
 - prompt: rendered -> scripts/ralph/generated/current-task-prompt.txt
 - worker: started
 - worker: completed -> state/artifacts/20260628T231306-request-retry-cancel-archive/worker.jsonl
-- worker-summary: Verified the current task state and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt). I also appended the latest verification note to [003-request-retry-cancel-archive.md](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/active/003-request-retry-cancel-archive.md).
+- worker-summary: Verified the current task state and wrote the operator handoff to [state/last-result.txt](/Users/stevenna/WebstormProjects/mina-aimesh/state/last-result.txt). I also appended the latest verification note to [003-request-retry-cancel-archive.md](/Users/stevenna/WebstormProjects/mina-aimesh/docs/exec-plans/completed/003-request-retry-cancel-archive.md).
 - evaluator: started
 - evaluator: status=not_done promotion=false Deterministic checks failed; task is not ready for promotion. -> state/artifacts/20260628T231306-request-retry-cancel-archive/evaluator.log
 - commit: commit: skipped (deterministic checks not passing)

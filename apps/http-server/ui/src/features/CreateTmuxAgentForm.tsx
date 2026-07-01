@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { DirectoryListing, RouterAgent } from "../domain/types";
+import type { DirectoryListing, RouterAgent, UiState } from "../domain/types";
 import { routerApi } from "../lib/api";
 import { Button } from "../primitives/Button";
 import { TerminalPanel } from "./TerminalPanel";
@@ -8,7 +8,7 @@ import { Icon } from "../primitives/Icon";
 export function CreateTmuxAgentForm({
   onCreated,
 }: {
-  onCreated: (agent: RouterAgent) => void;
+  onCreated: (agent: RouterAgent, state: UiState) => void;
 }) {
   const [agentType, setAgentType] = useState("codex");
   const [projectRoot, setProjectRoot] = useState("");
@@ -45,7 +45,7 @@ export function CreateTmuxAgentForm({
       mairAttach: result.mairAttachCommand,
     }, null, 2));
     setTerminalAgentId(result.agent.id);
-    onCreated(result.agent);
+    onCreated(result.agent, result.state);
   }
 
   return (

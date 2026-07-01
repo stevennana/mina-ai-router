@@ -9,6 +9,10 @@ import type {
 export type RequestAction = "retry" | "cancel" | "archive" | "unarchive" | "interrupt" | "recover";
 
 const openStatuses = new Set<RequestStatus>(["created", "sent", "waiting"]);
+const archiveOnlyErrorPrefixes = [
+  "Archived by operator",
+  "Archived orphaned request",
+];
 
 export class RequestStore {
   private readonly requests = new Map<string, AgentRequest>();
@@ -116,9 +120,14 @@ export class RequestStore {
     const current = this.require(id);
     this.assertActionAllowed(current, "unarchive");
     const restoredStatus = current.archivedFromStatus ?? "answered";
+    const shouldClearArchiveError = current.error
+      && restoredStatus !== "failed"
+      && restoredStatus !== "timeout"
+      && archiveOnlyErrorPrefixes.some((prefix) => current.error?.startsWith(prefix));
     return this.updateStatus(id, restoredStatus, {
       archivedAt: undefined,
       archivedFromStatus: undefined,
+      error: shouldClearArchiveError ? undefined : current.error,
     });
   }
 

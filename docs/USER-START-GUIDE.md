@@ -61,6 +61,8 @@ The center node is the local MCP router. The surrounding nodes are visible Codex
 
 ![Live agent flow](./assets/mair-live-flow.jpg)
 
+While the router server is running, it owns the live state for that `MINA_ROUTER_STATE` file. Normal CLI reads and writes talk to the matching server when possible, so `mair health`, `mair agents`, `mair agent <id>`, the Web UI, and MCP calls stay aligned during active routes.
+
 ## 3. Connect Your AI CLI to MCP
 
 Pick the guide for the CLI you use:
@@ -116,7 +118,7 @@ Watch the readiness state after creation:
 - `ready`: the session is reachable, registered, and safe to route work to.
 - `failed`: creation or preflight hit a blocker that needs operator repair.
 
-If Codex or Claude needs trust approval, the Web UI shows the terminal so you can respond. If MCP setup is missing, the inspector shows the exact setup, verify, and remove commands for the CLI profile.
+If Codex or Claude needs trust approval, the Web UI shows the terminal so you can respond. If MCP setup is missing, the inspector shows the exact setup, verify, and remove commands for the CLI profile. A newly created blocked agent may show `needs-attention` until you complete the inspector's permission, MCP setup, or registration action; this is expected and prevents accidental routing.
 
 ## 6. Alternative: Create an Agent From a Terminal
 
@@ -266,7 +268,7 @@ The UI and CLI use the same health states:
 - `busy`: Mina is already routing a request to that agent.
 - `stale`: Mina has not recently confirmed reachability.
 - `missing`: the tmux session or transport target is gone.
-- `needs-attention`: the last routed request failed or timed out.
+- `needs-attention`: the agent needs an operator action before normal routing. This can mean the last routed request failed or timed out, or the agent is blocked on first-run readiness such as trust approval, MCP setup, or pending self-registration.
 - `unknown`: this transport does not expose a live health check.
 
 Useful CLI checks:
@@ -278,6 +280,8 @@ mair agent <agent-id>
 ```
 
 Use these before routing important work, especially after restarting terminals or deleting tmux sessions.
+
+If you started the server on a non-default port, `mair health` uses the matching running server record and reports that MCP URL instead of the default `3333` URL. During a server-routed request, the same command should show the target agent as `busy`, matching the browser.
 
 ## 15. Stop the Router
 

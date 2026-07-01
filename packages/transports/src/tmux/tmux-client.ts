@@ -172,7 +172,6 @@ function hasClaudePermissionPrompt(value: string): boolean {
 const codexTrustPatterns = [
   /do you trust the contents of this directory\?/i,
   /yes,\s*continue/i,
-  /press enter to continue/i,
   /codex.+(?:trust|permission|approval)/i,
 ];
 

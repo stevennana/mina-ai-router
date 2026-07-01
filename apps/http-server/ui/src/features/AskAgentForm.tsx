@@ -13,6 +13,7 @@ export function AskAgentForm({
   onAsk: (task: string) => Promise<void>;
 }) {
   const [task, setTask] = useState("현재 프로젝트 목적을 짧게 요약해줘.");
+  const taskInputId = "ask-agent-task";
 
   return (
     <form
@@ -22,7 +23,8 @@ export function AskAgentForm({
         void onAsk(task);
       }}
     >
-      <label style={{ gridColumn: "1 / -1" }}>Task<textarea value={task} onChange={(event) => setTask(event.target.value)} /></label>
+      <label htmlFor={taskInputId} style={{ gridColumn: "1 / -1" }}>Task</label>
+      <textarea id={taskInputId} style={{ gridColumn: "1 / -1" }} value={task} onChange={(event) => setTask(event.target.value)} />
       <div className="actions" style={{ gridColumn: "1 / -1" }}>
         <Button type="submit"><Icon name="send" />Send to {agent.id}</Button>
       </div>

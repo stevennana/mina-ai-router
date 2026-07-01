@@ -34,6 +34,10 @@ mair server start --port 3333
 mair server status
 ```
 
+When this long-running server is active, it is the live owner for the matching router state file. Compatible CLI reads and writes proxy to the server instead of using a separate one-shot snapshot, which keeps `/api/state`, the Web UI, MCP calls, and the persisted state file consistent.
+
+`mair server start` waits for `/api/health` before reporting success. Bind failures such as `EADDRINUSE` and stale pid files that point at non-Mina servers are surfaced as operator diagnostics rather than raw parser errors.
+
 Stop:
 
 ```sh
@@ -92,6 +96,8 @@ mair health
 mair version
 mair verify
 ```
+
+`mair health`, `mair agents`, and `mair agent <id>` prefer live status from a running server whose recorded state path matches the current CLI state path. This keeps health output correct when the server was started with a non-default port and when an agent is actively busy inside the server process.
 
 ## Visible Agent Commands
 

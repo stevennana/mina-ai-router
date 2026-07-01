@@ -3,6 +3,15 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = process.cwd();
+const reviewDir = path.join(repoRoot, "docs", "reviews");
+const reviewFiles = fs.existsSync(reviewDir)
+  ? fs
+      .readdirSync(reviewDir)
+      .filter((file) => file.endsWith(".md"))
+      .sort()
+      .map((file) => path.join("docs", "reviews", file))
+  : [];
+
 const markdownFiles = [
   "README.md",
   "ROADMAP.md",
@@ -13,8 +22,26 @@ const markdownFiles = [
   "docs/product-specs/agent-bootstrap-reliability.md",
   "docs/product-specs/release-readiness-review-fixes.md",
   "docs/design-docs/agent-bootstrap-reliability.md",
-  "docs/reviews/2026-06-29-fresh-operator-review.md",
   "docs/exec-plans/active/index.md",
+  "docs/exec-plans/completed/023-cli-server-proxy-register-ask.md",
+  "docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md",
+  "docs/exec-plans/completed/025-health-running-server-mcp-url.md",
+  "docs/exec-plans/completed/026-fresh-operator-smoke-hardening.md",
+  "docs/exec-plans/completed/027-cli-live-read-proxy-health-agents.md",
+  "docs/exec-plans/completed/028-cli-live-read-offline-hardening.md",
+  "docs/exec-plans/completed/029-server-start-readiness-and-bind-failure.md",
+  "docs/exec-plans/completed/030-live-proxy-stale-pid-diagnostics.md",
+  "docs/exec-plans/completed/031-startup-diagnostics-release-hardening.md",
+  "docs/exec-plans/completed/032-doc-review-lifecycle-and-smoke-sync.md",
+  "docs/exec-plans/completed/033-review-cleanup-safe-docs-gate.md",
+  "docs/exec-plans/completed/034-first-user-ui-port-terminal-affordances.md",
+  "docs/exec-plans/completed/035-visible-agent-mcp-and-unarchive-error-cleanup.md",
+  "docs/exec-plans/completed/036-first-user-ui-accessibility-create-refresh.md",
+  "docs/exec-plans/completed/037-codex-prompt-detection-precision.md",
+  "docs/exec-plans/completed/038-mcp-blocked-agent-readiness.md",
+  "docs/exec-plans/completed/039-route-readiness-enforcement.md",
+  "docs/exec-plans/completed/040-health-docs-readiness-language.md",
+  ...reviewFiles,
 ];
 
 for (const file of markdownFiles) {
@@ -32,6 +59,12 @@ assert.match(read("README.md"), /mcp-configuring/);
 assert.match(read("README.md"), /accidental self-calls/);
 assert.match(read("README.md"), /mark recovered/);
 assert.match(read("README.md"), /needs-attention/);
+assert.match(read("README.md"), /owns the live router state/);
+assert.match(read("README.md"), /CLI reads and writes route through the running server/);
+assert.match(read("README.md"), /matching running server/);
+assert.match(read("README.md"), /active server-routed requests as `busy`/);
+assert.match(read("README.md"), /reports success only after the local Mina health endpoint is ready/);
+assert.match(read("README.md"), /stale pid file points at a non-Mina process/);
 assert.match(read("ROADMAP.md"), /Milestone 0\.2: Collaboration Reliability/);
 assert.match(read("ROADMAP.md"), /implementation wave completed/);
 assert.match(read("ROADMAP.md"), /0\.2\.5 Agent Bootstrap Reliability/);
@@ -49,27 +82,86 @@ assert.match(read("docs/USER-START-GUIDE.md"), /Refresh Capabilities/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Strong/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Thin/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Read Health States/);
+assert.match(read("docs/USER-START-GUIDE.md"), /newly created blocked agent may show `needs-attention`/);
+assert.match(read("docs/USER-START-GUIDE.md"), /trust approval, MCP setup, or pending self-registration/);
+assert.match(read("docs/USER-START-GUIDE.md"), /owns the live state/);
+assert.match(read("docs/USER-START-GUIDE.md"), /Normal CLI reads and writes/);
+assert.match(read("docs/USER-START-GUIDE.md"), /non-default port/);
+assert.match(read("docs/USER-START-GUIDE.md"), /target agent as `busy`/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Collaboration Prompt Example/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Mina runs an MCP preflight/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Claude Code can keep MCP configuration per profile/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /request detail should show lifecycle status, request lease state/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /keeps the lease as `orphaned`/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /`list_agents` returns `isSelf`/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /live owner for the matching router state file/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /CLI reads and writes proxy to the server/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /prefer live status from a running server/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /actively busy inside the server process/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /waits for `\/api\/health` before reporting success/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /stale pid files that point at non-Mina servers/);
+assert.match(read("docs/TROUBLESHOOTING.md"), /Occupied Port/);
+assert.match(read("docs/TROUBLESHOOTING.md"), /Stale or Non-Mina Pid File/);
+assert.match(read("docs/TROUBLESHOOTING.md"), /prevents split-brain writes/);
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Pain Point Gap Map/);
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Duplicate registration/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Release Readiness Review Fixes/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /live in-memory lock/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /server owns live router state/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /running matching server's MCP URL/);
-assert.match(read("docs/reviews/2026-06-29-fresh-operator-review.md"), /CLI and HTTP Server Can Diverge and Overwrite Router State/);
-assert.match(read("docs/reviews/2026-06-29-fresh-operator-review.md"), /mair health` Reports the Wrong MCP URL/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /CLI read commands use the matching running server's live status/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Server startup reports success only after Mina readiness is confirmed/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /stale or non-Mina pid-file targets/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /review file cleanup does not break docs verification/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /hard-coded default port/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Non-tmux agents/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /CLI visible-agent MCP preflight/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Archive-only reasons/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /explicit `id` \/ `htmlFor`/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /returned state immediately/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Codex update prompt/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /trust-specific evidence/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /MCP-blocked tmux agents/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /transport reachability from route readiness/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Non-ready agents still accept routed work/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /routeReady/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /User guide defines `needs-attention` too narrowly/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
-assert.match(read("docs/exec-plans/active/index.md"), /cli-server-proxy-register-ask/);
-assert.match(read("docs/exec-plans/active/index.md"), /cli-server-proxy-agent-start-refresh/);
-assert.match(read("docs/exec-plans/active/index.md"), /health-running-server-mcp-url/);
-assert.match(read("docs/exec-plans/active/index.md"), /fresh-operator-smoke-hardening/);
+assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-040/);
+assert.match(read("docs/exec-plans/completed/023-cli-server-proxy-register-ask.md"), /CLI server proxy for register and ask/);
+assert.match(read("docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md"), /CLI server proxy for agent start and refresh/);
+assert.match(read("docs/exec-plans/completed/025-health-running-server-mcp-url.md"), /Health running server MCP URL/);
+assert.match(read("docs/exec-plans/completed/026-fresh-operator-smoke-hardening.md"), /Fresh operator smoke hardening/);
+assert.match(read("docs/exec-plans/completed/027-cli-live-read-proxy-health-agents.md"), /CLI live read proxy for health and agents/);
+assert.match(read("docs/exec-plans/completed/028-cli-live-read-offline-hardening.md"), /CLI live read offline hardening/);
+assert.match(read("docs/exec-plans/completed/029-server-start-readiness-and-bind-failure.md"), /Server start readiness and bind failure/);
+assert.match(read("docs/exec-plans/completed/030-live-proxy-stale-pid-diagnostics.md"), /Live proxy stale pid diagnostics/);
+assert.match(read("docs/exec-plans/completed/031-startup-diagnostics-release-hardening.md"), /Startup diagnostics release hardening/);
+assert.match(read("docs/exec-plans/completed/032-doc-review-lifecycle-and-smoke-sync.md"), /Doc review lifecycle and smoke sync/);
+assert.match(read("docs/exec-plans/completed/033-review-cleanup-safe-docs-gate.md"), /Review cleanup safe docs gate/);
+assert.match(read("docs/exec-plans/completed/034-first-user-ui-port-terminal-affordances.md"), /First user UI port and terminal affordances/);
+assert.match(read("docs/exec-plans/completed/034-first-user-ui-port-terminal-affordances.md"), /non-default server URL/);
+assert.match(read("docs/exec-plans/completed/034-first-user-ui-port-terminal-affordances.md"), /non-tmux selected agent/);
+assert.match(read("docs/exec-plans/completed/035-visible-agent-mcp-and-unarchive-error-cleanup.md"), /Visible agent MCP and unarchive error cleanup/);
+assert.match(read("docs/exec-plans/completed/035-visible-agent-mcp-and-unarchive-error-cleanup.md"), /matching server running on a non-default port/);
+assert.match(read("docs/exec-plans/completed/035-visible-agent-mcp-and-unarchive-error-cleanup.md"), /archive-only `error` text/);
+assert.match(read("docs/exec-plans/completed/036-first-user-ui-accessibility-create-refresh.md"), /First user UI accessibility and create refresh/);
+assert.match(read("docs/exec-plans/completed/036-first-user-ui-accessibility-create-refresh.md"), /explicit `id` and associated `htmlFor` label/);
+assert.match(read("docs/exec-plans/completed/036-first-user-ui-accessibility-create-refresh.md"), /returned state immediately/);
+assert.match(read("docs/exec-plans/completed/037-codex-prompt-detection-precision.md"), /Codex prompt detection precision/);
+assert.match(read("docs/exec-plans/completed/037-codex-prompt-detection-precision.md"), /Codex update prompts/);
+assert.match(read("docs/exec-plans/completed/037-codex-prompt-detection-precision.md"), /trustPrompt: false/);
+assert.match(read("docs/exec-plans/completed/038-mcp-blocked-agent-readiness.md"), /MCP blocked agent readiness/);
+assert.match(read("docs/exec-plans/completed/038-mcp-blocked-agent-readiness.md"), /transport reachability from collaboration readiness/);
+assert.match(read("docs/exec-plans/completed/038-mcp-blocked-agent-readiness.md"), /available count/);
+assert.match(read("docs/exec-plans/completed/039-route-readiness-enforcement.md"), /Route readiness enforcement/);
+assert.match(read("docs/exec-plans/completed/039-route-readiness-enforcement.md"), /routeReady: false/);
+assert.match(read("docs/exec-plans/completed/039-route-readiness-enforcement.md"), /before creating a request/);
+assert.match(read("docs/exec-plans/completed/040-health-docs-readiness-language.md"), /Health docs readiness language/);
+assert.match(read("docs/exec-plans/completed/040-health-docs-readiness-language.md"), /first-run readiness blockers/);
 
 for (const file of markdownFiles) {
   const content = read(file);
@@ -78,6 +170,14 @@ for (const file of markdownFiles) {
     if (/^https?:/.test(link)) continue;
     const resolved = path.resolve(path.dirname(path.join(repoRoot, file)), link);
     assert.ok(fs.existsSync(resolved), `${file} image link missing: ${link}`);
+  }
+  for (const match of content.matchAll(/(?<!!)\[[^\]]+]\(([^)]+)\)/g)) {
+    const rawLink = match[1].trim().split(/\s+/, 1)[0];
+    if (/^(https?:|mailto:|#)/.test(rawLink)) continue;
+    const withoutAnchor = rawLink.split("#", 1)[0];
+    if (!withoutAnchor) continue;
+    const resolved = path.resolve(path.dirname(path.join(repoRoot, file)), withoutAnchor);
+    assert.ok(fs.existsSync(resolved), `${file} markdown link missing: ${rawLink}`);
   }
 }
 

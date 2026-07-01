@@ -19,6 +19,42 @@ Set the same `MINA_ROUTER_STATE` for both processes:
 export MINA_ROUTER_STATE=/absolute/path/to/router-state.json
 ```
 
+## `mair server start` Fails on an Occupied Port
+
+`mair server start` waits for the Mina `/api/health` endpoint before it reports success. If the port is already occupied, the command should fail with a bind diagnostic such as `EADDRINUSE` and point at the server log.
+
+Useful checks:
+
+```sh
+mair server status
+lsof -nP -iTCP:3333 -sTCP:LISTEN
+cat data/mair-server.log
+```
+
+Stop the process that owns the port, or start Mina on another port:
+
+```sh
+mair server start --port 34333
+```
+
+## Stale or Non-Mina Pid File
+
+If `MINA_SERVER_PID` points at a live process that is not Mina, CLI live reads and writes stop with a stale/non-Mina pid-file diagnostic. This prevents split-brain writes against the local state file.
+
+Safe recovery:
+
+```sh
+mair server status
+rm data/mair-server.json
+mair server start --port 3333
+```
+
+Use the custom pid path if you set one:
+
+```sh
+rm "$MINA_SERVER_PID"
+```
+
 ## `call_agent` Times Out
 
 Common causes:

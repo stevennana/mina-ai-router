@@ -3,6 +3,9 @@ import { buildPromptEnvelope } from "./prompt-envelope";
 import { inspectMarkedResponse, ResponseParseError } from "./response-parser";
 import type {
   AgentRequest,
+  AgentBootstrapStatus,
+  AgentMcpPreflightStatus,
+  AgentRegistrationStatus,
   AgentResponse,
   AgentStatus,
   CallAgentInput,
@@ -19,6 +22,12 @@ const defaultAgentStaleAfterMs = 15 * 60 * 1000;
 class RequestNoLongerOpenError extends Error {
   constructor(readonly request: AgentRequest) {
     super(`Request "${request.id}" is ${request.status} and can no longer be updated by the active router call.`);
+  }
+}
+
+export class AgentNotRouteReadyError extends Error {
+  constructor(readonly agentId: string, readonly reason: string) {
+    super(`Agent "${agentId}" is not ready to receive routed work: ${reason}`);
   }
 }
 
@@ -84,12 +93,22 @@ export class AgentRouter {
         const lastSeenAt = status.status === "available" ? checkedAt : agent.lastSeenAt;
         const healthStatus = classifyAgentHealth({
           transportStatus: status.status,
+          bootstrapStatus,
+          registrationStatus: agent.registrationStatus,
+          mcpPreflightStatus: agent.mcpPreflightStatus,
           busy: this.busyAgents.has(agent.id),
           lastSeenAt,
           lastActivityAt,
           lastRequest,
           checkedAt,
           staleAfterMs: this.agentStaleAfterMs,
+        });
+        const routeReadiness = classifyRouteReadiness({
+          healthStatus: healthStatus.status,
+          healthDetail: healthStatus.detail ?? status.detail,
+          bootstrapStatus,
+          registrationStatus: agent.registrationStatus,
+          mcpPreflightStatus: agent.mcpPreflightStatus,
         });
 
         if (lastSeenAt !== agent.lastSeenAt || lastActivityAt !== agent.lastActivityAt) {
@@ -139,6 +158,8 @@ export class AgentRouter {
           staleAfterMs: this.agentStaleAfterMs,
           status: healthStatus.status,
           detail: healthStatus.detail ?? status.detail,
+          routeReady: routeReadiness.routeReady,
+          routeBlockedReason: routeReadiness.routeBlockedReason,
           lastRequestStatus: lastRequest?.status,
           isSelf: options.callerAgentId === agent.id || undefined,
         };
@@ -190,6 +211,47 @@ export class AgentRouter {
       throw new Error(`Agent "${target.id}" is busy with another request.`);
     }
 
+    const transport = this.transports.get(target.transport);
+    const checkedAt = new Date().toISOString();
+    const transportStatus = transport.status
+      ? await transport.status(target)
+      : { status: "unknown" as const };
+    const bootstrapStatus = transportStatus.bootstrapStatus ?? target.bootstrapStatus;
+    if (transportStatus.bootstrapStatus && transportStatus.bootstrapStatus !== target.bootstrapStatus) {
+      this.registry.register({
+        ...target,
+        bootstrapStatus: transportStatus.bootstrapStatus,
+      });
+      this.persistState();
+    }
+    const agentRequests = this.requestStore.list().filter((request) => request.targetAgent === target.id);
+    const lastRequest = agentRequests[agentRequests.length - 1];
+    const healthStatus = classifyAgentHealth({
+      transportStatus: transportStatus.status,
+      bootstrapStatus,
+      registrationStatus: target.registrationStatus,
+      mcpPreflightStatus: target.mcpPreflightStatus,
+      busy: false,
+      lastSeenAt: transportStatus.status === "available" ? checkedAt : target.lastSeenAt,
+      lastActivityAt: lastRequest?.updatedAt ?? target.lastActivityAt,
+      lastRequest,
+      checkedAt,
+      staleAfterMs: this.agentStaleAfterMs,
+    });
+    const routeReadiness = classifyRouteReadiness({
+      healthStatus: healthStatus.status,
+      healthDetail: healthStatus.detail ?? transportStatus.detail,
+      bootstrapStatus,
+      registrationStatus: target.registrationStatus,
+      mcpPreflightStatus: target.mcpPreflightStatus,
+    });
+    if (!routeReadiness.routeReady) {
+      throw new AgentNotRouteReadyError(
+        target.id,
+        routeReadiness.routeBlockedReason ?? "Agent is not route-ready.",
+      );
+    }
+
     this.busyAgents.add(target.id);
     const now = new Date().toISOString();
     const timeoutMs = input.timeoutMs ?? this.defaultTimeoutMs;
@@ -230,7 +292,6 @@ export class AgentRouter {
     });
     this.persistState();
 
-    const transport = this.transports.get(target.transport);
     const prompt = buildPromptEnvelope(request, target);
     this.requestStore.patch(request.id, {
       promptEvidence: rawEvidenceFromOutput(prompt, "prompt_envelope"),
@@ -384,6 +445,9 @@ function diagnosticStatusForError(
 
 function classifyAgentHealth(input: {
   transportStatus: AgentStatus["status"];
+  bootstrapStatus?: AgentBootstrapStatus;
+  registrationStatus?: AgentRegistrationStatus;
+  mcpPreflightStatus?: AgentMcpPreflightStatus;
   busy: boolean;
   lastSeenAt?: string;
   lastActivityAt?: string;
@@ -393,6 +457,10 @@ function classifyAgentHealth(input: {
 }): Pick<AgentStatus, "status" | "detail"> {
   if (input.lastRequest?.leaseStatus === "orphaned") {
     return { status: "busy", detail: `Request "${input.lastRequest.id}" timed out in the router, but the target session lease is still attached for recovery.` };
+  }
+
+  if (input.lastRequest?.leaseStatus === "active" && ["created", "sent", "waiting"].includes(input.lastRequest.status)) {
+    return { status: "busy", detail: `Request "${input.lastRequest.id}" still has an active lease.` };
   }
 
   if (input.busy) {
@@ -407,8 +475,36 @@ function classifyAgentHealth(input: {
     return { status: "needs-attention" };
   }
 
+  if (input.bootstrapStatus === "permission-required") {
+    return {
+      status: "needs-attention",
+      detail: "Agent is waiting for operator permission before it can receive routed work.",
+    };
+  }
+
+  if (input.bootstrapStatus === "mcp-configuring") {
+    return {
+      status: "needs-attention",
+      detail: "Agent is waiting for Mina MCP setup before it can self-register or receive routed work.",
+    };
+  }
+
+  if (input.bootstrapStatus === "registration-pending" || input.registrationStatus === "pending") {
+    return {
+      status: "needs-attention",
+      detail: "Agent self-registration has not been confirmed yet.",
+    };
+  }
+
+  if (input.mcpPreflightStatus === "missing" || input.mcpPreflightStatus === "stale") {
+    return {
+      status: "needs-attention",
+      detail: "Agent MCP preflight is not ready; fix MCP setup before routing work.",
+    };
+  }
+
   const attentionStatuses = new Set<AgentRequest["status"]>(["failed", "timeout"]);
-  if (input.lastRequest && attentionStatuses.has(input.lastRequest.status)) {
+  if (input.lastRequest && attentionStatuses.has(input.lastRequest.status) && input.lastRequest.recoveryStatus !== "recovered") {
     return {
       status: "needs-attention",
       detail: input.lastRequest.error
@@ -434,6 +530,61 @@ function classifyAgentHealth(input: {
   }
 
   return { status: "unknown" };
+}
+
+function classifyRouteReadiness(input: {
+  healthStatus: AgentStatus["status"];
+  healthDetail?: string;
+  bootstrapStatus?: AgentBootstrapStatus;
+  registrationStatus?: AgentRegistrationStatus;
+  mcpPreflightStatus?: AgentMcpPreflightStatus;
+}): Pick<AgentStatus, "routeReady" | "routeBlockedReason"> {
+  const blocker = routeBlocker(input);
+  return blocker
+    ? { routeReady: false, routeBlockedReason: blocker }
+    : { routeReady: true };
+}
+
+function routeBlocker(input: {
+  healthStatus: AgentStatus["status"];
+  healthDetail?: string;
+  bootstrapStatus?: AgentBootstrapStatus;
+  registrationStatus?: AgentRegistrationStatus;
+  mcpPreflightStatus?: AgentMcpPreflightStatus;
+}): string | undefined {
+  if (input.bootstrapStatus === "permission-required") {
+    return "Agent is waiting for operator permission before it can receive routed work.";
+  }
+
+  if (input.bootstrapStatus === "mcp-configuring") {
+    return "Agent is waiting for Mina MCP setup before it can self-register or receive routed work.";
+  }
+
+  if (input.bootstrapStatus === "registration-pending" || input.registrationStatus === "pending") {
+    return "Agent self-registration has not been confirmed yet.";
+  }
+
+  if (input.mcpPreflightStatus === "missing" || input.mcpPreflightStatus === "stale") {
+    return "Agent MCP preflight is not ready; fix MCP setup before routing work.";
+  }
+
+  if (input.healthStatus === "busy") {
+    return input.healthDetail ?? "Agent is currently handling a routed request.";
+  }
+
+  if (input.healthStatus === "missing") {
+    return input.healthDetail ?? "Agent transport is missing.";
+  }
+
+  if (input.healthStatus === "stale") {
+    return input.healthDetail ?? "Agent health is stale.";
+  }
+
+  if (input.healthStatus === "needs-attention") {
+    return input.healthDetail ?? "Agent needs operator attention before it can receive routed work.";
+  }
+
+  return undefined;
 }
 
 function isOlderThan(timestamp: string, now: string, staleAfterMs: number): boolean {

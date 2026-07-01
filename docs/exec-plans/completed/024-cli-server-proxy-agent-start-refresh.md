@@ -5,7 +5,7 @@
   "id": "cli-server-proxy-agent-start-refresh",
   "title": "CLI server proxy for agent start and refresh",
   "order": 24,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "health-running-server-mcp-url",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -34,7 +34,8 @@
     "A mutating CLI command still bypasses a compatible running server without an explicit reason",
     "Agent bootstrap placeholder behavior regresses for permission-required or mcp-configuring agents",
     "Capability refresh writes different summaries depending on whether it runs through CLI or HTTP"
-  ]
+  ],
+  "completed_at": "2026-06-29T09:35:00+09:00"
 }
 ```
 
@@ -79,3 +80,4 @@ Keep this task focused on state ownership consistency. If a command needs a new 
 ## Progress log
 
 - 2026-06-29: Seeded from fresh operator review Finding 1 "other mutating commands" guidance.
+- 2026-06-29T09:35:00+09:00: routed CLI visible agent placeholder saves through a matching running HTTP server while leaving tmux session creation in the CLI process. Added server-side capability refresh endpoint and made CLI refresh proxy to it when the server owns live state. Smoke now covers visible placeholder state and capability refresh in `/api/state`. Required checks passed: `npm run test`, `npm run smoke:cli-controls`, `npm run smoke:http`, and `npm run smoke:docs`.

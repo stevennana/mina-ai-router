@@ -292,6 +292,8 @@ export interface AgentStatus {
   staleAfterMs: number;
   status: AgentHealthStatus;
   detail?: string;
+  routeReady?: boolean;
+  routeBlockedReason?: string;
   lastRequestStatus?: RequestStatus;
   isSelf?: boolean;
 }

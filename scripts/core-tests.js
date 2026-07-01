@@ -29,6 +29,7 @@ async function main() {
   await testRouterRecoverClearsBusyLock();
   await testRouterArchiveOrphanClearsBusyLock();
   await testRouterHealthClassification();
+  await testRouterRejectsNonReadyTarget();
   console.log("core tests passed");
 }
 
@@ -93,6 +94,19 @@ function testPermissionPromptDetection() {
   assert.equal(codexPrompt.client, "codex");
   assert.equal(codexPrompt.kind, "directory-trust");
   assert.match(codexPrompt.action, /tmux attach -t codex-session/);
+  assert.match(codexPrompt.evidence, /Do you trust/);
+
+  const codexUpdatePrompt = detectAgentPermissionPrompt(
+    codexAgent,
+    [
+      "Update available! 0.142.3 -> 0.142.4",
+      "1. Update now (runs `npm install -g @openai/codex`)",
+      "2. Skip",
+      "3. Skip until next version",
+      "Press enter to continue",
+    ].join("\n"),
+  );
+  assert.equal(codexUpdatePrompt, undefined);
 
   const claudePrompt = detectAgentPermissionPrompt(
     claudeAgent,
@@ -356,6 +370,43 @@ function testRequestStoreDiagnostics() {
   assert.equal(unarchived.diagnosticStatus, "cancelled");
   assert.throws(() => store.cancel("store-test"), /Cannot cancel request/);
   assert.equal(store.recordRetry("store-test", "retry-test").retriedByRequestId, "retry-test");
+
+  const answered = store.create({
+    id: "answered-archive-test",
+    sourceAgent: "source",
+    targetAgent: "target",
+    task: "answered task",
+    status: "answered",
+    diagnosticStatus: "answered",
+    answer: "done",
+    createdAt: now,
+    updatedAt: now,
+  });
+  assert.deepEqual(store.validActions(answered), ["retry", "archive"]);
+  const archivedAnswered = store.archive("answered-archive-test", "Archived by operator from Mina AI Router UI.", "ui");
+  assert.equal(archivedAnswered.status, "archived");
+  assert.equal(archivedAnswered.error, "Archived by operator from Mina AI Router UI.");
+  const unarchivedAnswered = store.unarchive("answered-archive-test");
+  assert.equal(unarchivedAnswered.status, "answered");
+  assert.equal(unarchivedAnswered.diagnosticStatus, "answered");
+  assert.equal(unarchivedAnswered.error, undefined);
+
+  const failed = store.create({
+    id: "failed-archive-test",
+    sourceAgent: "source",
+    targetAgent: "target",
+    task: "failed task",
+    status: "failed",
+    diagnosticStatus: "transport_failure",
+    error: "transport failed",
+    createdAt: now,
+    updatedAt: now,
+  });
+  const archivedFailed = store.archive(failed.id, "Archived by operator from Mina AI Router UI.", "ui");
+  assert.equal(archivedFailed.error, "transport failed");
+  const unarchivedFailed = store.unarchive(failed.id);
+  assert.equal(unarchivedFailed.status, "failed");
+  assert.equal(unarchivedFailed.error, "transport failed");
 
   const orphaned = store.create({
     id: "orphaned-test",
@@ -696,6 +747,18 @@ async function testRouterHealthClassification() {
       sessionId: "attention",
     },
     {
+      id: "mcp-blocked",
+      name: "mcp-blocked",
+      agentType: "codex",
+      projectRoot: "/tmp/mcp-blocked",
+      transport: "available",
+      sessionId: "mcp-blocked",
+      bootstrapStatus: "mcp-configuring",
+      registrationStatus: "pending",
+      mcpPreflightStatus: "missing",
+      mcpPreflightDetail: "Run codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp.",
+    },
+    {
       id: "busy",
       name: "busy",
       agentType: "gemini",
@@ -739,16 +802,27 @@ async function testRouterHealthClassification() {
   const statuses = await router.listAgentStatuses();
   const byId = Object.fromEntries(statuses.map((status) => [status.id, status]));
   assert.equal(byId.available.status, "available");
+  assert.equal(byId.available.routeReady, true);
   assert.ok(byId.available.lastSeenAt);
   assert.equal(byId.available.bootstrapStatus, "ready");
   assert.equal(byId.available.registrationStatus, "confirmed");
   assert.equal(byId.missing.status, "missing");
+  assert.equal(byId.missing.routeReady, false);
   assert.match(byId.missing.detail, /session is gone/);
   assert.equal(byId.stale.status, "stale");
+  assert.equal(byId.stale.routeReady, false);
   assert.equal(byId.stale.lastSeenAt, staleTime);
   assert.equal(byId.attention.status, "needs-attention");
+  assert.equal(byId.attention.routeReady, false);
   assert.match(byId.attention.detail, /transport failed/);
+  assert.equal(byId["mcp-blocked"].status, "needs-attention");
+  assert.equal(byId["mcp-blocked"].routeReady, false);
+  assert.equal(byId["mcp-blocked"].bootstrapStatus, "mcp-configuring");
+  assert.equal(byId["mcp-blocked"].registrationStatus, "pending");
+  assert.match(byId["mcp-blocked"].detail, /MCP setup/);
+  assert.match(byId["mcp-blocked"].routeBlockedReason, /MCP setup/);
   assert.equal(byId.busy.status, "busy");
+  assert.equal(byId.busy.routeReady, false);
   assert.ok(byId.busy.activeRequestId);
   assert.equal(byId.busy.leaseStatus, "active");
   assert.ok(byId.busy.lastActivityAt);
@@ -759,6 +833,38 @@ async function testRouterHealthClassification() {
     `<<<MINA_AGENT_RESPONSE_END ${requestStore.list().find((request) => request.targetAgent === "busy").id}>>>`,
   ].join("\n"));
   await pending;
+}
+
+async function testRouterRejectsNonReadyTarget() {
+  const registry = new AgentRegistry([
+    {
+      id: "mcp-blocked",
+      name: "mcp-blocked",
+      agentType: "codex",
+      projectRoot: "/tmp/mcp-blocked",
+      transport: "available",
+      sessionId: "mcp-blocked",
+      bootstrapStatus: "mcp-configuring",
+      registrationStatus: "pending",
+      mcpPreflightStatus: "missing",
+    },
+  ]);
+  const requestStore = new RequestStore();
+  const router = new AgentRouter({
+    registry,
+    requestStore,
+    transports: new DefaultTransportRegistry().register("available", new StaticStatusTransport("available")),
+  });
+
+  await assert.rejects(
+    () => router.callAgent({
+      target: "mcp-blocked",
+      task: "should not route",
+      timeoutMs: 1_000,
+    }),
+    /MCP setup|self-registration|MCP preflight/,
+  );
+  assert.equal(requestStore.list().length, 0);
 }
 
 function buildRouterWithTransport(transport) {

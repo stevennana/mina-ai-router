@@ -5,7 +5,7 @@
   "id": "cli-server-proxy-register-ask",
   "title": "CLI server proxy for register and ask",
   "order": 23,
-  "status": "active",
+  "status": "completed",
   "next_task_on_success": "cli-server-proxy-agent-start-refresh",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -32,7 +32,8 @@
     "CLI mutating commands write directly to the state file while a matching HTTP server is running",
     "The fix requires changing the router state file format in a way that breaks existing state files",
     "Server proxy fallback prevents offline CLI register or ask from working when no server is running"
-  ]
+  ],
+  "completed_at": "2026-06-29T09:35:00+09:00"
 }
 ```
 
@@ -76,3 +77,4 @@ Prefer extending the existing server-status and request-action proxy patterns ov
 ## Progress log
 
 - 2026-06-29: Seeded from fresh operator review Finding 1.
+- 2026-06-29T09:35:00+09:00: implemented matching-server proxy helpers for CLI `register` and `ask`, preserving offline fallback behavior. Added smoke coverage proving CLI register appears in `/api/state`, later HTTP register preserves the CLI agent, and CLI ask appears in server-owned request state. Required checks passed: `npm run test`, `npm run smoke:cli-controls`, and `npm run smoke:http`.

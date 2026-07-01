@@ -42,6 +42,10 @@ Open the Web UI:
 http://127.0.0.1:3333/
 ```
 
+While this server is running, it owns the live router state for that state file. Compatible `mair` CLI reads and writes route through the running server, so `mair health`, `mair agents`, the Web UI, and the MCP endpoint agree on busy/available status without a restart.
+
+`mair server start` reports success only after the local Mina health endpoint is ready. If startup fails because the port is occupied, or a stale pid file points at a non-Mina process, Mina reports an actionable diagnostic instead of a healthy-looking server.
+
 ## Connect Codex or Claude
 
 Codex:
@@ -103,6 +107,8 @@ The browser console is built for local live operations, not hidden background or
 - recover long transactions where the router timed out but the target terminal may still be running
 - see health states shared by the CLI and UI: `available`, `busy`, `stale`, `missing`, `needs-attention`, and `unknown`
 - use `mair health`, `mair agents`, and `mair agent <id>` to confirm the same status model from a terminal
+- trust `mair health` to report the MCP URL for the matching running server, including non-default ports
+- see active server-routed requests as `busy` from both the browser and CLI read commands
 
 ## What You Get
 

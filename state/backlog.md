@@ -23,7 +23,21 @@
 - [x] orphan-archive-semantics — Orphan archive semantics
 - [x] cli-blocked-agent-placeholder — CLI blocked agent placeholder
 - [x] release-version-and-verify-contract — Release version and verify contract
-- [ ] cli-server-proxy-register-ask — CLI server proxy for register and ask
-- [ ] cli-server-proxy-agent-start-refresh — CLI server proxy for agent start and refresh
-- [ ] health-running-server-mcp-url — Health running server MCP URL
-- [ ] fresh-operator-smoke-hardening — Fresh operator smoke hardening
+- [x] cli-server-proxy-register-ask — CLI server proxy for register and ask
+- [x] cli-server-proxy-agent-start-refresh — CLI server proxy for agent start and refresh
+- [x] health-running-server-mcp-url — Health running server MCP URL
+- [x] fresh-operator-smoke-hardening — Fresh operator smoke hardening
+- [x] cli-live-read-proxy-health-agents — CLI live read proxy for health and agents
+- [x] cli-live-read-offline-hardening — CLI live read offline hardening
+- [x] server-start-readiness-and-bind-failure — Server start readiness and bind failure
+- [x] live-proxy-stale-pid-diagnostics — Live proxy stale pid diagnostics
+- [x] startup-diagnostics-release-hardening — Startup diagnostics release hardening
+- [x] doc-review-lifecycle-and-smoke-sync — Doc review lifecycle and smoke sync
+- [x] review-cleanup-safe-docs-gate — Review cleanup safe docs gate
+- [x] first-user-ui-port-terminal-affordances — First user UI port and terminal affordances
+- [x] visible-agent-mcp-and-unarchive-error-cleanup — Visible agent MCP and unarchive error cleanup
+- [x] first-user-ui-accessibility-create-refresh — First user UI accessibility and create refresh
+- [x] codex-prompt-detection-precision — Codex prompt detection precision
+- [x] mcp-blocked-agent-readiness — MCP blocked agent readiness
+- [x] route-readiness-enforcement — Route readiness enforcement
+- [x] health-docs-readiness-language — Health docs readiness language

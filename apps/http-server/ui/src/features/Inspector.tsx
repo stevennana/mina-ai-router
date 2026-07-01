@@ -1,5 +1,5 @@
 import type { RouterAgent, RouterRequest } from "../domain/types";
-import { agentRequests, attachCommand, bootstrapLabel, capabilityFreshness, capabilityProfileList, capabilityQualityDetail, capabilityQualityLabel, displayAgentName, formatDateTime, healthMessage, mcpPreflightLabel, permissionProfileLabel } from "../domain/helpers";
+import { agentRequests, attachCommand, bootstrapLabel, capabilityFreshness, capabilityProfileList, capabilityQualityDetail, capabilityQualityLabel, displayAgentName, formatDateTime, healthMessage, isRouteReady, mcpPreflightLabel, permissionProfileLabel, routeBlockedReason } from "../domain/helpers";
 import { Button } from "../primitives/Button";
 import { Kv } from "../primitives/Kv";
 import { StatusPill } from "../primitives/StatusPill";
@@ -28,8 +28,11 @@ export function Inspector({
   }
 
   const recent = agentRequests(agent.id, requests).slice().reverse().slice(0, 3);
+  const routeReady = isRouteReady(agent);
+  const routeReason = routeBlockedReason(agent);
   const freshness = capabilityFreshness(agent);
   const quality = capabilityQualityLabel(agent);
+  const hasTmuxTerminal = agent.transport === "tmux";
 
   return (
     <aside className={["inspector floating-inspector", collapsed ? "is-collapsed" : ""].filter(Boolean).join(" ")} aria-label="Selected agent inspector">
@@ -84,10 +87,14 @@ export function Inspector({
           <div className="command-box">
             <span className="subtitle">Direct terminal control</span>
             <code>{attachCommand(agent)}</code>
-            <div className="actions">
-              <Button onClick={() => onAction("terminal", agent.id)}><Icon name="terminal" />Open Terminal</Button>
-              <Button tone="secondary" onClick={() => onAction("copy", agent.id)}><Icon name="content_copy" />Copy</Button>
-            </div>
+            {hasTmuxTerminal ? (
+              <div className="actions">
+                <Button onClick={() => onAction("terminal", agent.id)}><Icon name="terminal" />Open Terminal</Button>
+                <Button tone="secondary" onClick={() => onAction("copy", agent.id)}><Icon name="content_copy" />Copy</Button>
+              </div>
+            ) : (
+              <div className="notice">This agent uses {agent.transport || "a non-tmux transport"}, so direct terminal control is unavailable.</div>
+            )}
           </div>
         </div>
         <div className="section">
@@ -139,7 +146,8 @@ export function Inspector({
           {recent.length ? <div className="request-list">{recent.map((request) => <RequestCard key={request.id} request={request} onOpen={onRequest} />)}</div> : <div className="empty">No requests for this agent yet.</div>}
         </div>
         <div className="actions">
-          <Button tone="secondary" onClick={() => onAction("ask", agent.id)}><Icon name="send" />Ask</Button>
+          <Button tone="secondary" disabled={!routeReady} title={routeReady ? "Ask this agent" : routeReason} onClick={() => onAction("ask", agent.id)}><Icon name="send" />Ask</Button>
+          {!routeReady ? <span className="subtitle">{routeReason}</span> : null}
         </div>
       </div>
     </aside>

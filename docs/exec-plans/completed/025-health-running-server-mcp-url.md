@@ -5,7 +5,7 @@
   "id": "health-running-server-mcp-url",
   "title": "Health running server MCP URL",
   "order": 25,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "fresh-operator-smoke-hardening",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -31,7 +31,8 @@
     "health reports an MCP URL that disagrees with a running matching server status",
     "health uses a stale pid file for a different state path",
     "The fix changes server start/status output shape in a breaking way"
-  ]
+  ],
+  "completed_at": "2026-06-29T09:35:00+09:00"
 }
 ```
 
@@ -74,3 +75,4 @@ This task should be smaller than the state ownership tasks. Prefer a direct same
 ## Progress log
 
 - 2026-06-29: Seeded from fresh operator review Finding 2.
+- 2026-06-29T09:35:00+09:00: changed `mair health` to prefer the matching running server's recorded MCP URL and added CLI smoke coverage for a non-default server port. Required checks passed: `npm run test`, `npm run smoke:cli-controls`, and `npm run smoke:docs`.

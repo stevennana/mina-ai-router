@@ -31,3 +31,24 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-29T07:32:52.564Z: promoted cli-blocked-agent-placeholder -> release-version-and-verify-contract
 - 2026-06-29T07:44:49.305Z: promoted release-version-and-verify-contract -> NONE
 - 2026-06-29T09:00:00+09:00: seeded fresh operator review fix wave from docs/reviews/2026-06-29-fresh-operator-review.md; current task cli-server-proxy-register-ask
+- 2026-06-29T09:35:00+09:00: manually completed cli-server-proxy-register-ask -> cli-server-proxy-agent-start-refresh | reason=fresh operator P1 register/ask proxy checks passed
+- 2026-06-29T09:35:00+09:00: manually completed cli-server-proxy-agent-start-refresh -> health-running-server-mcp-url | reason=remaining CLI mutation proxy checks passed
+- 2026-06-29T09:35:00+09:00: manually completed health-running-server-mcp-url -> fresh-operator-smoke-hardening | reason=non-default MCP health URL check passed
+- 2026-06-29T09:35:00+09:00: manually completed fresh-operator-smoke-hardening -> NONE | reason=release hardening checks passed
+- 2026-06-29T10:05:00+09:00: seeded deep operator review live-read consistency wave from docs/reviews/2026-06-29-fresh-operator-review.md; current task cli-live-read-proxy-health-agents
+- 2026-06-29T10:25:00+09:00: manually completed cli-live-read-proxy-health-agents -> cli-live-read-offline-hardening | reason=live CLI read proxy busy-status checks passed
+- 2026-06-29T10:25:00+09:00: manually completed cli-live-read-offline-hardening -> NONE | reason=offline fallback and release hardening checks passed
+- 2026-06-30T09:30:00+09:00: seeded deep operator startup diagnostics wave from docs/reviews/2026-06-29-fresh-operator-review.md; current task server-start-readiness-and-bind-failure
+- 2026-06-30T09:55:00+09:00: manually completed server-start-readiness-and-bind-failure -> live-proxy-stale-pid-diagnostics | reason=startup readiness and occupied-port checks passed
+- 2026-06-30T09:55:00+09:00: manually completed live-proxy-stale-pid-diagnostics -> startup-diagnostics-release-hardening | reason=stale/non-Mina pid diagnostics checks passed
+- 2026-06-30T09:55:00+09:00: manually completed startup-diagnostics-release-hardening -> NONE | reason=release hardening checks passed
+- 2026-06-30T10:20:00+09:00: manually completed doc-review-lifecycle-and-smoke-sync -> NONE | reason=docs review lifecycle and smoke contract checks passed
+- 2026-06-30T10:45:00+09:00: manually completed review-cleanup-safe-docs-gate -> NONE | reason=review file cleanup no longer breaks docs verification
+- 2026-06-30T11:10:00+09:00: seeded fresh real-user Web UI review follow-up from docs/reviews/2026-06-30-fresh-real-user-review.md; current task first-user-ui-port-terminal-affordances
+- 2026-06-30T11:30:00+09:00: manually completed first-user-ui-port-terminal-affordances -> NONE | reason=first-user UI port and terminal affordance checks passed
+- 2026-06-30T12:00:00+09:00: manually completed visible-agent-mcp-and-unarchive-error-cleanup -> NONE | reason=visible-agent MCP URL and unarchive error cleanup checks passed
+- 2026-06-30T12:30:00+09:00: manually completed first-user-ui-accessibility-create-refresh -> NONE | reason=first-user label accessibility and create-agent refresh checks passed
+- 2026-06-30T13:00:00+09:00: manually completed codex-prompt-detection-precision -> NONE | reason=Codex update prompt no longer classified as directory trust
+- 2026-06-30T23:20:00+09:00: manually completed mcp-blocked-agent-readiness -> NONE | reason=MCP-blocked and registration-pending agents no longer count as available
+- 2026-06-30T23:55:00+09:00: manually completed route-readiness-enforcement -> NONE | reason=Non-ready agents no longer accept normal routed work
+- 2026-07-01T14:45:00+09:00: manually completed health-docs-readiness-language -> NONE | reason=User guide needs-attention definition now covers first-run readiness blockers

@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
-const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
+const { execFileSync, spawn } = require("node:child_process");
+const { existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -14,11 +14,14 @@ const session = `mina-cli-controls-${process.pid}`;
 const liveSession = `${session}-live`;
 const refreshSession = `${session}-refresh`;
 const port = 3400 + (process.pid % 1000);
+const occupiedPort = port + 1000;
+const fakeServerPort = port + 1001;
+const spawnedChildren = [];
 const env = {
   ...process.env,
   MINA_ROUTER_STATE: statePath,
   MINA_SERVER_PID: pidPath,
-  MINA_AGENT_STALE_AFTER_MS: "1",
+  MINA_AGENT_STALE_AFTER_MS: "60000",
 };
 
 async function main() {
@@ -71,6 +74,43 @@ async function main() {
     const staleDetail = JSON.parse(runNode(["agent", "cli-stale"]));
     assert.equal(staleDetail.status.status, "stale");
 
+    const occupied = await startPlainHttpServer(occupiedPort, "occupied");
+    spawnedChildren.push(occupied);
+    const occupiedFailure = expectNodeFailure(["server", "start", "--port", String(occupiedPort)]);
+    assert.match(occupiedFailure, /Mina HTTP server failed to become ready|EADDRINUSE|address already in use/);
+    assert.doesNotMatch(occupiedFailure, /"running": true/);
+    const statusAfterOccupiedFailure = JSON.parse(runNode(["server", "status"]));
+    assert.equal(statusAfterOccupiedFailure.running, false);
+    stopChild(occupied);
+
+    const fakeServer = await startPlainHttpServer(fakeServerPort, "not mina");
+    spawnedChildren.push(fakeServer);
+    writeFileSync(pidPath, `${JSON.stringify({
+      pid: fakeServer.pid,
+      port: String(fakeServerPort),
+      host: "127.0.0.1",
+      statePath,
+      mcpUrl: `http://127.0.0.1:${fakeServerPort}/mcp`,
+      uiUrl: `http://127.0.0.1:${fakeServerPort}/`,
+      startedAt: new Date().toISOString(),
+    }, null, 2)}\n`);
+    for (const args of [
+      ["health"],
+      ["agents"],
+      ["register", "fake", "--agent", "shell", "--transport", "headless", "--session", "fake", "--root", tempDir],
+    ]) {
+      const failure = expectNodeFailure(args);
+      assert.match(failure, /pid file points at http:\/\/127\.0\.0\.1:/);
+      assert.match(failure, /not Mina JSON|stale pid file|restart mair server/);
+      assert.doesNotMatch(failure, /Unexpected token/);
+    }
+    stopChild(fakeServer);
+    try {
+      unlinkSync(pidPath);
+    } catch {
+      // test pid file may already be gone
+    }
+
     const started = JSON.parse(runNode(["server", "start", "--port", String(port)]));
     if (!started.running) {
       if (reportListenerDenied(started)) return;
@@ -89,6 +129,60 @@ async function main() {
 
     const baseUrl = `http://127.0.0.1:${port}`;
     await waitForServer(baseUrl);
+
+    const healthWithRunningServer = JSON.parse(runNode(["health"]));
+    assert.equal(healthWithRunningServer.mcp.httpUrl, `http://127.0.0.1:${port}/mcp`);
+
+    const cliProxiedRegister = JSON.parse(runNode([
+      "register",
+      "cli-proxy-alpha",
+      "--agent",
+      "shell",
+      "--transport",
+      "headless",
+      "--session",
+      "cli-proxy-alpha",
+      "--root",
+      tempDir,
+      "--summary",
+      "CLI proxy alpha helper.",
+      "--sources",
+      "fresh operator smoke",
+    ]));
+    assert.equal(cliProxiedRegister.agent.id, "cli-proxy-alpha");
+    const stateAfterCliRegister = await json(`${baseUrl}/api/state`);
+    assert.ok(
+      stateAfterCliRegister.agents.some((agent) => agent.id === "cli-proxy-alpha"),
+      "expected CLI register to proxy into running HTTP server state",
+    );
+
+    await postJson(`${baseUrl}/api/register`, {
+      id: "http-proxy-beta",
+      name: "http-proxy-beta",
+      agentType: "shell",
+      transport: "headless",
+      sessionId: "http-proxy-beta",
+      projectRoot: tempDir,
+      capabilitySummary: "HTTP beta helper.",
+      capabilitySources: "fresh operator smoke",
+    });
+    const persistedAfterMixedRegister = JSON.parse(readFileSync(statePath, "utf8"));
+    assert.ok(
+      persistedAfterMixedRegister.agents.some((agent) => agent.id === "cli-proxy-alpha"),
+      "expected later HTTP register to preserve CLI proxied agent",
+    );
+    assert.ok(
+      persistedAfterMixedRegister.agents.some((agent) => agent.id === "http-proxy-beta"),
+      "expected HTTP register to persist alongside CLI proxied agent",
+    );
+
+    const cliProxiedAsk = JSON.parse(runNode(["ask", "cli-proxy-alpha", "fresh operator proxy question", "--timeout-ms", "1000"]));
+    assert.equal(cliProxiedAsk.target, "cli-proxy-alpha");
+    const stateAfterCliAsk = await json(`${baseUrl}/api/state`);
+    assert.ok(
+      stateAfterCliAsk.requests.some((request) => request.id === cliProxiedAsk.requestId && request.status === "answered"),
+      "expected CLI ask to proxy into running HTTP server state",
+    );
 
     const visible = JSON.parse(runNode([
       "codex",
@@ -110,6 +204,7 @@ async function main() {
     assert.match(visible.agent.permissionProfileDetail, /No known codex startup flag/);
     assert.equal(visible.permissionProfile.permissionProfileStatus, "unsupported");
     assert.equal(visible.agent.mcpPreflightStatus, "missing");
+    assert.equal(visible.agent.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     assert.equal(visible.agent.bootstrapStatus, "mcp-configuring");
     assert.equal(visible.agent.registrationSource, "cli");
     assert.equal(visible.agent.registrationStatus, "pending");
@@ -117,17 +212,38 @@ async function main() {
     assert.ok(visible.agent.lastRegistrationAttemptAt);
     assert.equal(visible.mcpPreflight.status, "missing");
     assert.match(visible.mcpPreflight.mcpSetupCommand, /codex mcp add mina-ai-router --url/);
+    assert.equal(visible.mcpPreflight.mcpUrl, `http://127.0.0.1:${port}/mcp`);
+    assert.match(visible.mcpPreflight.mcpSetupCommand, new RegExp(`127\\.0\\.0\\.1:${port}/mcp`));
+    assert.doesNotMatch(visible.mcpPreflight.mcpSetupCommand, /127\.0\.0\.1:3333\/mcp/);
     assert.equal(visible.registration, "registration prompt skipped");
     run("tmux", ["has-session", "-t", session]);
     const persistedVisibleAgents = JSON.parse(runNode(["agents"]));
     const persistedVisible = persistedVisibleAgents.agents.find((agent) => agent.id === visible.agent.id);
     assert.ok(persistedVisible, "expected CLI-created visible agent to be persisted");
+    assert.equal(persistedVisible.status, "needs-attention");
     assert.equal(persistedVisible.bootstrapStatus, "mcp-configuring");
     assert.equal(persistedVisible.registrationSource, "cli");
     assert.equal(persistedVisible.registrationStatus, "pending");
     const persistedVisibleDetail = JSON.parse(runNode(["agent", visible.agent.id]));
+    assert.equal(persistedVisibleDetail.agent.status, "needs-attention");
+    assert.equal(persistedVisibleDetail.status.status, "needs-attention");
     assert.equal(persistedVisibleDetail.agent.bootstrapStatus, "mcp-configuring");
     assert.equal(persistedVisibleDetail.agent.mcpPreflightStatus, "missing");
+    const stateAfterVisible = await json(`${baseUrl}/api/state`);
+    const visibleInServer = stateAfterVisible.agents.find((agent) => agent.id === visible.agent.id);
+    assert.ok(visibleInServer, "expected CLI visible agent placeholder to proxy into running HTTP server state");
+    assert.equal(visibleInServer.bootstrapStatus, "mcp-configuring");
+    assert.equal(visibleInServer.status, "needs-attention");
+    const healthAfterVisible = JSON.parse(runNode(["health"]));
+    assert.ok(healthAfterVisible.agents.needsAttention >= 1, "MCP-blocked CLI visible agent should need attention");
+
+    const serverRefresh = JSON.parse(runNode(["agent", "refresh-capabilities", "cli-proxy-alpha", "--timeout-ms", "5000"]));
+    assert.equal(serverRefresh.agent.id, "cli-proxy-alpha");
+    assert.equal(serverRefresh.agent.capabilitySummary, "Headless capability refresh for cli-proxy-alpha.");
+    const stateAfterServerRefresh = await json(`${baseUrl}/api/state`);
+    const refreshedInServer = stateAfterServerRefresh.agents.find((agent) => agent.id === "cli-proxy-alpha");
+    assert.equal(refreshedInServer.capabilitySummary, "Headless capability refresh for cli-proxy-alpha.");
+    assert.equal(refreshedInServer.capabilitySource, "generated");
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "cli-helper",
@@ -155,6 +271,8 @@ async function main() {
 
     const unarchived = JSON.parse(runNode(["request", asked.result.requestId, "unarchive"]));
     assert.equal(unarchived.status, "answered");
+    assert.equal(unarchived.diagnosticStatus, "answered");
+    assert.equal(unarchived.error, undefined);
 
     const invalidCancel = expectNodeFailure(["request", asked.result.requestId, "cancel"]);
     assert.match(invalidCancel, /Cannot cancel request/);
@@ -166,9 +284,11 @@ async function main() {
     const originalAfterRetry = JSON.parse(runNode(["request", asked.result.requestId]));
     const retryRequest = JSON.parse(runNode(["request", retried.requestId]));
     assert.equal(originalAfterRetry.retriedByRequestId, retried.requestId);
+    assert.equal(originalAfterRetry.error, undefined);
     assert.equal(retryRequest.retryOfRequestId, asked.result.requestId);
     assert.equal(retryRequest.status, "answered");
 
+    run("tmux", ["new-session", "-d", "-s", liveSession, "-x", "200", "-y", "60", "-c", tempDir, "sleep 60"]);
     await postJson(`${baseUrl}/api/register`, {
       id: "cli-live",
       name: "cli-live",
@@ -184,6 +304,20 @@ async function main() {
       timeoutMs: 5_000,
     }).catch((error) => error);
     const liveRequest = await waitForOpenRequest(baseUrl, "cli-live");
+    const healthWhileBusy = await json(`${baseUrl}/api/health`);
+    assert.equal(healthWhileBusy.agents.busy, 1, "expected server health to report busy agent");
+    const cliHealthWhileBusy = JSON.parse(runNode(["health"]));
+    assert.equal(cliHealthWhileBusy.agents.busy, 1, "expected CLI health to proxy live busy state");
+    assert.equal(cliHealthWhileBusy.mcp.httpUrl, `http://127.0.0.1:${port}/mcp`);
+    const stateWhileBusy = await json(`${baseUrl}/api/state`);
+    const busyInServerState = stateWhileBusy.agents.find((candidate) => candidate.id === "cli-live");
+    assert.equal(busyInServerState.status, "busy", "expected /api/state to report busy agent");
+    const cliAgentsWhileBusy = JSON.parse(runNode(["agents"]));
+    const busyInCliAgents = cliAgentsWhileBusy.agents.find((candidate) => candidate.id === "cli-live");
+    assert.equal(busyInCliAgents.status, "busy", "expected mair agents to proxy live busy state");
+    const cliAgentDetailWhileBusy = JSON.parse(runNode(["agent", "cli-live"]));
+    assert.equal(cliAgentDetailWhileBusy.status.status, "busy", "expected mair agent detail to proxy live busy state");
+    assert.equal(cliAgentDetailWhileBusy.agent.status, "busy", "expected mair agent detail payload to include live status");
     const cancelled = JSON.parse(runNode(["request", liveRequest.id, "cancel"]));
     assert.equal(cancelled.status, "cancelled");
     assert.equal(cancelled.diagnosticStatus, "cancelled");
@@ -314,6 +448,10 @@ async function postJson(url, body) {
 }
 
 function cleanup() {
+  for (const child of spawnedChildren.splice(0)) {
+    stopChild(child);
+  }
+
   try {
     execFileSync("tmux", ["kill-session", "-t", session], {
       stdio: ["ignore", "ignore", "ignore"],
@@ -342,6 +480,58 @@ function cleanup() {
     runNode(["server", "stop"]);
   } catch {
     // The server may not be running.
+  }
+}
+
+async function startPlainHttpServer(serverPort, bodyText) {
+  const child = spawn(process.execPath, [
+    "-e",
+    [
+      "const http = require('node:http');",
+      "const port = Number(process.argv[1]);",
+      "const body = process.argv[2];",
+      "const server = http.createServer((request, response) => {",
+      "  response.writeHead(200, { 'content-type': 'text/plain' });",
+      "  response.end(body);",
+      "});",
+      "server.listen(port, '127.0.0.1');",
+      "setInterval(() => {}, 1000);",
+    ].join("\n"),
+    String(serverPort),
+    bodyText,
+  ], {
+    cwd: repoRoot,
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`plain HTTP server exited early: ${child.exitCode}`);
+    }
+    try {
+      const response = await fetch(`http://127.0.0.1:${serverPort}/`);
+      if (await response.text() === bodyText) {
+        return child;
+      }
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  stopChild(child);
+  throw new Error(`Timed out waiting for plain HTTP server on ${serverPort}`);
+}
+
+function stopChild(child) {
+  if (!child || child.killed || child.exitCode !== null) {
+    return;
+  }
+
+  try {
+    child.kill("SIGTERM");
+  } catch {
+    // child may already be gone
   }
 }
 

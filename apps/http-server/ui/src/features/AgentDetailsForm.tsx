@@ -16,6 +16,8 @@ export function AgentDetailsForm({
   const [sources, setSources] = useState(agent.capabilitySources || "");
   const freshness = capabilityFreshness(agent);
   const quality = capabilityQualityLabel(agent);
+  const capabilitySummaryId = `agent-capability-summary-${agent.id}`;
+  const capabilitySourcesId = `agent-capability-sources-${agent.id}`;
 
   return (
     <>
@@ -79,8 +81,10 @@ export function AgentDetailsForm({
           void onSave(summary, sources);
         }}
       >
-        <label style={{ gridColumn: "1 / -1" }}>Capabilities<textarea value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
-        <label style={{ gridColumn: "1 / -1" }}>Capability sources<input value={sources} onChange={(event) => setSources(event.target.value)} /></label>
+        <label htmlFor={capabilitySummaryId} style={{ gridColumn: "1 / -1" }}>Capabilities</label>
+        <textarea id={capabilitySummaryId} style={{ gridColumn: "1 / -1" }} value={summary} onChange={(event) => setSummary(event.target.value)} />
+        <label htmlFor={capabilitySourcesId} style={{ gridColumn: "1 / -1" }}>Capability sources</label>
+        <input id={capabilitySourcesId} style={{ gridColumn: "1 / -1" }} value={sources} onChange={(event) => setSources(event.target.value)} />
         <div className="actions">
           <Button type="submit"><Icon name="bolt" />Save Capabilities</Button>
           <Button tone="secondary" onClick={() => {

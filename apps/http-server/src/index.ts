@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
+import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type AgentCapabilityProfile, type TransportType } from "../../../packages/core/src";
 import { createMinaMcpProvider } from "../../../packages/mcp/src/provider";
 import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type { McpFetchHandler, McpRuntimeProvider } from "@minasoft/mcp-runtime";
@@ -70,6 +70,11 @@ const server = createServer((request, response) => {
   });
 });
 
+(server as unknown as { on(event: "error", listener: (error: unknown) => void): void }).on("error", (error) => {
+  console.error(`Mina AI Router HTTP server failed to start: ${error instanceof Error ? error.message : String(error)}`);
+  throw error instanceof Error ? error : new Error(String(error));
+});
+
 server.listen(port, host, () => {
   console.log(`Mina AI Router HTTP server`);
   console.log(`UI:  http://${host}:${port}/`);
@@ -126,6 +131,14 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     const body = await readJsonBody(request);
     const agent = registerAgent(body);
     sendJson(response, 200, { agent, state: await getUiState() });
+    return;
+  }
+
+  const agentCapabilityRefreshMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/refresh-capabilities$/);
+  if (agentCapabilityRefreshMatch && request.method === "POST") {
+    const body = await readJsonBody(request);
+    const result = await refreshAgentCapabilities(decodeURIComponent(agentCapabilityRefreshMatch[1]), body);
+    sendJson(response, 200, { ...result, state: await getUiState() });
     return;
   }
 
@@ -188,7 +201,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       sendJson(response, 200, { result, state: await getUiState() });
     } catch (error) {
       context.save();
-      sendJson(response, 500, {
+      sendJson(response, error instanceof AgentNotRouteReadyError ? 409 : 500, {
         error: error instanceof Error ? error.message : String(error),
         state: await getUiState(),
       });
@@ -467,6 +480,12 @@ function registerAgent(body: Record<string, unknown>): Agent {
     permissionProfile: stringValue(body.permissionProfile) ?? "default",
     permissionProfileStatus: stringValue(body.permissionProfileStatus) ?? "not-requested",
     permissionProfileDetail: stringValue(body.permissionProfileDetail),
+    mcpPreflightStatus: stringValue(body.mcpPreflightStatus),
+    mcpPreflightDetail: stringValue(body.mcpPreflightDetail),
+    mcpSetupCommand: stringValue(body.mcpSetupCommand),
+    mcpVerifyCommand: stringValue(body.mcpVerifyCommand),
+    mcpRemoveCommand: stringValue(body.mcpRemoveCommand),
+    mcpUrl: stringValue(body.mcpUrl),
   };
 
   const registered = context.registry.register(agent, {
@@ -522,6 +541,98 @@ function updateAgent(id: string, body: Record<string, unknown>): Agent {
     : context.registry.require(id);
   context.save();
   return updated;
+}
+
+async function refreshAgentCapabilities(id: string, body: Record<string, unknown>) {
+  const agent = context.registry.require(id);
+  const response = await context.router.callAgent({
+    target: id,
+    task: buildCapabilityRefreshTask(agent),
+    timeoutMs: typeof body.timeoutMs === "number" ? body.timeoutMs : undefined,
+  });
+  const notice = parseCapabilityRefreshAnswer(response.answer);
+  const refreshedAt = new Date().toISOString();
+  const updated = context.registry.updateCapabilities(id, {
+    summary: notice.capabilitySummary,
+    sources: notice.capabilitySources,
+    source: "generated",
+    refreshedAt,
+    profile: notice.capabilityProfile,
+  });
+  context.save();
+
+  return {
+    agent: updated,
+    refresh: {
+      requestId: response.requestId,
+      refreshedAt,
+      capabilitySource: updated.capabilitySource,
+    },
+  };
+}
+
+function buildCapabilityRefreshTask(agent: Agent): string {
+  return [
+    "Refresh your Mina AI Router capability registration for this visible local agent.",
+    "",
+    "Inspect local project docs and metadata before answering.",
+    "Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
+    "If those files are missing, inspect package metadata and the project file tree.",
+    "",
+    "Return only JSON with these string fields:",
+    "{",
+    '  "capabilitySummary": "2-5 short bullets or one short paragraph under 800 characters",',
+    '  "capabilitySources": "comma-separated file paths or project signals used",',
+    '  "capabilityProfile": {',
+    '    "projectPurpose": "what this project implements",',
+    '    "primaryLanguages": ["TypeScript"],',
+    '    "keyAreas": ["router", "MCP endpoint"],',
+    '    "canAnswer": ["specific question domains this agent can answer"],',
+    '    "cannotAnswerYet": ["known limits"],',
+    '    "evidence": ["README.md", "package.json", "src/..."]',
+    "  }",
+    "}",
+    "",
+    "Do not include markdown fences or extra commentary in the JSON body.",
+    "",
+    "Registration context:",
+    `- id: ${agent.id}`,
+    `- agentType: ${agent.agentType}`,
+    `- transport: ${agent.transport}`,
+    `- sessionId: ${agent.sessionId}`,
+    `- projectRoot: ${agent.projectRoot}`,
+  ].join("\n");
+}
+
+function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: string; capabilitySources: string; capabilityProfile?: Partial<AgentCapabilityProfile> } {
+  const trimmed = answer.trim();
+  const jsonText = trimmed.startsWith("{") ? trimmed : trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1);
+
+  if (!jsonText || !jsonText.startsWith("{") || !jsonText.endsWith("}")) {
+    throw new Error("Capability refresh response did not contain a JSON object.");
+  }
+
+  const parsed = JSON.parse(jsonText) as {
+    capabilitySummary?: unknown;
+    capabilitySources?: unknown;
+    capabilityProfile?: unknown;
+  };
+  const capabilitySummary = typeof parsed.capabilitySummary === "string" ? parsed.capabilitySummary.trim() : "";
+  const capabilitySources = typeof parsed.capabilitySources === "string" ? parsed.capabilitySources.trim() : "";
+
+  if (!capabilitySummary || !capabilitySources) {
+    throw new Error("Capability refresh JSON requires non-empty capabilitySummary and capabilitySources strings.");
+  }
+
+  if (capabilitySummary.length > 800) {
+    throw new Error("Capability refresh JSON capabilitySummary must be under 800 characters.");
+  }
+
+  return {
+    capabilitySummary,
+    capabilitySources,
+    capabilityProfile: capabilityProfileValue(parsed.capabilityProfile),
+  };
 }
 
 function listDirectories(body: Record<string, unknown>) {

@@ -11,6 +11,8 @@ import {
   packageVersion,
   type Agent,
   type AgentCapabilityProfile,
+  type AgentStatus,
+  type AgentRequest,
   type TransportType,
 } from "../../../packages/core/src";
 import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
@@ -43,16 +45,16 @@ async function main(argv: string[]): Promise<void> {
       runVerify();
       break;
     case "server":
-      handleServerCommand(argv.slice(3));
+      await handleServerCommand(argv.slice(3));
       break;
     case "codex":
-      startVisibleAgent("codex", "codex --no-alt-screen", argv.slice(3), context);
+      await startVisibleAgent("codex", "codex --no-alt-screen", argv.slice(3), context);
       break;
     case "claude":
-      startVisibleAgent("claude", "claude", argv.slice(3), context);
+      await startVisibleAgent("claude", "claude", argv.slice(3), context);
       break;
     case "register":
-      registerAgent(argv.slice(3), context);
+      await registerAgent(argv.slice(3), context);
       break;
     case "agents":
       await listAgents(context);
@@ -83,13 +85,13 @@ async function main(argv: string[]): Promise<void> {
   }
 }
 
-function handleServerCommand(args: string[]): void {
+async function handleServerCommand(args: string[]): Promise<void> {
   const action = args[0] ?? "status";
   const flags = parseFlags(args.slice(1));
 
   switch (action) {
     case "start":
-      startServer(flags);
+      await startServer(flags);
       break;
     case "stop":
       stopServer();
@@ -102,7 +104,7 @@ function handleServerCommand(args: string[]): void {
   }
 }
 
-function startServer(flags: Record<string, string>): void {
+async function startServer(flags: Record<string, string>): Promise<void> {
   const current = serverStatus();
   if (current.running) {
     printJson(current);
@@ -113,6 +115,11 @@ function startServer(flags: Record<string, string>): void {
   const host = flags.host ?? process.env.MINA_HTTP_HOST ?? "127.0.0.1";
   const serverPath = join(__dirname, "../../http-server/src/index.js");
   mkdirSync(dirname(serverPidPath), { recursive: true });
+  try {
+    unlinkSync(serverPidPath);
+  } catch {
+    // stale pid file may not exist
+  }
   const logPath = flags.log ?? join(dirname(serverPidPath), "mair-server.log");
   const logFd = openSync(logPath, "a");
   const child = spawn(process.execPath, [serverPath], {
@@ -126,12 +133,28 @@ function startServer(flags: Record<string, string>): void {
     },
   });
   closeSync(logFd);
-  child.unref();
   const pid = child.pid;
   if (!pid) {
     throw new Error("Failed to start Mina HTTP server.");
   }
-  sleep(500);
+
+  let childExit: { code: number | null; signal: string | null } | undefined;
+  child.on("exit", (code) => {
+    childExit = { code, signal: null };
+  });
+
+  try {
+    await waitForServerReadiness({ host, port, expectedStatePath: process.env.MINA_ROUTER_STATE ?? statePath, logPath, pid, getChildExit: () => childExit });
+  } catch (error) {
+    if (isProcessRunning(pid)) {
+      try {
+        process.kill(pid, "SIGTERM");
+      } catch {
+        // child may already be gone
+      }
+    }
+    throw error;
+  }
 
   writeFileSync(serverPidPath, `${JSON.stringify({
     pid,
@@ -144,7 +167,78 @@ function startServer(flags: Record<string, string>): void {
     startedAt: new Date().toISOString(),
   }, null, 2)}\n`);
 
+  child.unref();
   printJson(serverStatus());
+}
+
+async function waitForServerReadiness(options: {
+  host: string;
+  port: string;
+  expectedStatePath: string;
+  logPath: string;
+  pid: number;
+  getChildExit: () => { code: number | null; signal: string | null } | undefined;
+}): Promise<void> {
+  const url = `http://${options.host}:${options.port}/api/health`;
+  const deadline = Date.now() + 5_000;
+  let lastError = "";
+
+  while (Date.now() < deadline) {
+    const childExit = options.getChildExit();
+    if (childExit || !isProcessRunning(options.pid)) {
+      throw new Error(serverStartFailureMessage({
+        url,
+        logPath: options.logPath,
+        cause: childExit
+          ? `server process exited before readiness (code=${childExit.code ?? "null"}, signal=${childExit.signal ?? "null"})`
+          : "server process exited before readiness",
+      }));
+    }
+
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      const parsed = safeJson(text) as { statePath?: unknown } | undefined;
+      if (response.ok && parsed && typeof parsed.statePath === "string") {
+        if (resolvePath(parsed.statePath) !== resolvePath(options.expectedStatePath)) {
+          lastError = `readiness endpoint responded from a Mina server for a different state file: ${parsed.statePath}`;
+        } else {
+          return;
+        }
+      } else {
+        lastError = parsed
+          ? `readiness endpoint returned HTTP ${response.status} without Mina health state`
+          : `readiness endpoint did not return Mina JSON: ${truncateText(text, 160)}`;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+
+    await delay(100);
+  }
+
+  throw new Error(serverStartFailureMessage({
+    url,
+    logPath: options.logPath,
+    cause: `timed out waiting for Mina readiness${lastError ? `: ${lastError}` : ""}`,
+  }));
+}
+
+function serverStartFailureMessage(input: { url: string; logPath: string; cause: string }): string {
+  const logExcerpt = readLogExcerpt(input.logPath);
+  return [
+    `Mina HTTP server failed to become ready at ${input.url}: ${input.cause}.`,
+    `Log: ${input.logPath}`,
+    logExcerpt ? `Recent log:\n${logExcerpt}` : "Recent log: <empty>",
+  ].join("\n");
+}
+
+function readLogExcerpt(logPath: string): string {
+  if (!existsSync(logPath)) {
+    return "";
+  }
+
+  return readFileSync(logPath, "utf8").split(/\r?\n/).filter(Boolean).slice(-12).join("\n");
 }
 
 function stopServer(): void {
@@ -203,12 +297,12 @@ function isProcessRunning(pid: number): boolean {
   }
 }
 
-function startVisibleAgent(
+async function startVisibleAgent(
   agentType: "codex" | "claude",
   defaultCommand: string,
   args: string[],
   context: ReturnType<typeof createContext>,
-): void {
+): Promise<void> {
   assertCommandAvailable("tmux");
 
   const flags = parseFlags(args);
@@ -218,9 +312,11 @@ function startVisibleAgent(
   const sessionId = flags.session ?? `${agentType}-${sanitizeName(projectName)}`;
   const startupCommand = flags.command ?? defaultCommand;
   const permissionProfile = resolvePermissionProfile(agentType, flags["permission-profile"] ?? "default", root);
+  const mcpUrl = matchingLiveServerStatus()?.mcpUrl
+    ?? `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`;
   const mcpPreflight = buildMcpPreflight({
     agentType,
-    mcpUrl: `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`,
+    mcpUrl,
     mcpName: flags["mcp-name"],
     configured: flags["mcp-configured"] === "true",
     configuredUrl: flags["mcp-configured-url"],
@@ -257,8 +353,7 @@ function startVisibleAgent(
   const tmux = new TmuxClient();
   const existed = tmux.hasSession(sessionId);
   tmux.ensureSession(agent);
-  let registeredAgent = context.registry.register(agent);
-  context.save();
+  let registeredAgent = await registerThroughLiveOwner(agent, context);
 
   let registration = "registration prompt skipped";
   let nextAction: string | undefined;
@@ -268,19 +363,17 @@ function startVisibleAgent(
     if (permissionPrompt) {
       registration = "waiting for permission approval";
       nextAction = permissionPrompt.action;
-      registeredAgent = context.registry.register({
+      registeredAgent = await registerThroughLiveOwner({
         ...registeredAgent,
         bootstrapStatus: "permission-required",
-      });
-      context.save();
+      }, context);
     } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
       registration = "waiting for MCP setup";
       nextAction = mcpPreflight.nextAction;
-      registeredAgent = context.registry.register({
+      registeredAgent = await registerThroughLiveOwner({
         ...registeredAgent,
         bootstrapStatus: "mcp-configuring",
-      });
-      context.save();
+      }, context);
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
       if (agentType === "codex") {
@@ -289,12 +382,11 @@ function startVisibleAgent(
         tmux.sendText(sessionId, prompt);
       }
       registration = "registration prompt sent to agent";
-      registeredAgent = context.registry.register({
+      registeredAgent = await registerThroughLiveOwner({
         ...registeredAgent,
         bootstrapStatus: "registration-pending",
         registrationStatus: "pending",
-      });
-      context.save();
+      }, context);
     }
   }
 
@@ -365,9 +457,47 @@ function buildSelfRegistrationPrompt(agent: Agent): string {
 }
 
 async function showHealth(context: ReturnType<typeof createContext>): Promise<void> {
+  const liveHealth = await getFromMatchingLiveServer<{
+    ok: boolean;
+    statePath: string;
+    mcpUrl: string;
+    agents: {
+      total: number;
+      available: number;
+      busy: number;
+      stale: number;
+      missing: number;
+      needsAttention: number;
+      unknown: number;
+    };
+    requests: {
+      total: number;
+      open: number;
+      waiting?: number;
+      answered: number;
+      failed: number;
+      archived: number;
+    };
+  }>("/api/health");
+  if (liveHealth) {
+    printJson({
+      ok: liveHealth.ok,
+      version,
+      statePath: liveHealth.statePath,
+      tmuxAvailable: new TmuxClient().isAvailable(),
+      agents: liveHealth.agents,
+      requests: liveHealth.requests,
+      mcp: {
+        httpUrl: liveHealth.mcpUrl,
+      },
+    });
+    return;
+  }
+
   const agents = await context.router.listAgentStatuses();
   const requests = context.router.listRequests();
   const openRequests = requests.filter((request) => ["created", "sent", "waiting"].includes(request.status));
+  const matchingServer = matchingLiveServerStatus();
 
   printJson({
     ok: agents.every((agent) => !["missing", "stale", "needs-attention"].includes(agent.status)),
@@ -391,7 +521,8 @@ async function showHealth(context: ReturnType<typeof createContext>): Promise<vo
       archived: requests.filter((request) => request.status === "archived").length,
     },
     mcp: {
-      httpUrl: `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`,
+      httpUrl: matchingServer?.mcpUrl
+        ?? `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`,
     },
   });
 }
@@ -525,7 +656,7 @@ function createContext() {
   };
 }
 
-function registerAgent(args: string[], context: ReturnType<typeof createContext>): void {
+async function registerAgent(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
   const id = args[0];
   if (!id) {
     throw new Error("Usage: mair register <id> --agent <type> --transport <transport> --session <session> --root <path>");
@@ -552,6 +683,12 @@ function registerAgent(args: string[], context: ReturnType<typeof createContext>
     confirmedByAgentAt: now,
   };
 
+  const proxied = await postToMatchingLiveServer<{ agent: Agent }>("/api/register", agent);
+  if (proxied) {
+    printJson({ agent: proxied.agent });
+    return;
+  }
+
   const registered = context.registry.register(agent, {
     capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "manual" : undefined,
   });
@@ -560,6 +697,14 @@ function registerAgent(args: string[], context: ReturnType<typeof createContext>
 }
 
 async function listAgents(context: ReturnType<typeof createContext>): Promise<void> {
+  const liveState = await getLiveUiState();
+  if (liveState) {
+    printJson({
+      agents: liveState.agents,
+    });
+    return;
+  }
+
   const agents = await context.router.listAgentStatuses();
   printJson({
     agents,
@@ -581,6 +726,20 @@ async function showAgent(args: string[], context: ReturnType<typeof createContex
     throw new Error("Usage: mair agent <id> | mair agent refresh-capabilities <id> [--timeout-ms 300000]");
   }
 
+  const liveState = await getLiveUiState();
+  if (liveState) {
+    const status = liveState.agents.find((candidate) => candidate.id === id);
+    if (!status) {
+      throw new Error(`Agent "${id}" is not registered.`);
+    }
+    printJson({
+      agent: status,
+      status,
+      attach: status.transport === "tmux" ? `tmux attach -t ${status.sessionId}` : undefined,
+    });
+    return;
+  }
+
   const agent = context.registry.require(id);
   const statuses = await context.router.listAgentStatuses();
   printJson({
@@ -597,6 +756,20 @@ async function refreshAgentCapabilities(args: string[], context: ReturnType<type
   }
 
   const flags = parseFlags(args.slice(1));
+  const proxied = await postToMatchingLiveServer<{ agent: Agent; refresh: { requestId: string; refreshedAt: string; capabilitySource?: string } }>(
+    `/api/agents/${encodeURIComponent(id)}/refresh-capabilities`,
+    {
+      timeoutMs: flags["timeout-ms"] ? Number(flags["timeout-ms"]) : undefined,
+    },
+  );
+  if (proxied) {
+    printJson({
+      agent: proxied.agent,
+      refresh: proxied.refresh,
+    });
+    return;
+  }
+
   const agent = context.registry.require(id);
   const response = await context.router.callAgent({
     target: id,
@@ -744,6 +917,16 @@ async function askAgent(args: string[], context: ReturnType<typeof createContext
   }
 
   const flags = parseFlags(args);
+  const proxied = await postToMatchingLiveServer<{ result: unknown }>("/api/ask", {
+    target,
+    task: taskFromArgs(args.slice(1)),
+    timeoutMs: flags["timeout-ms"] ? Number(flags["timeout-ms"]) : undefined,
+  });
+  if (proxied) {
+    printJson(proxied.result);
+    return;
+  }
+
   try {
     const response = await context.router.callAgent({
       target,
@@ -755,6 +938,19 @@ async function askAgent(args: string[], context: ReturnType<typeof createContext
   } finally {
     context.save();
   }
+}
+
+async function registerThroughLiveOwner(agent: Agent, context: ReturnType<typeof createContext>): Promise<Agent> {
+  const proxied = await postToMatchingLiveServer<{ agent: Agent }>("/api/register", agent);
+  if (proxied) {
+    return proxied.agent;
+  }
+
+  const registered = context.registry.register(agent, {
+    capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "manual" : undefined,
+  });
+  context.save();
+  return registered;
 }
 
 function listRequests(args: string[], context: ReturnType<typeof createContext>): void {
@@ -894,12 +1090,8 @@ function isRequestAction(action: string): action is "retry" | "cancel" | "archiv
 }
 
 async function runServerRequestAction(requestId: string, action: string): Promise<boolean> {
-  const status = serverStatus();
-  if (!status.running || !status.host || !status.port || !status.statePath) {
-    return false;
-  }
-
-  if (resolvePath(status.statePath) !== resolvePath(statePath)) {
+  const status = matchingLiveServerStatus();
+  if (!status) {
     return false;
   }
 
@@ -917,7 +1109,7 @@ async function runServerRequestAction(requestId: string, action: string): Promis
     );
   }
 
-  const body = await response.json() as { result?: unknown; error?: string };
+  const body = await parseLiveServerJsonResponse<{ result?: unknown; error?: string }>(response, url, `/api/requests/${requestId}/${action}`);
   if (!response.ok) {
     throw new Error(body.error ?? `Request action ${action} failed with HTTP ${response.status}.`);
   }
@@ -926,8 +1118,151 @@ async function runServerRequestAction(requestId: string, action: string): Promis
   return true;
 }
 
+async function getLiveUiState(): Promise<{ statePath: string; mcpUrl: string; agents: AgentStatus[]; requests: AgentRequest[] } | undefined> {
+  return getFromMatchingLiveServer("/api/state");
+}
+
+function matchingLiveServerStatus(): ReturnType<typeof serverStatus> | undefined {
+  const status = serverStatus();
+  if (!status.running || !status.host || !status.port || !status.statePath) {
+    return undefined;
+  }
+
+  if (resolvePath(status.statePath) !== resolvePath(statePath)) {
+    return undefined;
+  }
+
+  return status;
+}
+
+async function getFromMatchingLiveServer<T>(path: string): Promise<T | undefined> {
+  const status = matchingLiveServerStatus();
+  if (!status) {
+    return undefined;
+  }
+
+  const url = `http://${status.host}:${status.port}${path}`;
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    throw new Error(
+      `Mina server is running for this state file, but CLI live read could not reach ${url}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const responseBody = await parseLiveServerJsonResponse<T & { error?: string }>(response, url, path);
+  if (!response.ok) {
+    throw new Error(responseBody.error ?? `CLI live read ${path} failed with HTTP ${response.status}.`);
+  }
+
+  return responseBody;
+}
+
+async function postToMatchingLiveServer<T>(path: string, body: unknown): Promise<T | undefined> {
+  const status = matchingLiveServerStatus();
+  if (!status) {
+    return undefined;
+  }
+
+  const url = `http://${status.host}:${status.port}${path}`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+  } catch (error) {
+    throw new Error(
+      `Mina server is running for this state file, but CLI proxy could not reach ${url}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  const responseBody = await parseLiveServerJsonResponse<T & { error?: string }>(response, url, path);
+  if (!response.ok) {
+    throw new Error(responseBody.error ?? `CLI proxy ${path} failed with HTTP ${response.status}.`);
+  }
+
+  return responseBody;
+}
+
+async function parseLiveServerJsonResponse<T>(response: Response, url: string, path: string): Promise<T> {
+  const text = await response.text();
+  const parsed = safeJson(text);
+  if (parsed === undefined) {
+    throw new Error(nonMinaPidMessage(url, `response was not Mina JSON: ${truncateText(text, 160)}`));
+  }
+
+  if (response.ok && !looksLikeMinaResponse(path, parsed)) {
+    throw new Error(nonMinaPidMessage(url, "response JSON did not match Mina server shape"));
+  }
+
+  return parsed as T;
+}
+
+function looksLikeMinaResponse(path: string, value: unknown): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (path === "/api/health") {
+    return typeof record.statePath === "string"
+      && typeof record.mcpUrl === "string"
+      && Boolean(record.agents && typeof record.agents === "object")
+      && Boolean(record.requests && typeof record.requests === "object");
+  }
+
+  if (path === "/api/state") {
+    return typeof record.statePath === "string"
+      && typeof record.mcpUrl === "string"
+      && Array.isArray(record.agents)
+      && Array.isArray(record.requests);
+  }
+
+  if (path === "/api/register") {
+    return Boolean(record.agent && typeof record.agent === "object");
+  }
+
+  if (path === "/api/ask") {
+    return Boolean(record.result && typeof record.result === "object");
+  }
+
+  if (/^\/api\/agents\/[^/]+\/refresh-capabilities$/.test(path)) {
+    return Boolean(record.agent && typeof record.agent === "object")
+      && Boolean(record.refresh && typeof record.refresh === "object");
+  }
+
+  if (/^\/api\/requests\/[^/]+\/[^/]+$/.test(path)) {
+    return "result" in record;
+  }
+
+  return true;
+}
+
+function nonMinaPidMessage(url: string, detail: string): string {
+  return [
+    `Mina server pid file points at ${url}, but ${detail}.`,
+    `Remove stale pid file ${serverPidPath} or restart mair server.`,
+  ].join(" ");
+}
+
 function resolvePath(value: string): string {
   return resolve(value);
+}
+
+function safeJson(value: string): unknown | undefined {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function truncateText(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 }
 
 function parseFlags(args: string[]): Record<string, string> {
@@ -986,6 +1321,10 @@ function sleep(milliseconds: number): void {
   }
 
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 }
 
 function taskFromArgs(args: string[]): string {

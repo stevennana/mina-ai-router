@@ -32,6 +32,14 @@ export function mairRefreshCapabilitiesCommand(agent: RouterAgent): string {
   return `mair agent refresh-capabilities ${agent.id}`;
 }
 
+export function isRouteReady(agent: RouterAgent): boolean {
+  return agent.routeReady !== false;
+}
+
+export function routeBlockedReason(agent: RouterAgent): string {
+  return agent.routeBlockedReason || healthMessage(agent);
+}
+
 export function healthMessage(agent: RouterAgent): string {
   if (agent.bootstrapStatus === "mcp-configuring") {
     return agent.mcpPreflightDetail || "This agent is waiting for Mina MCP setup before self-registration.";

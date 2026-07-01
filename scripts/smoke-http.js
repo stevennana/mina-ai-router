@@ -89,6 +89,7 @@ async function main() {
     assert.match(html, /type="module"[^>]+\/assets\/index-.*\.js/);
     assert.match(html, /rel="stylesheet"[^>]+\/assets\/index-.*\.css/);
     await assertUiFreshnessSurface(html);
+    assertFirstUserUiReviewAffordancesFromSource();
 
     const seededState = await json(`${baseUrl}/api/state`);
     const missingAgent = seededState.agents.find((agent) => agent.id === "ui-missing");
@@ -203,6 +204,25 @@ async function main() {
     assert.equal(mcpBlocked.agent.bootstrapStatus, "mcp-configuring");
     assert.equal(mcpBlocked.agent.mcpPreflightStatus, "missing");
     assert.match(mcpBlocked.nextAction, /claude mcp add --transport http mina-ai-router/);
+    const mcpBlockedState = await json(`${baseUrl}/api/state`);
+    const mcpBlockedStatus = mcpBlockedState.agents.find((agent) => agent.id === "ui-mcp-missing");
+    assert.equal(mcpBlockedStatus.status, "needs-attention");
+    assert.match(mcpBlockedStatus.detail, /MCP setup/);
+    const mcpBlockedHealth = await json(`${baseUrl}/api/health`);
+    assert.equal(mcpBlockedHealth.agents.available, 0, "MCP-blocked tmux agent must not be counted as available");
+    assert.ok(mcpBlockedHealth.agents.needsAttention >= 1, "MCP-blocked tmux agent should need attention");
+    const mcpBlockedAsk = await expectPostJsonFailure(`${baseUrl}/api/ask`, {
+      target: "ui-mcp-missing",
+      task: "This should not route before MCP setup.",
+      timeoutMs: 250,
+    });
+    assert.equal(mcpBlockedAsk.status, 409);
+    assert.match(mcpBlockedAsk.body.error, /not ready to receive routed work/);
+    assert.equal(
+      mcpBlockedAsk.body.state.requests.some((request) => request.targetAgent === "ui-mcp-missing"),
+      false,
+      "readiness rejection must not create a routed request",
+    );
 
     const promptScriptPath = join(tempDir, "permission-prompt-fixture.sh");
     writeFileSync(promptScriptPath, [
@@ -229,6 +249,33 @@ async function main() {
     assert.equal(blockedAgent.bootstrapStatus, "permission-required");
     assert.equal(blockedAgent.permissionPrompt.client, "codex");
     assert.match(blockedAgent.detail, /directory trust approval/);
+
+    const updatePromptScriptPath = join(tempDir, "codex-update-prompt-fixture.sh");
+    writeFileSync(updatePromptScriptPath, [
+      "printf 'Update available! 0.142.3 -> 0.142.4\\n'",
+      "printf '1. Update now (runs `npm install -g @openai/codex`)\\n'",
+      "printf '2. Skip\\n'",
+      "printf '3. Skip until next version\\n'",
+      "printf 'Press enter to continue\\n'",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const updatePromptAgent = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-codex-update",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: `mina-http-update-${process.pid}`,
+      startupCommand: `/bin/sh ${updatePromptScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+      sendRegistrationPrompt: false,
+    });
+    assert.equal(updatePromptAgent.agent.bootstrapStatus, "created");
+    assert.equal(updatePromptAgent.agent.permissionPrompt, undefined);
+    const updateTerminal = await json(`${baseUrl}/api/agents/ui-codex-update/terminal`);
+    assert.equal(updateTerminal.terminal.trustPrompt, false);
+    assert.equal(updateTerminal.terminal.permissionPrompt, undefined);
+    assert.match(updateTerminal.terminal.text, /Update available/);
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "http-smoke",
@@ -330,6 +377,17 @@ async function main() {
       mcpConfigured: true,
     });
     assert.equal(timeoutAgent.agent.id, "http-timeout");
+    const confirmedTimeoutAgent = await postJson(`${baseUrl}/api/register`, {
+      id: "http-timeout",
+      name: "http-timeout",
+      agentType: "codex",
+      transport: "tmux",
+      sessionId: timeoutSession,
+      projectRoot: tempDir,
+      capabilitySummary: "Timeout smoke helper.",
+      capabilitySources: "scripts/smoke-http.js",
+    });
+    assert.equal(confirmedTimeoutAgent.agent.registrationStatus, "confirmed");
     const timedOutAsk = await expectPostJsonFailure(`${baseUrl}/api/ask`, {
       target: "http-timeout",
       task: "HTTP timeout lease request",
@@ -565,6 +623,10 @@ function assertUiFreshnessSurfaceContent(script, stylesheet) {
   assert.match(script, /needs-attention/);
   assert.match(script, /Last seen/);
   assert.match(script, /needs attention/);
+  assert.doesNotMatch(script, /Port 3333/);
+  assert.match(script, /Terminal Unavailable/);
+  assert.match(script, /direct terminal control is unavailable/);
+  assert.match(script, /ask-agent-task/);
 
   assert.match(stylesheet, /capability-fresh/);
   assert.match(stylesheet, /capability-profile/);
@@ -583,6 +645,45 @@ function assertUiFreshnessSurfaceContent(script, stylesheet) {
   assert.match(stylesheet, /activity-body/);
   assert.match(stylesheet, /overflow:auto/);
   assertStaticVisualFixture(stylesheet);
+}
+
+function assertFirstUserUiReviewAffordancesFromSource() {
+  const commandBar = readFileSync("apps/http-server/ui/src/features/CommandBar.tsx", "utf8");
+  assert.doesNotMatch(commandBar, /Port 3333/, "CommandBar must not hard-code the default port");
+  assert.match(commandBar, /portLabelFromMcpUrl/, "CommandBar should derive the displayed port from the MCP URL");
+  assert.match(commandBar, /new URL\(mcpUrl\)/, "CommandBar port derivation should parse the authoritative MCP URL");
+
+  const inspector = readFileSync("apps/http-server/ui/src/features/Inspector.tsx", "utf8");
+  assert.match(inspector, /hasTmuxTerminal/, "Inspector should branch terminal controls by transport");
+  assert.match(inspector, /direct terminal control is unavailable/, "Inspector should explain unavailable non-tmux terminal control");
+  assert.match(inspector, /hasTmuxTerminal \?/, "Inspector should render Open Terminal only for tmux agents");
+  assert.match(inspector, /isRouteReady/, "Inspector Ask action should use route readiness");
+  assert.match(inspector, /disabled=\{!routeReady\}/, "Inspector Ask action should be disabled for non-ready agents");
+  assert.match(inspector, /routeBlockedReason/, "Inspector should show route blocker guidance");
+
+  const menus = readFileSync("apps/http-server/ui/src/features/Menus.tsx", "utf8");
+  assert.match(menus, /Terminal Unavailable/, "Agent context menu should label non-tmux terminal action as unavailable");
+  assert.match(menus, /isRouteReady/, "Agent context menu Ask action should use route readiness");
+  assert.match(menus, /disabled=\{!routeReady\}/, "Agent context menu Ask action should be disabled for non-ready agents");
+
+  const askForm = readFileSync("apps/http-server/ui/src/features/AskAgentForm.tsx", "utf8");
+  assert.match(askForm, /htmlFor=\{taskInputId\}/, "Ask form Task label should be explicitly associated");
+  assert.match(askForm, /id=\{taskInputId\}/, "Ask form textarea should expose an explicit id");
+
+  const detailsForm = readFileSync("apps/http-server/ui/src/features/AgentDetailsForm.tsx", "utf8");
+  assert.match(detailsForm, /htmlFor=\{capabilitySummaryId\}/, "Capability summary label should be explicitly associated");
+  assert.match(detailsForm, /id=\{capabilitySummaryId\}/, "Capability summary textarea should expose an explicit id");
+  assert.match(detailsForm, /htmlFor=\{capabilitySourcesId\}/, "Capability sources label should be explicitly associated");
+  assert.match(detailsForm, /id=\{capabilitySourcesId\}/, "Capability sources input should expose an explicit id");
+
+  const createForm = readFileSync("apps/http-server/ui/src/features/CreateTmuxAgentForm.tsx", "utf8");
+  assert.match(createForm, /onCreated\(result\.agent, result\.state\)/, "Create form should return the API state with the created agent");
+
+  const app = readFileSync("apps/http-server/ui/src/App.tsx", "utf8");
+  assert.match(app, /onCreated=\{\(agent, nextState\)/, "App should receive create-agent state in the callback");
+  assert.match(app, /setState\(nextState\)/, "App should apply create-agent state immediately without relying on manual refresh");
+  assert.match(app, /!isRouteReady\(agent\)/, "App should guard stale Ask modals with route readiness");
+  assert.doesNotMatch(app, /onCreated=\{\(agent\) => \{\s*setSelectedAgentId\(agent\.id\);\s*void refresh\(\);/s);
 }
 
 function assertStaticVisualFixture(stylesheet) {

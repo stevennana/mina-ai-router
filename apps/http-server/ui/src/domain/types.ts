@@ -125,6 +125,8 @@ export type RouterAgent = {
   healthCheckedAt?: string;
   staleAfterMs?: number;
   detail?: string;
+  routeReady?: boolean;
+  routeBlockedReason?: string;
   status: AgentStatus;
   lastRequestStatus?: string;
   isSelf?: boolean;

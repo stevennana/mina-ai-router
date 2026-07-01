@@ -5,7 +5,7 @@
   "id": "fresh-operator-smoke-hardening",
   "title": "Fresh operator smoke hardening",
   "order": 26,
-  "status": "queued",
+  "status": "completed",
   "next_task_on_success": "NONE",
   "promotion_mode": "deterministic_only",
   "prompt_docs": [
@@ -34,7 +34,8 @@
     "Fresh operator mixed CLI/UI flow is not covered by a repeatable smoke test",
     "Docs still tell users to mix CLI and UI without explaining server-owned live state",
     "Release verification passes while the review's P1 reproduction can still overwrite state"
-  ]
+  ],
+  "completed_at": "2026-06-29T09:35:00+09:00"
 }
 ```
 
@@ -78,3 +79,4 @@ This is the release hardening task for the fresh operator wave. Keep it focused 
 ## Progress log
 
 - 2026-06-29: Seeded as the final fresh operator review hardening task.
+- 2026-06-29T09:35:00+09:00: documented the server-owned live state model in README, User Start Guide, and HTTP UI/MCP docs; expanded docs smoke assertions; verified fresh operator P1/P2 coverage in `smoke:cli-controls`. Required checks passed: `npm run verify`, `npm run smoke:docs`, `git diff --check main...HEAD`, and `npm pack --dry-run`.

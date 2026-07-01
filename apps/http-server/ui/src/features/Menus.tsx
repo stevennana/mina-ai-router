@@ -1,5 +1,7 @@
 import type { MenuState } from "../domain/types";
+import type { RouterAgent } from "../domain/types";
 import type { CSSProperties } from "react";
+import { isRouteReady, routeBlockedReason } from "../domain/helpers";
 import { Icon } from "../primitives/Icon";
 
 export function FloatingMenus({
@@ -7,11 +9,13 @@ export function FloatingMenus({
   onAgentAction,
   onFlowAction,
   onClose,
+  agent,
 }: {
   menu: MenuState;
   onAgentAction: (action: string, agentId: string) => void;
   onFlowAction: (action: string) => void;
   onClose: () => void;
+  agent?: RouterAgent;
 }) {
   if (menu.kind === "none") return null;
 
@@ -24,10 +28,15 @@ export function FloatingMenus({
     );
   }
 
+  const routeReady = agent ? isRouteReady(agent) : false;
+  const routeReason = agent ? routeBlockedReason(agent) : "Select a route-ready agent before asking.";
+
   return (
     <div className="context-menu" style={menuPosition(menu.x, menu.y)} onMouseLeave={onClose}>
-      <button type="button" onClick={() => onAgentAction("terminal", menu.agentId)}><Icon name="terminal" />Open Terminal</button>
-      <button type="button" onClick={() => onAgentAction("ask", menu.agentId)}><Icon name="send" />Ask</button>
+      <button type="button" onClick={() => onAgentAction("terminal", menu.agentId)}>
+        <Icon name="terminal" />{agent?.transport === "tmux" ? "Open Terminal" : "Terminal Unavailable"}
+      </button>
+      <button type="button" disabled={!routeReady} title={routeReady ? "Ask this agent" : routeReason} onClick={() => onAgentAction("ask", menu.agentId)}><Icon name="send" />Ask</button>
       <button type="button" onClick={() => onAgentAction("attach", menu.agentId)}><Icon name="open_in_new" />Attach Commands</button>
       <button type="button" onClick={() => onAgentAction("copy", menu.agentId)}><Icon name="content_copy" />Copy Attach Command</button>
       <button type="button" onClick={() => onAgentAction("restart", menu.agentId)}><Icon name="restart_alt" />Restart Session</button>
