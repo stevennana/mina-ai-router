@@ -52,3 +52,7 @@ No promoted tasks yet for milestone 0.2.
 - 2026-06-30T23:20:00+09:00: manually completed mcp-blocked-agent-readiness -> NONE | reason=MCP-blocked and registration-pending agents no longer count as available
 - 2026-06-30T23:55:00+09:00: manually completed route-readiness-enforcement -> NONE | reason=Non-ready agents no longer accept normal routed work
 - 2026-07-01T14:45:00+09:00: manually completed health-docs-readiness-language -> NONE | reason=User guide needs-attention definition now covers first-run readiness blockers
+- 2026-07-01T15:30:00+09:00: manually completed first-run-doctor-command -> first-run-setup-codex-claude | reason=mair doctor reports server/client/MCP/skill readiness
+- 2026-07-01T15:30:00+09:00: manually completed first-run-setup-codex-claude -> ui-setup-surface | reason=mair setup codex/claude configures MCP and registration skill
+- 2026-07-01T15:30:00+09:00: manually completed ui-setup-surface -> demo-helper-demotion | reason=Connect guide and inspector expose setup/verify guidance
+- 2026-07-01T15:30:00+09:00: manually completed demo-helper-demotion -> NONE | reason=setup-codex-pair no longer uses maintainer-local defaults

@@ -74,6 +74,8 @@ export function Inspector({
           {agent.mcpPreflightDetail ? <div className="notice">{agent.mcpPreflightDetail}</div> : null}
           {agent.registrationWarnings?.length ? <div className="notice">{agent.registrationWarnings.join(" ")}</div> : null}
           {agent.mcpSetupCommand && agent.mcpPreflightStatus !== "configured" ? <div className="command-box"><span className="subtitle">MCP setup</span><code>{agent.mcpSetupCommand}</code></div> : null}
+          {agent.mcpVerifyCommand ? <div className="command-box"><span className="subtitle">MCP verify</span><code>{agent.mcpVerifyCommand}</code></div> : null}
+          {agent.mcpRemoveCommand && agent.mcpPreflightStatus !== "configured" ? <div className="command-box"><span className="subtitle">MCP reset</span><code>{agent.mcpRemoveCommand}</code></div> : null}
           {agent.permissionPrompt ? <div className="notice">{agent.permissionPrompt.evidence}</div> : null}
         </div>
         <div className="section">

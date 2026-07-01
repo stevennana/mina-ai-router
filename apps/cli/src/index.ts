@@ -21,6 +21,7 @@ const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "
 const version = packageVersion();
 const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mair-server.json");
 const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
+type SetupClient = "codex" | "claude";
 
 async function main(argv: string[]): Promise<void> {
   const command = argv[2];
@@ -43,6 +44,12 @@ async function main(argv: string[]): Promise<void> {
       break;
     case "verify":
       runVerify();
+      break;
+    case "doctor":
+      await runDoctor(argv.slice(3), context);
+      break;
+    case "setup":
+      runSetup(argv.slice(3));
       break;
     case "server":
       await handleServerCommand(argv.slice(3));
@@ -535,6 +542,140 @@ function runVerify(): void {
   printJson({ ok: true, command: "npm run verify" });
 }
 
+async function runDoctor(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
+  const flags = parseFlags(args);
+  const projectRoot = resolve(flags.project ?? process.cwd());
+  const clientFilter = normalizeSetupClientFilter(flags.client ?? flags.clients ?? "all");
+  const liveServer = matchingLiveServerStatus();
+  const status = serverStatus();
+  const mcpUrl = resolveMcpUrl(flags);
+  const checks = [
+    doctorCheck("node", true, process.execPath),
+    doctorCheck("npm", commandAvailable("npm"), "Required for build, verify, and local package workflows."),
+    doctorCheck("tmux", commandAvailable("tmux"), "Required for visible CLI sessions."),
+    doctorCheck("built dist", existsSync(join(process.cwd(), "dist", "apps", "cli", "src", "index.js")), "Run npm run build if this is missing."),
+    doctorCheck("matching server", Boolean(liveServer), liveServer ? `MCP ${liveServer.mcpUrl ?? mcpUrl}` : `No running Mina server owns ${statePath}. Run mair server start.`),
+  ];
+
+  const clients = clientFilter.map((client) => doctorClient(client, projectRoot, mcpUrl));
+  const liveState = await getLiveUiState();
+  const agents = liveState?.agents ?? await context.router.listAgentStatuses();
+  const blockers = agents
+    .filter((agent) => agent.routeReady === false || ["mcp-configuring", "permission-required", "registration-pending"].includes(agent.bootstrapStatus ?? ""))
+    .map((agent) => ({
+      id: agent.id,
+      status: agent.status,
+      routeReady: agent.routeReady,
+      routeBlockedReason: agent.routeBlockedReason,
+      bootstrapStatus: agent.bootstrapStatus,
+      mcpPreflightStatus: agent.mcpPreflightStatus,
+      registrationStatus: agent.registrationStatus,
+    }));
+
+  const ok = checks.every((check) => check.ok) && clients.every((client) => client.ok);
+  printJson({
+    ok,
+    statePath,
+    projectRoot,
+    mcpUrl,
+    server: status,
+    checks,
+    clients,
+    blockedAgents: blockers,
+  });
+
+  if (!ok) {
+    process.exitCode = 1;
+  }
+}
+
+function runSetup(args: string[]): void {
+  const client = args[0];
+  if (client !== "codex" && client !== "claude") {
+    throw new Error("Usage: mair setup <codex|claude> [--project <path>] [--mcp-url <url>] [--mcp-name mina-ai-router] [--dry-run]");
+  }
+
+  setupClient(client, parseFlags(args.slice(1)));
+}
+
+function setupClient(client: SetupClient, flags: Record<string, string>): void {
+  const projectRoot = resolve(flags.project ?? process.cwd());
+  const mcpName = flags["mcp-name"] ?? "mina-ai-router";
+  const mcpUrl = resolveMcpUrl(flags);
+  const dryRun = flags["dry-run"] === "true";
+  const source = resolveSkillSourcePath();
+  const target = skillTargetFor(client, projectRoot);
+  const commands = mcpCommandsFor(client, mcpName, mcpUrl);
+  const actions: Array<{ name: string; ok: boolean; detail: string }> = [];
+
+  if (!commandAvailable(client)) {
+    throw new Error(`Required command "${client}" is not available on PATH. Install ${client} before running mair setup ${client}.`);
+  }
+
+  if (!existsSync(projectRoot)) {
+    throw new Error(`Project path does not exist: ${projectRoot}`);
+  }
+
+  if (dryRun) {
+    printJson({
+      ok: true,
+      dryRun,
+      client,
+      projectRoot,
+      mcpUrl,
+      commands: {
+        remove: shellCommand(commands.remove),
+        add: shellCommand(commands.add),
+        verify: shellCommand(commands.verify),
+      },
+      skill: {
+        source,
+        target,
+        planned: true,
+      },
+    });
+    return;
+  }
+
+  runOptionalMcpCommand(commands.remove, actions, "remove existing MCP entry");
+  const addOutput = runRequiredMcpCommand(commands.add, actions, "add MCP entry");
+  const verifyOutput = runRequiredMcpCommand(commands.verify, actions, "verify MCP entry");
+  const verified = `${addOutput}\n${verifyOutput}`.includes(mcpUrl);
+  actions.push({
+    name: "verify MCP URL",
+    ok: verified,
+    detail: verified ? `MCP URL verified: ${mcpUrl}` : `MCP command output did not include ${mcpUrl}.`,
+  });
+  if (!verified) {
+    throw new Error(`MCP setup for ${client} did not verify ${mcpUrl}. Run ${shellCommand(commands.verify)} to inspect the client config.`);
+  }
+
+  linkSkill(source, target);
+  actions.push({ name: "install registration skill", ok: true, detail: `${target} -> ${source}` });
+
+  printJson({
+    ok: true,
+    client,
+    projectRoot,
+    mcpUrl,
+    actions,
+    commands: {
+      remove: shellCommand(commands.remove),
+      add: shellCommand(commands.add),
+      verify: shellCommand(commands.verify),
+    },
+    skill: {
+      source,
+      target,
+      installed: existsSync(join(target, "SKILL.md")),
+    },
+    nextSteps: [
+      `Start a visible ${client} session with mair ${client}.`,
+      "If the UI shows mcp-configuring, rerun mair doctor --client " + client,
+    ],
+  });
+}
+
 function serveHttp(args: string[]): void {
   const flags = parseFlags(args);
   const port = flags.port ?? process.env.MINA_HTTP_PORT ?? "3333";
@@ -555,8 +696,11 @@ function serveHttp(args: string[]): void {
 
 function setupCodexPair(args: string[], context: ReturnType<typeof createContext>): void {
   const options = parseFlags(args);
-  const mainRoot = options["main-root"] ?? "/Users/stevenna/WebstormProjects/minasoftai";
-  const helperRoot = options["helper-root"] ?? "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs";
+  const mainRoot = options["main-root"];
+  const helperRoot = options["helper-root"];
+  if (!mainRoot || !helperRoot) {
+    throw new Error("setup-codex-pair is a developer/demo helper. Provide explicit --main-root and --helper-root, or use mair setup codex/claude for normal first-run setup.");
+  }
   const helperId = options["helper-id"] ?? "ralph";
   const sessionId = options.session ?? "mina-ralph-codex";
   const mcpName = options["mcp-name"] ?? "mina-ai-router";
@@ -619,6 +763,181 @@ function setupCodexPair(args: string[], context: ReturnType<typeof createContext
       `Ask main Codex to call Mina AI Router target '${helperId}' for questions about the helper project.`,
     ],
   });
+}
+
+function normalizeSetupClientFilter(value: string): SetupClient[] {
+  if (value === "all") {
+    return ["codex", "claude"];
+  }
+
+  if (value === "codex" || value === "claude") {
+    return [value];
+  }
+
+  throw new Error("--client must be codex, claude, or all.");
+}
+
+function doctorClient(client: SetupClient, projectRoot: string, mcpUrl: string) {
+  const binaryOk = commandAvailable(client);
+  const target = skillTargetFor(client, projectRoot);
+  const skillInstalled = existsSync(join(target, "SKILL.md"));
+  const mcp = binaryOk ? inspectMcpConfig(client, "mina-ai-router", mcpUrl) : {
+    ok: false,
+    detail: `${client} is not available on PATH.`,
+  };
+
+  return {
+    client,
+    ok: binaryOk && skillInstalled && mcp.ok,
+    binary: doctorCheck(`${client} binary`, binaryOk, binaryOk ? "available on PATH" : `Install ${client} before setup.`),
+    mcp,
+    skill: {
+      ok: skillInstalled,
+      target,
+      detail: skillInstalled ? "registration skill installed or linked" : `Run mair setup ${client} to install the registration skill.`,
+    },
+  };
+}
+
+function doctorCheck(name: string, ok: boolean, detail: string) {
+  return { name, ok, detail };
+}
+
+function inspectMcpConfig(client: SetupClient, mcpName: string, mcpUrl: string): { ok: boolean; detail: string } {
+  const command = mcpCommandsFor(client, mcpName, mcpUrl).verify;
+  try {
+    const output = execFileSync(command.command, command.args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return {
+      ok: output.includes(mcpUrl),
+      detail: output.includes(mcpUrl)
+        ? `configured for ${mcpUrl}`
+        : `MCP entry exists check did not show ${mcpUrl}; run mair setup ${client}.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: commandFailureMessage(error) || `Run mair setup ${client}.`,
+    };
+  }
+}
+
+function resolveMcpUrl(flags: Record<string, string>): string {
+  if (flags["mcp-url"]) {
+    return flags["mcp-url"];
+  }
+
+  const live = matchingLiveServerStatus();
+  if (live?.mcpUrl) {
+    return live.mcpUrl;
+  }
+
+  return `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`;
+}
+
+function mcpCommandsFor(client: SetupClient, mcpName: string, mcpUrl: string): Record<"remove" | "add" | "verify", { command: string; args: string[] }> {
+  if (client === "codex") {
+    return {
+      remove: { command: "codex", args: ["mcp", "remove", mcpName] },
+      add: { command: "codex", args: ["mcp", "add", mcpName, "--url", mcpUrl] },
+      verify: { command: "codex", args: ["mcp", "get", mcpName] },
+    };
+  }
+
+  return {
+    remove: { command: "claude", args: ["mcp", "remove", mcpName] },
+    add: { command: "claude", args: ["mcp", "add", "--transport", "http", mcpName, mcpUrl] },
+    verify: { command: "claude", args: ["mcp", "get", mcpName] },
+  };
+}
+
+function runOptionalMcpCommand(command: { command: string; args: string[] }, actions: Array<{ name: string; ok: boolean; detail: string }>, name: string): void {
+  try {
+    execFileSync(command.command, command.args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    actions.push({ name, ok: true, detail: shellCommand(command) });
+  } catch (error) {
+    actions.push({ name, ok: true, detail: `No existing entry removed or removal was ignored. ${commandFailureMessage(error)}`.trim() });
+  }
+}
+
+function runRequiredMcpCommand(command: { command: string; args: string[] }, actions: Array<{ name: string; ok: boolean; detail: string }>, name: string): string {
+  try {
+    const output = execFileSync(command.command, command.args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    actions.push({ name, ok: true, detail: shellCommand(command) });
+    return output;
+  } catch (error) {
+    const detail = commandFailureMessage(error);
+    actions.push({ name, ok: false, detail });
+    throw new Error(`${name} failed: ${detail}`);
+  }
+}
+
+function commandFailureMessage(error: unknown): string {
+  if (error && typeof error === "object") {
+    const record = error as { stderr?: Buffer | string; stdout?: Buffer | string; message?: string };
+    const text = `${record.stderr ? String(record.stderr) : ""}${record.stdout ? String(record.stdout) : ""}`.trim();
+    return text || record.message || "";
+  }
+
+  return String(error);
+}
+
+function resolveSkillSourcePath(): string {
+  const candidates = [
+    join(process.cwd(), "skills", "mina-ai-router-agent"),
+    join(__dirname, "../../../../skills/mina-ai-router-agent"),
+  ];
+  const source = candidates.find((candidate) => existsSync(join(candidate, "SKILL.md")));
+  if (!source) {
+    throw new Error("Could not locate skills/mina-ai-router-agent/SKILL.md in this checkout or package.");
+  }
+
+  return source;
+}
+
+function skillTargetFor(client: SetupClient, projectRoot: string): string {
+  if (client === "codex") {
+    const home = process.env.HOME;
+    if (!home) {
+      throw new Error("HOME is required to install the Codex registration skill.");
+    }
+
+    return join(home, ".codex", "skills", "mina-ai-router-agent");
+  }
+
+  return join(projectRoot, ".claude", "skills", "mina-ai-router-agent");
+}
+
+function linkSkill(source: string, target: string): void {
+  mkdirSync(dirname(target), { recursive: true });
+  execFileSync("rm", ["-rf", target], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  try {
+    execFileSync("ln", ["-sfn", source, target], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch {
+    mkdirSync(target, { recursive: true });
+    execFileSync("cp", ["-R", `${source}/.`, target], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  }
+}
+
+function shellCommand(command: { command: string; args: string[] }): string {
+  return [command.command, ...command.args].map(shellQuote).join(" ");
 }
 
 function createContext() {
@@ -1289,13 +1608,22 @@ function parseFlags(args: string[]): Record<string, string> {
 }
 
 function assertCommandAvailable(command: string): void {
+  if (commandAvailable(command)) {
+    return;
+  }
+
+  throw new Error(`Required command "${command}" is not available on PATH.`);
+}
+
+function commandAvailable(command: string): boolean {
   try {
     execFileSync("which", [command], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    return true;
   } catch {
-    throw new Error(`Required command "${command}" is not available on PATH.`);
+    return false;
   }
 }
 
@@ -1349,7 +1677,10 @@ function printHelp(): void {
 Commands:
   mair version
   mair health
+  mair doctor [--client <codex|claude|all>] [--project <path>] [--json]
   mair verify
+  mair setup codex [--project <path>] [--mcp-url <url>] [--mcp-name mina-ai-router]
+  mair setup claude [--project <path>] [--mcp-url <url>] [--mcp-name mina-ai-router]
   mair server start [--port 3333] [--host 127.0.0.1]
   mair server stop
   mair server status
@@ -1360,18 +1691,22 @@ Commands:
   mair agent <id>
   mair agent refresh-capabilities <id> [--timeout-ms 300000]
   mair attach <id>
-  mair setup-codex-pair [--main-root <path>] [--helper-root <path>] [--helper-id <id>] [--session <tmux-session>]
   mair serve [--port 3333]
   mair ask <target> "question"
   mair requests [--target <id>]
   mair request <request-id> [retry|cancel|archive|unarchive|interrupt|recover]
 
+Developer/demo helper:
+  mair setup-codex-pair --main-root <path> --helper-root <path> [--helper-id <id>] [--session <tmux-session>]
+
 Example:
+  mair server start --port 3333
+  mair setup codex
+  mair setup claude --project ~/work/payment
+  mair doctor --client all --project ~/work/payment
   mair register payment --agent gemini --transport headless --session payment --root ./payment
   mair register payment --agent gemini --transport tmux --session payment --root ~/work/payment
-  mair setup-codex-pair
   mair serve
-  mair server start --port 3333
   mair codex
   mair claude
   mair ask payment "현재 payment flow를 요약해줘."

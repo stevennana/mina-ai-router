@@ -12,9 +12,23 @@ Start the router first:
 mair server start --port 3333
 ```
 
+## Recommended Setup
+
+Use the MAIR setup command from the project you want the agent to work in:
+
+```sh
+mair setup codex --project /path/to/project
+mair setup claude --project /path/to/project
+mair doctor --client all --project /path/to/project
+```
+
+`mair setup` discovers the matching running server's MCP URL, configures the selected CLI, links the `mina-ai-router-agent` registration skill, and verifies that the client reports the same MCP URL. `mair doctor` prints a pass/fail matrix for the server, CLI binary, MCP config, skill install, and current blocked agents.
+
+Use the manual commands below only for unusual client profiles or repair work.
+
 ## Codex
 
-Register the MAIR MCP server with Codex:
+Manual Codex MCP repair:
 
 ```sh
 codex mcp remove mina-ai-router
@@ -40,7 +54,7 @@ When a Codex session is created from the Web UI or `mair codex`, Mina runs an MC
 
 ## Claude
 
-Register the MAIR MCP server with Claude Code:
+Manual Claude Code MCP repair:
 
 ```sh
 claude mcp remove mina-ai-router
@@ -55,7 +69,7 @@ cd /path/to/project
 mair claude
 ```
 
-Claude Code can keep MCP configuration per profile or project/session context. If a newly created Claude agent cannot see Mina MCP, keep it in `mcp-configuring`, run the setup command shown by Mina, then verify with `claude mcp get mina-ai-router` before routing work to that session.
+Claude Code can keep MCP configuration per profile or project/session context. If a newly created Claude agent cannot see Mina MCP, keep it in `mcp-configuring`, run `mair setup claude --project /path/to/project` or the setup command shown by Mina, then verify with `mair doctor --client claude --project /path/to/project` before routing work to that session.
 
 ## Verify From the AI CLI
 

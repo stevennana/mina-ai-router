@@ -48,21 +48,15 @@ While this server is running, it owns the live router state for that state file.
 
 ## Connect Codex or Claude
 
-Codex:
+Run setup from the project you want an agent to work in. It discovers the matching running router URL, configures MCP, installs the registration skill, and verifies the client profile.
 
 ```sh
-codex mcp remove mina-ai-router
-codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
-codex mcp get mina-ai-router
+mair setup codex --project /path/to/project
+mair setup claude --project /path/to/project
+mair doctor --client all --project /path/to/project
 ```
 
-Claude:
-
-```sh
-claude mcp remove mina-ai-router
-claude mcp add --transport http mina-ai-router http://127.0.0.1:3333/mcp
-claude mcp get mina-ai-router
-```
+Manual MCP repair commands are still documented in the MCP Client Setup guide for unusual client profiles.
 
 ## Create an Agent
 

@@ -41,3 +41,7 @@
 - [x] mcp-blocked-agent-readiness — MCP blocked agent readiness
 - [x] route-readiness-enforcement — Route readiness enforcement
 - [x] health-docs-readiness-language — Health docs readiness language
+- [x] first-run-doctor-command — First-run doctor command
+- [x] first-run-setup-codex-claude — First-run setup for Codex and Claude
+- [x] ui-setup-surface — UI setup surface
+- [x] demo-helper-demotion — Demo helper demotion

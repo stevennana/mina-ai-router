@@ -235,8 +235,12 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   if (url.pathname === "/api/setup-codex-pair" && request.method === "POST") {
     const body = await readJsonBody(request);
-    const result = setupCodexPair(body);
-    sendJson(response, 200, result);
+    try {
+      const result = setupCodexPair(body);
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
     return;
   }
 
@@ -879,8 +883,11 @@ function resolvePermissionProfile(
 }
 
 function setupCodexPair(body: Record<string, unknown>) {
-  const mainRoot = stringValue(body.mainRoot) ?? "/Users/stevenna/WebstormProjects/minasoftai";
-  const helperRoot = stringValue(body.helperRoot) ?? "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs";
+  const mainRoot = stringValue(body.mainRoot);
+  const helperRoot = stringValue(body.helperRoot);
+  if (!mainRoot || !helperRoot) {
+    throw new Error("setup-codex-pair is a developer/demo helper. Provide explicit mainRoot and helperRoot. Use mair setup codex or mair setup claude for normal first-run setup.");
+  }
   const helperId = stringValue(body.helperId) ?? "ralph";
   const sessionId = stringValue(body.sessionId) ?? "mina-ralph-codex";
   const agent: Agent = {

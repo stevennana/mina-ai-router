@@ -12,8 +12,8 @@ You will:
 
 1. Install the `mair` command.
 2. Start the local router and Web UI.
-3. Connect Codex or Claude to the local MCP server.
-4. Install the agent registration skill.
+3. Run first-run setup for Codex or Claude.
+4. Check readiness with `mair doctor`.
 5. Create visible tmux-backed agents.
 6. Route tasks between agents and watch the activity from the browser.
 
@@ -65,10 +65,15 @@ While the router server is running, it owns the live state for that `MINA_ROUTER
 
 ## 3. Connect Your AI CLI to MCP
 
-Pick the guide for the CLI you use:
+Run setup from the project directory you want the agent to work in:
 
-- Codex: [Codex MCP Setup](./MCP-CLIENT-SETUP.md#codex)
-- Claude: [Claude MCP Setup](./MCP-CLIENT-SETUP.md#claude)
+```sh
+mair setup codex --project /path/to/project
+mair setup claude --project /path/to/project
+mair doctor --client all --project /path/to/project
+```
+
+`mair setup` discovers the matching running server's MCP URL, registers that URL with the chosen CLI, installs the registration skill, and verifies the client config. If your CLI uses a special profile, use the manual commands in [MCP Client Setup](./MCP-CLIENT-SETUP.md).
 
 This gives the AI CLI access to these MAIR MCP tools:
 
@@ -77,16 +82,9 @@ This gives the AI CLI access to these MAIR MCP tools:
 - `call_agent`
 - `get_request_status`
 
-## 4. Install the Registration Skill
+## 4. Registration Skill
 
-Pick the guide for the CLI you use:
-
-- Codex: [Codex Skill Install](./SKILL-INSTALL-GUIDE.md#codex)
-- Claude: [Claude Skill Install](./SKILL-INSTALL-GUIDE.md#claude)
-
-The skill lets the agent register itself without asking you to type a long JSON payload.
-
-It automatically infers:
+`mair setup` installs the registration skill automatically. The skill lets the agent register itself without asking you to type a long JSON payload. It automatically infers:
 
 - project root
 - tmux session id
@@ -96,6 +94,8 @@ It automatically infers:
 - capability sources
 
 Registration is idempotent. If the Web UI already created the agent placeholder, the skill should confirm and enrich that same agent instead of registering a second copy for the same tmux session.
+
+For manual skill installation or unusual profiles, see [Skill Install Guide](./SKILL-INSTALL-GUIDE.md).
 
 ## 5. Create an Agent From the Web UI
 

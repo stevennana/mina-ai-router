@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } = require("node:fs");
+const { chmodSync, existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -132,6 +132,29 @@ async function main() {
 
     const healthWithRunningServer = JSON.parse(runNode(["health"]));
     assert.equal(healthWithRunningServer.mcp.httpUrl, `http://127.0.0.1:${port}/mcp`);
+
+    const setupEnv = createFakeClientSetupEnv(`http://127.0.0.1:${port}/mcp`);
+    const codexSetup = JSON.parse(runNode(["setup", "codex", "--project", tempDir, "--json"], setupEnv));
+    assert.equal(codexSetup.ok, true);
+    assert.equal(codexSetup.mcpUrl, `http://127.0.0.1:${port}/mcp`);
+    assert.equal(codexSetup.skill.installed, true);
+    assert.ok(existsSync(join(setupEnv.HOME, ".codex", "skills", "mina-ai-router-agent", "SKILL.md")));
+    const claudeSetup = JSON.parse(runNode(["setup", "claude", "--project", tempDir, "--json"], setupEnv));
+    assert.equal(claudeSetup.ok, true);
+    assert.equal(claudeSetup.mcpUrl, `http://127.0.0.1:${port}/mcp`);
+    assert.equal(claudeSetup.skill.installed, true);
+    assert.ok(existsSync(join(tempDir, ".claude", "skills", "mina-ai-router-agent", "SKILL.md")));
+    const mcpCallLog = readFileSync(setupEnv.MINA_FAKE_CLIENT_LOG, "utf8");
+    assert.match(mcpCallLog, new RegExp(`codex mcp add mina-ai-router --url http://127\\.0\\.0\\.1:${port}/mcp`));
+    assert.match(mcpCallLog, new RegExp(`claude mcp add --transport http mina-ai-router http://127\\.0\\.0\\.1:${port}/mcp`));
+    const doctor = JSON.parse(runNode(["doctor", "--client", "all", "--project", tempDir, "--json"], setupEnv));
+    assert.equal(doctor.ok, true);
+    assert.equal(doctor.mcpUrl, `http://127.0.0.1:${port}/mcp`);
+    assert.equal(doctor.clients.length, 2);
+    assert.equal(doctor.clients.every((client) => client.ok), true);
+    const pairFailure = expectNodeFailure(["setup-codex-pair"], setupEnv);
+    assert.match(pairFailure, /developer\/demo helper/);
+    assert.match(pairFailure, /--main-root/);
 
     const cliProxiedRegister = JSON.parse(runNode([
       "register",
@@ -336,13 +359,13 @@ async function main() {
   }
 }
 
-function runNode(args) {
-  return run(process.execPath, [distCli, ...args], env);
+function runNode(args, commandEnv = env) {
+  return run(process.execPath, [distCli, ...args], commandEnv);
 }
 
-function expectNodeFailure(args) {
+function expectNodeFailure(args, commandEnv = env) {
   try {
-    runNode(args);
+    runNode(args, commandEnv);
   } catch (error) {
     return `${error.stderr || ""}${error.stdout || ""}${error.message || ""}`;
   }
@@ -533,6 +556,43 @@ function stopChild(child) {
   } catch {
     // child may already be gone
   }
+}
+
+function createFakeClientSetupEnv(mcpUrl) {
+  const binDir = join(tempDir, "fake-bin");
+  const homeDir = join(tempDir, "home");
+  const logPath = join(tempDir, "mcp-client-calls.log");
+  const script = [
+    "#!/bin/sh",
+    "client=$(basename \"$0\")",
+    "printf '%s %s\\n' \"$client\" \"$*\" >> \"$MINA_FAKE_CLIENT_LOG\"",
+    "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'get' ]; then",
+    "  printf 'name: %s\\nurl: %s\\n' \"$3\" \"$FAKE_MCP_URL\"",
+    "  exit 0",
+    "fi",
+    "if [ \"$1\" = 'mcp' ] && { [ \"$2\" = 'add' ] || [ \"$2\" = 'remove' ]; }; then",
+    "  printf 'ok %s %s\\n' \"$client\" \"$2\"",
+    "  exit 0",
+    "fi",
+    "exit 0",
+    "",
+  ].join("\n");
+  writeFileSync(logPath, "");
+  writeFileSync(join(tempDir, "README.md"), "# Setup smoke project\n");
+  run("mkdir", ["-p", binDir, homeDir]);
+  for (const client of ["codex", "claude"]) {
+    const file = join(binDir, client);
+    writeFileSync(file, script);
+    chmodSync(file, 0o755);
+  }
+
+  return {
+    ...env,
+    PATH: `${binDir}:${process.env.PATH}`,
+    HOME: homeDir,
+    FAKE_MCP_URL: mcpUrl,
+    MINA_FAKE_CLIENT_LOG: logPath,
+  };
 }
 
 function writeRefreshResponder() {

@@ -44,15 +44,17 @@ Stop:
 mair server stop
 ```
 
-## Connect Codex CLI
+## Connect Codex or Claude CLI
 
 ```sh
-codex mcp remove mina-ai-router
-codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
-codex mcp get mina-ai-router
+mair setup codex --project /path/to/project
+mair setup claude --project /path/to/project
+mair doctor --client all --project /path/to/project
 ```
 
-Expected transport:
+The Connect Agent guide in the UI shows the same setup commands with the live MCP URL for the current server. Manual repair commands are still available in the inspector when a selected agent is stuck in `mcp-configuring`.
+
+Expected MCP URL after setup:
 
 ```text
 transport: streamable_http

@@ -17,6 +17,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user revalidation readiness findings are summarized in completed exec plan 038.
 - First-user route readiness findings are summarized in completed exec plan 039.
 - First-user health documentation findings are summarized in completed exec plan 040.
+- First-user out-of-box setup automation findings are summarized in completed exec plans 041-044.
 
 ## User Story
 
@@ -47,6 +48,8 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | MCP-blocked tmux agents are counted as available | Health classification separates transport reachability from route readiness, so MCP-blocked or registration-pending agents need attention instead of inflating the available count |
 | Non-ready agents still accept routed work | Core routing, MCP `call_agent`, HTTP `/api/ask`, and Web UI Ask controls honor shared route readiness before creating requests |
 | User guide defines `needs-attention` too narrowly | Health docs explain that `needs-attention` covers both failed routed requests and first-run readiness blockers such as permission, MCP setup, and pending self-registration |
+| First-run MCP and skill setup is still manual | `mair setup codex`, `mair setup claude`, and `mair doctor` automate and verify client MCP plus registration-skill setup |
+| Demo `setup-codex-pair` looks like the general setup path | General docs and help prefer `mair setup`; the pair helper is labeled developer/demo and requires explicit roots |
 
 ## Functional Requirements
 
@@ -75,6 +78,9 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 23. Known bootstrap blockers must prevent `available` readiness even when the underlying tmux transport is reachable: `mcp-configuring`, `permission-required`, `registration-pending`, `registrationStatus: pending`, and `mcpPreflightStatus: missing|stale` report as non-available attention states until resolved.
 24. Normal routed work must be rejected before request creation when a target is not route-ready. `list_agents` and UI state must expose `routeReady` and a blocker reason so callers and users can choose a ready target or resolve setup first.
 25. First-user docs must define `needs-attention` broadly enough to cover failed routed requests and first-run readiness blockers.
+26. First-run setup must configure and verify Codex and Claude MCP profiles against the matching running router URL, then install the registration skill in the expected client/project location.
+27. A doctor command must report server, client binary, MCP config, skill install, and blocked-agent readiness as a clear pass/fail matrix.
+28. Specialized demo helpers must not use maintainer-local defaults or appear as the primary onboarding path.
 
 ## Non-goals
 
@@ -106,3 +112,6 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - MCP-blocked Web UI and CLI-created tmux agents remain visible with setup guidance, but `/api/health`, `mair health`, `mair agents`, and `mair agent <id>` do not count or display them as route-ready `available` agents.
 - MCP-blocked targets cannot receive normal routed work through core `callAgent`, HTTP `/api/ask`, MCP `call_agent`, or enabled Web UI Ask controls; failed readiness checks return actionable guidance and do not create requests.
 - The User Start Guide explains that newly created blocked agents may show `needs-attention` until permission, MCP setup, or self-registration is resolved.
+- `mair setup codex`, `mair setup claude`, and `mair doctor` exist, prefer the matching running server MCP URL, and are covered by CLI smoke with fake client binaries.
+- The Web UI Connect Agent guide exposes setup and doctor commands for Codex and Claude, and the inspector shows verify/reset guidance for MCP-blocked agents.
+- `setup-codex-pair` fails without explicit roots and is labeled as a developer/demo helper instead of a first-user setup path.

@@ -41,6 +41,10 @@ const markdownFiles = [
   "docs/exec-plans/completed/038-mcp-blocked-agent-readiness.md",
   "docs/exec-plans/completed/039-route-readiness-enforcement.md",
   "docs/exec-plans/completed/040-health-docs-readiness-language.md",
+  "docs/exec-plans/completed/041-first-run-doctor-command.md",
+  "docs/exec-plans/completed/042-first-run-setup-codex-claude.md",
+  "docs/exec-plans/completed/043-ui-setup-surface.md",
+  "docs/exec-plans/completed/044-demo-helper-demotion.md",
   ...reviewFiles,
 ];
 
@@ -65,6 +69,9 @@ assert.match(read("README.md"), /matching running server/);
 assert.match(read("README.md"), /active server-routed requests as `busy`/);
 assert.match(read("README.md"), /reports success only after the local Mina health endpoint is ready/);
 assert.match(read("README.md"), /stale pid file points at a non-Mina process/);
+assert.match(read("README.md"), /mair setup codex/);
+assert.match(read("README.md"), /mair setup claude/);
+assert.match(read("README.md"), /mair doctor --client all/);
 assert.match(read("ROADMAP.md"), /Milestone 0\.2: Collaboration Reliability/);
 assert.match(read("ROADMAP.md"), /implementation wave completed/);
 assert.match(read("ROADMAP.md"), /0\.2\.5 Agent Bootstrap Reliability/);
@@ -84,11 +91,18 @@ assert.match(read("docs/USER-START-GUIDE.md"), /Thin/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Read Health States/);
 assert.match(read("docs/USER-START-GUIDE.md"), /newly created blocked agent may show `needs-attention`/);
 assert.match(read("docs/USER-START-GUIDE.md"), /trust approval, MCP setup, or pending self-registration/);
+assert.match(read("docs/USER-START-GUIDE.md"), /mair setup codex/);
+assert.match(read("docs/USER-START-GUIDE.md"), /mair setup claude/);
+assert.match(read("docs/USER-START-GUIDE.md"), /mair doctor/);
 assert.match(read("docs/USER-START-GUIDE.md"), /owns the live state/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Normal CLI reads and writes/);
 assert.match(read("docs/USER-START-GUIDE.md"), /non-default port/);
 assert.match(read("docs/USER-START-GUIDE.md"), /target agent as `busy`/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Collaboration Prompt Example/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Recommended Setup/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /mair setup codex/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /mair setup claude/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /mair doctor/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Mina runs an MCP preflight/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Claude Code can keep MCP configuration per profile/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /request detail should show lifecycle status, request lease state/);
@@ -100,6 +114,12 @@ assert.match(read("docs/HTTP-UI-MCP.md"), /prefer live status from a running ser
 assert.match(read("docs/HTTP-UI-MCP.md"), /actively busy inside the server process/);
 assert.match(read("docs/HTTP-UI-MCP.md"), /waits for `\/api\/health` before reporting success/);
 assert.match(read("docs/HTTP-UI-MCP.md"), /stale pid files that point at non-Mina servers/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /Connect Agent guide/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /mair setup codex/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /mair setup claude/);
+assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /Recommended/);
+assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /mair setup codex/);
+assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /mair setup claude/);
 assert.match(read("docs/TROUBLESHOOTING.md"), /Occupied Port/);
 assert.match(read("docs/TROUBLESHOOTING.md"), /Stale or Non-Mina Pid File/);
 assert.match(read("docs/TROUBLESHOOTING.md"), /prevents split-brain writes/);
@@ -126,11 +146,14 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /tran
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Non-ready agents still accept routed work/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /routeReady/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /User guide defines `needs-attention` too narrowly/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /First-run MCP and skill setup is still manual/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /mair setup codex/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Demo `setup-codex-pair`/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-040/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-044/);
 assert.match(read("docs/exec-plans/completed/023-cli-server-proxy-register-ask.md"), /CLI server proxy for register and ask/);
 assert.match(read("docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md"), /CLI server proxy for agent start and refresh/);
 assert.match(read("docs/exec-plans/completed/025-health-running-server-mcp-url.md"), /Health running server MCP URL/);
@@ -162,6 +185,14 @@ assert.match(read("docs/exec-plans/completed/039-route-readiness-enforcement.md"
 assert.match(read("docs/exec-plans/completed/039-route-readiness-enforcement.md"), /before creating a request/);
 assert.match(read("docs/exec-plans/completed/040-health-docs-readiness-language.md"), /Health docs readiness language/);
 assert.match(read("docs/exec-plans/completed/040-health-docs-readiness-language.md"), /first-run readiness blockers/);
+assert.match(read("docs/exec-plans/completed/041-first-run-doctor-command.md"), /First-run doctor command/);
+assert.match(read("docs/exec-plans/completed/041-first-run-doctor-command.md"), /mair doctor/);
+assert.match(read("docs/exec-plans/completed/042-first-run-setup-codex-claude.md"), /First-run setup for Codex and Claude/);
+assert.match(read("docs/exec-plans/completed/042-first-run-setup-codex-claude.md"), /mair setup codex/);
+assert.match(read("docs/exec-plans/completed/043-ui-setup-surface.md"), /UI setup surface/);
+assert.match(read("docs/exec-plans/completed/043-ui-setup-surface.md"), /Connect Agent/);
+assert.match(read("docs/exec-plans/completed/044-demo-helper-demotion.md"), /Demo helper demotion/);
+assert.match(read("docs/exec-plans/completed/044-demo-helper-demotion.md"), /setup-codex-pair/);
 
 for (const file of markdownFiles) {
   const content = read(file);
