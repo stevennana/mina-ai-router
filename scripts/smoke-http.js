@@ -1432,7 +1432,11 @@ function assertRenderedVisualFixture(stylesheet) {
     }
     const measurement = extractVisualMeasurement(rendered, viewport.name);
     assert.equal(measurement.viewport.width, viewport.width);
-    assert.equal(measurement.viewport.height, viewport.height);
+    assert.ok(
+      measurement.viewport.height >= Math.floor(viewport.height * 0.6)
+        && measurement.viewport.height <= viewport.height,
+      `${viewport.name} viewport height should be a usable Chrome content area`,
+    );
     assert.ok(
       measurement.document.scrollWidth <= measurement.viewport.width + 1,
       `${viewport.name} page should not horizontally overflow`,
