@@ -703,7 +703,7 @@ function captureAgentTerminal(id: string) {
   const detectedBootstrapPrompt = detectAgentBootstrapPrompt(agent, text);
   const bootstrapPrompt = agent.bootstrapStatus === "registration-pending"
     && detectedBootstrapPrompt
-    && !["mcp-registration-approval", "scoped-command-approval"].includes(detectedBootstrapPrompt.kind)
+    && !["codex-mcp-registration-approval", "mcp-registration-approval", "scoped-command-approval"].includes(detectedBootstrapPrompt.kind)
     ? undefined
     : detectedBootstrapPrompt;
   const resolvedPermission = !bootstrapPrompt && agent.bootstrapStatus === "permission-required";
@@ -770,6 +770,7 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
     || action?.id === "approve-project-trust"
     || action?.id === "approve-claude-project-trust"
     || action?.id === "skip-codex-update"
+    || action?.id === "approve-scoped-registration-command"
     || action?.id === "retry-self-registration";
   if (shouldRetryRegistration && needsSelfRegistration(agent)) {
     sleep(1_200);
@@ -1245,6 +1246,18 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
         id: "approve-mcp-registration",
         label: "Approve MCP Registration",
         description: "Approves option 1 for this Mina register_agent MCP call only.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "codex-mcp-registration-approval") {
+    return [
+      {
+        id: "approve-codex-mcp-registration",
+        label: "Approve Codex MCP Registration",
+        description: "Approves option 1 for this scoped Codex Mina register_agent MCP call only.",
         policy: "guided",
         input: { enter: true },
       },

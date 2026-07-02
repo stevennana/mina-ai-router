@@ -1,28 +1,43 @@
-# Real 6-Repository Usage Review - Follow-up
+# Real 6-Repository Usage Review - Second Follow-up
 
 Date: 2026-07-02
 Reviewer: Codex
-Scope: Verify the latest review fixes with a fresh Mina server and six real GitHub sample repositories.
+Scope: Revalidate the latest review fixes with a fresh Mina server and six real GitHub sample repositories.
 
 ## Summary
 
-The deterministic unit and smoke coverage passes, but the live six-repository flow is still not out-of-box friendly. The remaining failures are all around guided startup approvals and self-registration recovery:
+Several previous issues are fixed:
 
-- Codex passive update banners are still treated as blocking update menus when stale menu text remains in tmux scrollback.
-- CLI-created pending agents do not expose self-registration retry because `confirmedByAgentAt` is set even while `registrationStatus` remains `pending`.
-- Claude reaches MCP `register_agent` approval prompts that Mina does not detect, leaving the UI with no guided action.
-- Claude project trust prompts are still manual-only, even though they are deterministic folder-trust prompts for the selected project root.
-- CLI flag parsing silently ignores common `--project=/path` syntax.
+- `--project=/path` now resolves to the requested project root.
+- `setup` and `doctor` pass for all six sample repositories.
+- Codex active update prompts can be skipped through the guided action.
+- Stale Codex update menu text above a normal prompt no longer remains classified as `client-update`.
+- CLI-created pending agents now keep `pendingRegistration: true` and expose retry actions.
+- Claude folder trust is now detected as `claude-folder-trust` with a guided approval action.
+
+However, the real six-repository flow is still not out-of-box complete. All six agents remained `needs-attention` after the guided actions available today. The remaining blockers are approval prompts that the UI still does not classify or guide safely.
 
 Keep this review file until the items below are fixed and revalidated with real Codex and Claude sessions.
+
+## Deterministic Follow-up Coverage
+
+Implemented in exec plans 077-079:
+
+- Codex `mina-ai-router.register_agent` approval prompts are now classified as `codex-mcp-registration-approval`.
+- Codex MCP registration approval exposes `approve-codex-mcp-registration` and suppresses generic `retry-self-registration` while the concrete approval prompt is visible.
+- Claude read-only registration context approvals now classify as `scoped-command-approval` for project-scoped file inspection and tmux context probes.
+- Unsafe Claude commands such as package-manager mutation remain generic manual `permission-approval`.
+- Approving a scoped Claude registration context command resumes the self-registration loop when the agent is still pending.
+
+This deterministic coverage has passed `npm run test` and `npm run smoke:http`. The live six-repository revalidation below is still required before this review can be deleted.
 
 ## Verification Performed
 
 Fresh server:
 
 ```bash
-MINA_ROUTER_STATE=/tmp/mina-real-6repo-20260702171355/mina-router-state-v2.json \
-MINA_SERVER_PID=/tmp/mina-real-6repo-20260702171355/mina-server-v2.json \
+MINA_ROUTER_STATE=/tmp/mina-real-6repo-20260702171355/mina-router-state-v3.json \
+MINA_SERVER_PID=/tmp/mina-real-6repo-20260702171355/mina-server-v3.json \
 node dist/apps/cli/src/index.js server start --host 127.0.0.1 --port 34621
 ```
 
@@ -35,7 +50,16 @@ Repositories used:
 - `/tmp/mina-real-6repo-20260702171355/agents-in-sdlc`
 - `/tmp/mina-real-6repo-20260702171355/node-recipe-app`
 
-Setup and doctor passed for all six:
+Automated checks passed:
+
+```bash
+npm run test
+npm run smoke:http
+npm run smoke:docs
+npm run smoke:cli-controls
+```
+
+Setup and doctor passed for all six project/client pairs:
 
 ```bash
 node dist/apps/cli/src/index.js setup codex --project /tmp/mina-real-6repo-20260702171355/gitfolio --mcp-url http://127.0.0.1:34621/mcp
@@ -46,305 +70,243 @@ node dist/apps/cli/src/index.js doctor --client codex --project /tmp/mina-real-6
 # claude: pets-workshop, agents-in-sdlc, node-recipe-app
 ```
 
-Automated checks passed:
+The equals flag form is fixed:
 
 ```bash
-npm run test
-npm run smoke:http
-npm run smoke:docs
-npm run smoke:cli-controls
+node dist/apps/cli/src/index.js setup codex --dry-run --project=/tmp/mina-real-6repo-20260702171355/gitfolio --mcp-url=http://127.0.0.1:34621/mcp
+```
+
+Observed:
+
+```json
+{
+  "equalsFlagProjectRoot": "/tmp/mina-real-6repo-20260702171355/gitfolio",
+  "ok": true
+}
 ```
 
 Fresh six-agent creation:
 
 ```bash
-node dist/apps/cli/src/index.js codex --id gitfolio-codex-cli2 --session mina-gitfolio-codex-cli2 --root /tmp/mina-real-6repo-20260702171355/gitfolio --no-attach
-node dist/apps/cli/src/index.js codex --id task-dashboard-codex-cli2 --session mina-task-dashboard-codex-cli2 --root /tmp/mina-real-6repo-20260702171355/task-dashboard --no-attach
-node dist/apps/cli/src/index.js codex --id gh-game-codex-web2 --session mina-gh-game-codex-web2 --root /tmp/mina-real-6repo-20260702171355/gh-game --no-attach
-node dist/apps/cli/src/index.js claude --id pets-workshop-claude-cli2 --session mina-pets-workshop-claude-cli2 --root /tmp/mina-real-6repo-20260702171355/pets-workshop --no-attach
-node dist/apps/cli/src/index.js claude --id agents-in-sdlc-claude-web2 --session mina-agents-in-sdlc-claude-web2 --root /tmp/mina-real-6repo-20260702171355/agents-in-sdlc --no-attach
-node dist/apps/cli/src/index.js claude --id node-recipe-app-claude-web2 --session mina-node-recipe-app-claude-web2 --root /tmp/mina-real-6repo-20260702171355/node-recipe-app --no-attach
+node dist/apps/cli/src/index.js codex --id gitfolio-codex-v3 --session mina-gitfolio-codex-v3 --root /tmp/mina-real-6repo-20260702171355/gitfolio --no-attach
+node dist/apps/cli/src/index.js codex --id task-dashboard-codex-v3 --session mina-task-dashboard-codex-v3 --root /tmp/mina-real-6repo-20260702171355/task-dashboard --no-attach
+node dist/apps/cli/src/index.js codex --id gh-game-codex-v3 --session mina-gh-game-codex-v3 --root /tmp/mina-real-6repo-20260702171355/gh-game --no-attach
+node dist/apps/cli/src/index.js claude --id pets-workshop-claude-v3 --session mina-pets-workshop-claude-v3 --root /tmp/mina-real-6repo-20260702171355/pets-workshop --no-attach
+node dist/apps/cli/src/index.js claude --id agents-in-sdlc-claude-v3 --session mina-agents-in-sdlc-claude-v3 --root /tmp/mina-real-6repo-20260702171355/agents-in-sdlc --no-attach
+node dist/apps/cli/src/index.js claude --id node-recipe-app-claude-v3 --session mina-node-recipe-app-claude-v3 --root /tmp/mina-real-6repo-20260702171355/node-recipe-app --no-attach
 ```
 
-Final live health after creation:
+Guided actions verified as working:
+
+```bash
+POST /api/agents/gitfolio-codex-v3/terminal/input {"actionId":"skip-codex-update"}
+POST /api/agents/task-dashboard-codex-v3/terminal/input {"actionId":"skip-codex-update"}
+POST /api/agents/gh-game-codex-v3/terminal/input {"actionId":"skip-codex-update"}
+POST /api/agents/agents-in-sdlc-claude-v3/terminal/input {"actionId":"approve-claude-project-trust"}
+POST /api/agents/node-recipe-app-claude-v3/terminal/input {"actionId":"retry-self-registration"}
+```
+
+After those guided actions, final status still showed all six agents as not route-ready:
 
 ```json
 {
-  "ok": false,
-  "agents": {
-    "total": 6,
-    "available": 0,
-    "needsAttention": 6
-  }
+  "agents": [
+    { "id": "agents-in-sdlc-claude-v3", "bootstrapStatus": "registration-pending", "registrationStatus": "pending", "routeReady": false, "status": "needs-attention" },
+    { "id": "gh-game-codex-v3", "bootstrapStatus": "registration-pending", "registrationStatus": "pending", "routeReady": false, "status": "needs-attention" },
+    { "id": "gitfolio-codex-v3", "bootstrapStatus": "registration-pending", "registrationStatus": "pending", "routeReady": false, "status": "needs-attention" },
+    { "id": "node-recipe-app-claude-v3", "bootstrapStatus": "registration-pending", "registrationStatus": "pending", "routeReady": false, "status": "needs-attention" },
+    { "id": "pets-workshop-claude-v3", "bootstrapStatus": "permission-required", "registrationStatus": "pending", "permissionPrompt": "permission-approval", "routeReady": false, "status": "needs-attention" },
+    { "id": "task-dashboard-codex-v3", "bootstrapStatus": "registration-pending", "registrationStatus": "pending", "routeReady": false, "status": "needs-attention" }
+  ]
 }
 ```
-
-The Web UI at `http://127.0.0.1:34621/` showed all six agents as `needs-attention`.
 
 ## Findings
 
-### P1 - Passive Codex update banners still block usable prompts when stale menu text remains in scrollback
+### P1 - Codex MCP `register_agent` approval prompt is not detected or guided
 
-Real Codex sessions now show a usable normal prompt below the passive update banner:
-
-```text
-╭─────────────────────────────────────────────────╮
-│ ✨ Update available! 0.142.3 -> 0.142.5         │
-│ Run npm install -g @openai/codex to update.     │
-╰─────────────────────────────────────────────────╯
-
-╭──────────────────────────────────────────────╮
-│ >_ OpenAI Codex (v0.142.3)                   │
-│ directory: /private/tmp/…/gitfolio           │
-╰──────────────────────────────────────────────╯
-
-› Write tests for @filename
-```
-
-Mina still classifies that same terminal as `client-update-required`:
-
-```json
-{
-  "id": "gitfolio-codex-cli2",
-  "bootstrapStatus": "client-update-required",
-  "registrationStatus": "pending",
-  "permissionPrompt": {
-    "kind": "client-update",
-    "evidence": "✨ Update available! 0.142.3 -> 0.142.5"
-  },
-  "actions": ["skip-codex-update", "manual-update-choice"]
-}
-```
-
-Root cause observed from detector replay:
+After `skip-codex-update`, Codex correctly moved past the active update menu and started the Mina self-registration flow. Each Codex agent then reached the actual MCP tool approval prompt:
 
 ```text
-✨ Update available! 0.142.3 -> 0.142.5
-Release notes: https://github.com/openai/codex/releases/latest
-› 1. Update now (runs `npm install -g @openai/codex`)
-2. Skip
-3. Skip until next version
-Press enter to continue
-...
-› Write tests for @filename
-```
-
-The new detection requires update choices, but it still scans a recent window where the old active update menu remains above the current normal prompt. Because the detector does not anchor classification to the latest prompt state, stale menu text makes a usable Codex prompt look blocked.
-
-Affected code:
-
-- `packages/transports/src/tmux/tmux-client.ts:143` uses `recentPromptWindow(capture)` and normalizes the whole recent window.
-- `packages/transports/src/tmux/tmux-client.ts:196` through `packages/transports/src/tmux/tmux-client.ts:199` classify update state when banner and choices exist anywhere in that normalized window.
-
-Recommended fix:
-
-- Classify Codex update prompts from the latest interactive prompt segment, not from any matching text in the recent tmux window.
-- If a normal Codex input prompt appears after the update menu, treat the update menu as stale.
-- Add a fixture with active update menu text followed by the passive banner and a normal `›` prompt. Assert it does not return `client-update`.
-- Keep a separate fixture where the active update menu is the latest prompt and assert it still returns `client-update`.
-
-### P1 - CLI-created pending agents still cannot recover because `confirmedByAgentAt` suppresses retry
-
-All six live agents were created by CLI with `registrationStatus: "pending"`, but they also had `confirmedByAgentAt` populated immediately:
-
-```json
-{
-  "id": "node-recipe-app-claude-web2",
-  "bootstrapStatus": "registration-pending",
-  "registrationStatus": "pending",
-  "confirmedByAgentAt": "2026-07-02T08:49:59.669Z",
-  "routeReady": false
-}
-```
-
-For `node-recipe-app-claude-web2`, the terminal endpoint returned no recovery action:
-
-```json
-{
-  "agent": {
-    "bootstrapStatus": "registration-pending",
-    "registrationStatus": "pending",
-    "confirmed": true
-  },
-  "pendingRegistration": false,
-  "actions": []
-}
-```
-
-This means the user sees a needs-attention agent but cannot resume self-registration from the Web UI.
-
-The same issue affects action chaining. When `skip-codex-update` was submitted for `gitfolio-codex-cli2`, Mina returned:
-
-```json
-{
-  "registration": "unchanged",
-  "agent": {
-    "bootstrapStatus": "client-update-required",
-    "registrationStatus": "pending",
-    "confirmed": true
-  },
-  "pendingRegistration": false
-}
-```
-
-Affected code:
-
-- `apps/http-server/src/index.ts:1180` through `apps/http-server/src/index.ts:1194`
-- `apps/http-server/src/index.ts:767` through `apps/http-server/src/index.ts:771`
-
-The new `needsSelfRegistration(agent)` returns false whenever `confirmedByAgentAt` exists, even if `registrationStatus` is still `pending`.
-
-Recommended fix:
-
-- Treat `registrationStatus === "confirmed"` as the durable route-ready signal.
-- Do not let `confirmedByAgentAt` alone suppress retry when `registrationStatus` is still `pending`.
-- Add HTTP smoke coverage for a CLI-created tmux agent with both `registrationStatus: "pending"` and `confirmedByAgentAt` populated. It should expose `retry-self-registration`.
-- Re-run the real six-agent flow and verify at least pending Claude MCP approval sessions show a guided path rather than empty actions.
-
-### P1 - Claude MCP `register_agent` approval prompts are not detected or actionable
-
-After Claude successfully loaded the Mina skill and prepared the actual MCP registration call, the terminal displayed:
-
-```text
-Tool use
-
-mina-ai-router - register_agent(
-  id: "node-recipe-app-claude-web2",
-  agentType: "claude",
-  transport: "tmux",
-  sessionId: "mina-node-recipe-app-claude-web2",
-  projectRoot: "/tmp/mina-real-6repo-20260702171355/node-recipe-app",
-  startupCommand: "claude",
+Calling
+└ mina-ai-router.register_agent({
+  "id": "gitfolio-codex-v3",
+  "name": "gitfolio-codex-v3",
+  "agentType": "codex",
+  "transport": "tmux",
+  "sessionId": "mina-gitfolio-codex-v3",
+  "sessionFingerprint": "mina-gitfolio-codex-v3",
+  "projectRoot": "/tmp/mina-real-6repo-20260702171355/gitfolio",
+  "startupCommand": "codex --no-alt-screen",
   ...
-) (MCP)
+})
 
-Do you want to proceed?
-❯ 1. Yes
-  2. Yes, and don't ask again for mina-ai-router - register_agent commands in /private/tmp/mina-real-6repo-20260702171355/node-recipe-app
-  3. No
+Field 1/1
+Allow the mina-ai-router MCP server to run tool "register_agent"?
 
-Esc to cancel · Tab to amend
+› 1. Allow
+  2. Allow for this session
+  3. Always allow
+  4. Cancel
+enter to submit | esc to cancel
 ```
 
-Mina returned no prompt and no action:
+Mina did not detect this as an approval prompt:
 
 ```json
 {
   "agent": {
+    "id": "gitfolio-codex-v3",
     "bootstrapStatus": "registration-pending",
-    "registrationStatus": "pending",
-    "confirmed": true
-  },
-  "pendingRegistration": false,
-  "actions": []
-}
-```
-
-For `pets-workshop-claude-cli2`, the new scoped command action moved Claude past a Bash inspection step, but then Claude stopped at the MCP `register_agent` approval. The terminal endpoint changed to:
-
-```json
-{
-  "agent": {
-    "bootstrapStatus": "created",
     "registrationStatus": "pending"
   },
-  "pendingRegistration": false,
-  "actions": []
+  "pendingRegistration": true,
+  "actions": [
+    {
+      "id": "retry-self-registration",
+      "policy": "guided",
+      "label": "Retry Self Registration"
+    }
+  ]
 }
 ```
 
-That is worse for the user because the visible terminal is blocked on a real approval, but Mina now reports no `permissionPrompt`.
+This affected all three Codex agents:
+
+- `gitfolio-codex-v3`
+- `task-dashboard-codex-v3`
+- `gh-game-codex-v3`
+
+The exposed action is actively misleading here. The terminal is already waiting at a scoped MCP registration approval; showing only `retry-self-registration` can cause the user to send another registration prompt on top of an in-progress approval.
 
 Affected code:
 
-- `packages/transports/src/tmux/tmux-client.ts:169` through `packages/transports/src/tmux/tmux-client.ts:186`
-- `apps/http-server/src/index.ts:707` through `apps/http-server/src/index.ts:720`
-- `apps/http-server/src/index.ts:1196` through `apps/http-server/src/index.ts:1262`
+- `packages/transports/src/tmux/tmux-client.ts:142` through `packages/transports/src/tmux/tmux-client.ts:190`
+- `apps/http-server/src/index.ts:1199` through `apps/http-server/src/index.ts:1289`
 
 Recommended fix:
 
-- Add a Claude prompt kind for Mina MCP registration approval, scoped to:
-  - `mina-ai-router - register_agent`
+- Add a Codex prompt kind for `mina-ai-router.register_agent` approval prompts.
+- Scope detection to:
+  - `mina-ai-router.register_agent`
+  - `Allow the mina-ai-router MCP server to run tool "register_agent"?`
   - the current `agent.id`
   - the current `agent.sessionId`
   - the current `agent.projectRoot`
-- Expose a guided action such as `approve-mcp-registration` that sends Enter when option 1 is selected.
-- Do not default to option 2 (`don't ask again`) unless there is an explicit product decision to persist that permission.
-- Do not mark the prior `permission-required` state as resolved while a `Do you want to proceed?` Mina MCP approval remains visible.
-- Add real-style fixtures for both `node-recipe-app` and `pets-workshop` terminal captures.
+- Expose a guided action such as `approve-codex-mcp-registration` that sends Enter for option 1 only.
+- Hide `retry-self-registration` while a concrete registration approval prompt is visible.
+- Add a real-style fixture using the captured Codex approval shape above.
 
-### P2 - Claude project trust prompt remains manual-only despite being a scoped folder trust prompt
+### P1 - Claude read-only registration context Bash approvals remain manual-only
 
-One Claude session stopped at the initial folder trust prompt:
+Claude registration still stops before the MCP approval step on read-only context gathering commands. Example from `agents-in-sdlc-claude-v3`:
 
 ```text
-Accessing workspace:
+Bash command
 
-/private/tmp/mina-real-6repo-20260702171355/agents-in-sdlc
+cd /tmp/mina-real-6repo-20260702171355/agents-in-sdlc && ls -la && echo "---" && for f in CLAUDE.md claude.md AGENTS.md agents.md agent.md README.md; do [ -f "$f" ] && echo "FOUND: $f"; done
+List project files and check for capability docs
 
-Quick safety check: Is this a project you created or one you trust?
-Claude Code'll be able to read, edit, and execute files here.
+Contains simple_expansion
 
-❯ 1. Yes, I trust this folder
-  2. No, exit
+Do you want to proceed?
+❯ 1. Yes
+  2. No
 
-Enter to confirm · Esc to cancel
+Esc to cancel · Tab to amend · ctrl+e to explain
 ```
 
-Mina classified it as a generic manual permission approval:
+Example from `node-recipe-app-claude-v3`:
+
+```text
+Bash command
+
+tmux display-message -p '#S' 2>/dev/null || true; tmux display-message -p '#{pane_id}' 2>/dev/null || true; pwd
+Check tmux session context and current directory
+
+This command requires approval
+
+Do you want to proceed?
+❯ 1. Yes
+  2. Yes, and don’t ask again for: tmux display-message *
+  3. No
+```
+
+Example from `pets-workshop-claude-v3`:
+
+```text
+Bash command
+
+cd /tmp/mina-real-6repo-20260702171355/pets-workshop && ls -la && echo "---CLAUDE.md---" && ...
+Run shell command
+
+This command uses shell operators that require approval for safety
+
+Do you want to proceed?
+❯ 1. Yes
+  2. No
+```
+
+Mina still surfaces these as generic manual approval:
 
 ```json
 {
-  "id": "agents-in-sdlc-claude-web2",
+  "id": "pets-workshop-claude-v3",
   "bootstrapStatus": "permission-required",
-  "permissionPrompt": "permission-approval",
+  "registrationStatus": "pending",
+  "permissionPrompt": {
+    "kind": "permission-approval",
+    "evidence": "Esc to cancel · Tab to amend · ctrl+e to explain"
+  },
   "actions": ["manual-permission-approval"]
 }
 ```
 
-The user specifically wants approval-heavy setup flows to become easy and guided where safe. This prompt is deterministic and contains the selected project root, so it is a good candidate for a guided action similar to Codex project trust.
+This blocks the out-of-box flow because the user has to attach to tmux manually before registration can reach `register_agent`.
 
 Affected code:
 
-- `packages/transports/src/tmux/tmux-client.ts:179` through `packages/transports/src/tmux/tmux-client.ts:186`
-- `apps/http-server/src/index.ts:1227` through `apps/http-server/src/index.ts:1236`
+- `packages/transports/src/tmux/tmux-client.ts:180` through `packages/transports/src/tmux/tmux-client.ts:209`
+- `packages/transports/src/tmux/tmux-client.ts:286` through `packages/transports/src/tmux/tmux-client.ts:318`
+- `apps/http-server/src/index.ts:1254` through `apps/http-server/src/index.ts:1264`
 
 Recommended fix:
 
-- Split Claude folder trust from generic permission approval.
-- Only classify as Claude folder trust when the terminal includes the current `agent.projectRoot` or its resolved `/private/tmp/...` equivalent and the visible option is `Yes, I trust this folder`.
-- Expose a guided `approve-claude-project-trust` action that sends Enter.
-- After approval, automatically continue the same registration recovery loop when `registrationStatus` is still `pending`.
+- Add a Claude prompt kind for scoped read-only registration context commands.
+- Treat these as guided only when the command is clearly scoped to the selected project root or is a known read-only context probe required by registration.
+- Suggested allow-list shape:
+  - `ls`, `pwd`, `cat`, `head`, `find`, `rg --files`
+  - `tmux display-message -p` for session/pane discovery
+  - shell operators such as `&&`, `|| true`, `echo`, and simple `for` loops only when all filesystem reads stay in `agent.projectRoot`
+- Continue rejecting or manual-gating mutation/network/package-manager commands.
+- Add fixtures for the current Claude variants:
+  - `Contains simple_expansion`
+  - `This command requires approval`
+  - `This command uses shell operators that require approval for safety`
+- After approval, continue the same registration loop until either MCP registration approval is reached or the agent becomes confirmed.
 
-### P3 - `--project=/path` is silently ignored by the CLI parser
+### P2 - Registration-pending agents show retry even when a concrete approval prompt is visible
 
-During setup validation, this command succeeded but used the repository checkout as `projectRoot`, not the requested sample repository:
-
-```bash
-node dist/apps/cli/src/index.js setup codex --project=/tmp/mina-real-6repo-20260702171355/gitfolio --mcp-url=http://127.0.0.1:34621/mcp
-```
-
-Observed result:
+The `needsSelfRegistration` fix correctly keeps retry available for pending agents, but it is now too broad. When Codex is waiting at `Allow the mina-ai-router MCP server to run tool "register_agent"?`, the terminal endpoint still returns only:
 
 ```json
 {
-  "ok": true,
-  "client": "codex",
-  "projectRoot": "/Users/stevenna/WebstormProjects/mina-aimesh"
+  "pendingRegistration": true,
+  "actions": ["retry-self-registration"]
 }
 ```
 
-The documented form `--project /path` works, so this did not block the six-repo test. However, `--flag=value` is common CLI syntax. Silent fallback to cwd can configure the wrong repository and confuse first-time users.
+At that point retry is not the right next action. The agent is not idle; it is blocked at a specific approval prompt.
 
 Affected code:
 
-- `apps/cli/src/index.ts:1767` through `apps/cli/src/index.ts:1788`
+- `apps/http-server/src/index.ts:1277` through `apps/http-server/src/index.ts:1288`
 
 Recommended fix:
 
-- Teach `parseFlags()` to split `--key=value`.
-- Add a CLI smoke assertion for `setup --dry-run --project=/tmp/example`.
-- If unsupported syntax is intentionally rejected, fail loudly instead of silently treating `project` as absent.
+- Give prompt-specific actions precedence over generic retry.
+- If the detector sees any known registration approval prompt, hide retry and expose only the scoped approval action.
+- If the detector sees an unknown permission prompt, hide retry or show it only after the prompt clears.
 
 ## Revalidation Checklist
 
@@ -359,9 +321,8 @@ npm run smoke:cli-controls
 
 Then repeat the six real sessions on a fresh state file and confirm:
 
-- Passive Codex banner plus current normal prompt is not `client-update-required`.
-- Active Codex update menu is still `client-update-required`.
-- `skip-codex-update` never sends `2` into a normal Codex prompt.
-- CLI-created pending agents expose `retry-self-registration` until `registrationStatus` is `confirmed`.
-- Claude folder trust, scoped command approval, and Mina MCP `register_agent` approval all have safe guided actions when scoped to the selected project.
+- The three Codex agents expose a guided MCP registration approval action and become `registrationStatus: "confirmed"`.
+- The Claude read-only context Bash approvals expose scoped guided actions where safe.
+- Claude MCP `register_agent` approval is still detected after the Bash context approvals clear.
+- Generic `retry-self-registration` is not shown while a concrete approval prompt is visible.
 - At least one Codex and one Claude agent become route-ready and can answer a routed `mair ask`.

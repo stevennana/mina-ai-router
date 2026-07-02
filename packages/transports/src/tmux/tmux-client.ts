@@ -157,6 +157,16 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
     };
   }
 
+  if (agent.agentType === "codex" && hasCodexMcpRegistrationApproval(normalized, agent)) {
+    return {
+      client: "codex",
+      kind: "codex-mcp-registration-approval",
+      message: "Codex is waiting for approval of the Mina MCP register_agent call.",
+      action: `Review the Mina MCP registration call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
+      evidence: promptEvidence(latestSegment, codexMcpRegistrationApprovalPatterns),
+    };
+  }
+
   if (agent.agentType === "codex" && hasCodexTrustPrompt(normalized)) {
     return {
       client: "codex",
@@ -235,10 +245,25 @@ function hasClaudeScopedRegistrationApproval(value: string, projectRoot: string)
     return false;
   }
 
-  return value.includes(projectRoot)
-    && value.includes("cd ")
-    && minaRegistrationIntentPatterns.some((pattern) => pattern.test(value))
-    && !unsafeShellCommandPatterns.some((pattern) => pattern.test(value));
+  if (unsafeShellCommandPatterns.some((pattern) => pattern.test(value))) {
+    return false;
+  }
+
+  const projectScopedRead = includesProjectRoot(value, projectRoot)
+    && claudeReadOnlyRegistrationCommandPatterns.some((pattern) => pattern.test(value));
+  const tmuxContextProbe = /tmux\s+display-message\s+-p/i.test(value)
+    && /\bpwd\b/i.test(value);
+
+  return projectScopedRead || tmuxContextProbe;
+}
+
+function hasCodexMcpRegistrationApproval(value: string, agent: Agent): boolean {
+  if (!codexMcpRegistrationApprovalPatterns.every((pattern) => pattern.test(value))) {
+    return false;
+  }
+  return value.includes(agent.id)
+    && value.includes(agent.sessionId)
+    && includesProjectRoot(value, agent.projectRoot);
 }
 
 function hasClaudeMcpRegistrationApproval(value: string, agent: Agent): boolean {
@@ -280,6 +305,7 @@ const claudePermissionPatterns = [
   /claude.+(?:permission|approval|trust)/i,
   /(?:allow|approve).+claude/i,
   /do you trust.+(?:folder|directory|workspace|project)/i,
+  /do you want to proceed\?/i,
   /permission.+(?:press enter|continue|approve|allow)/i,
 ];
 
@@ -296,17 +322,27 @@ const claudeMcpRegistrationApprovalPatterns = [
   /\(mcp\)/i,
 ];
 
-const claudeScopedRegistrationApprovalPatterns = [
-  /bash command/i,
-  /manual approval required/i,
-  /compound command contains cd/i,
+const codexMcpRegistrationApprovalPatterns = [
+  /mina-ai-router\.register_agent/i,
+  /allow the mina-ai-router mcp server to run tool ["“]register_agent["”]\?/i,
+  /1[.)]\s*allow/i,
+  /enter to submit/i,
 ];
 
-const minaRegistrationIntentPatterns = [
+const claudeScopedRegistrationApprovalPatterns = [
+  /bash command/i,
+  /(?:manual approval required|compound command contains cd|contains simple_expansion|this command requires approval|uses shell operators that require approval)/i,
+];
+
+const claudeReadOnlyRegistrationCommandPatterns = [
   /mina-ai-router-agent/i,
   /mina ai router/i,
   /register_agent/i,
   /list_agents/i,
+  /\bls\s+-la\b/i,
+  /\bpwd\b/i,
+  /tmux\s+display-message\s+-p/i,
+  /\b(?:cat|head|find|rg)\b/i,
 ];
 
 const unsafeShellCommandPatterns = [
@@ -347,6 +383,12 @@ function latestInteractiveSegment(capture: string): string {
   const latestNormalPromptIndex = lastIndexWhere(trimmed, (line) => codexNormalPromptPattern.test(line));
   const latestUpdateChoiceIndex = lastIndexWhere(trimmed, (line) => codexUpdateChoiceLinePatterns.some((pattern) => pattern.test(line)));
   const latestUpdateBannerIndex = lastIndexWhere(trimmed, (line) => codexUpdateBannerPattern.test(line));
+  const latestCodexMcpRegisterIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\.register_agent/i.test(line));
+  if (latestCodexMcpRegisterIndex >= 0) {
+    const callingIndex = lastIndexWhere(trimmed.slice(0, latestCodexMcpRegisterIndex + 1), (line) => /calling/i.test(line));
+    return lines.slice(Math.max(0, callingIndex >= 0 ? callingIndex : latestCodexMcpRegisterIndex)).join("\n");
+  }
+
   if (latestNormalPromptIndex > latestUpdateChoiceIndex && latestNormalPromptIndex > latestUpdateBannerIndex) {
     return lines.slice(latestNormalPromptIndex).join("\n");
   }

@@ -77,3 +77,6 @@
 - [x] claude-mcp-registration-approval — Claude MCP registration approval
 - [x] claude-folder-trust-guided-action — Claude folder trust guided action
 - [x] cli-equals-flag-parser — CLI equals flag parser
+- [x] codex-mcp-registration-approval — Codex MCP registration approval
+- [x] claude-readonly-registration-approvals — Claude read-only registration approvals
+- [x] six-repo-bootstrap-revalidation-docs — Six-repo bootstrap revalidation docs

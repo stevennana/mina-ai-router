@@ -155,6 +155,32 @@ function testPermissionPromptDetection() {
     ].join("\n"),
   );
   assert.equal(staleCodexUpdateMenuWithNormalPrompt, undefined);
+  const codexMcpRegisterPrompt = detectAgentBootstrapPrompt(
+    codexAgent,
+    [
+      "Calling",
+      "└ mina-ai-router.register_agent({",
+      '  "id": "codex",',
+      '  "name": "codex",',
+      '  "agentType": "codex",',
+      '  "transport": "tmux",',
+      '  "sessionId": "codex-session",',
+      '  "projectRoot": "/tmp/project",',
+      '  "startupCommand": "codex --no-alt-screen"',
+      "})",
+      "",
+      "Field 1/1",
+      'Allow the mina-ai-router MCP server to run tool "register_agent"?',
+      "",
+      "› 1. Allow",
+      "  2. Allow for this session",
+      "  3. Always allow",
+      "  4. Cancel",
+      "enter to submit | esc to cancel",
+    ].join("\n"),
+  );
+  assert.equal(codexMcpRegisterPrompt.client, "codex");
+  assert.equal(codexMcpRegisterPrompt.kind, "codex-mcp-registration-approval");
 
   const claudePrompt = detectAgentPermissionPrompt(
     claudeAgent,
@@ -173,6 +199,41 @@ function testPermissionPromptDetection() {
   );
   assert.equal(claudeScopedPrompt.client, "claude");
   assert.equal(claudeScopedPrompt.kind, "scoped-command-approval");
+  const claudeReadOnlyPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      "cd /tmp/project && ls -la && echo \"---\" && for f in CLAUDE.md claude.md AGENTS.md README.md; do [ -f \"$f\" ] && echo \"FOUND: $f\"; done",
+      "List project files and check for capability docs",
+      "",
+      "Contains simple_expansion",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. No",
+      "",
+      "Esc to cancel · Tab to amend · ctrl+e to explain",
+    ].join("\n"),
+  );
+  assert.equal(claudeReadOnlyPrompt.client, "claude");
+  assert.equal(claudeReadOnlyPrompt.kind, "scoped-command-approval");
+  const claudeTmuxContextPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      "tmux display-message -p '#S' 2>/dev/null || true; tmux display-message -p '#{pane_id}' 2>/dev/null || true; pwd",
+      "Check tmux session context and current directory",
+      "",
+      "This command requires approval",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. Yes, and don't ask again for: tmux display-message *",
+      "  3. No",
+    ].join("\n"),
+  );
+  assert.equal(claudeTmuxContextPrompt.client, "claude");
+  assert.equal(claudeTmuxContextPrompt.kind, "scoped-command-approval");
   const claudeUnscopedPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [
@@ -182,6 +243,18 @@ function testPermissionPromptDetection() {
     ].join("\n"),
   );
   assert.equal(claudeUnscopedPrompt?.kind, "permission-approval");
+  const claudeUnsafePrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      "cd /tmp/project && npm install",
+      "This command requires approval",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. No",
+    ].join("\n"),
+  );
+  assert.equal(claudeUnsafePrompt?.kind, "permission-approval");
   const claudeMcpRegisterPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [
