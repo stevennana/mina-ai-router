@@ -79,8 +79,10 @@ npm run verify
 mair verify
 ```
 
-`npm run verify` is the checkout test suite. `mair verify` is the installed CLI
-self-check and must not run the current directory's npm scripts.
+`npm run verify` is the checkout test suite. A linked checkout may also make
+`mair verify` run that same suite from the Mina package root. In an installed
+package, `mair verify` is the CLI self-check and must not run the current
+directory's npm scripts.
 
 ## 7. Local State
 

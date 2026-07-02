@@ -67,3 +67,6 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T19:25:00+09:00: manually completed installed-cli-verify-contract -> NONE | reason=installed mair verify is a Mina package self-check and ignores consumer npm scripts
 - 2026-07-01T21:50:00+09:00: manually completed installed-verify-success-details -> installed-web-ui-asset-verify | reason=installed verify success checks now use success-language details
 - 2026-07-01T21:50:00+09:00: manually completed installed-web-ui-asset-verify -> NONE | reason=installed verify and smoke now cover packaged Web UI assets and root HTML
+- 2026-07-01T22:45:00+09:00: manually completed cli-subcommand-help-no-side-effects -> session-fingerprint-display-name-dedupe | reason=subcommand help flags now print usage before side-effectful actions
+- 2026-07-01T22:45:00+09:00: manually completed session-fingerprint-display-name-dedupe -> verify-docs-install-mode-clarity | reason=session fingerprint dedupe preserves canonical id and display name together
+- 2026-07-01T22:45:00+09:00: manually completed verify-docs-install-mode-clarity -> NONE | reason=first-user docs now distinguish checkout verification from installed package self-checks

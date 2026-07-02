@@ -38,6 +38,18 @@ async function main() {
     const version = JSON.parse(runNode(["version"]));
     assert.equal(version.version, packageVersion);
 
+    const doctorHelp = runNode(["doctor", "--help"]);
+    assert.match(doctorHelp, /Usage: mair doctor/);
+    assert.doesNotMatch(doctorHelp, /"checks"/);
+    const serverStartHelp = runNode(["server", "start", "--help", "--port", String(port)]);
+    assert.match(serverStartHelp, /Usage: mair server/);
+    assert.equal(existsSync(pidPath), false, "server start --help must not create a pid file");
+    const statusAfterHelp = JSON.parse(runNode(["server", "status"]));
+    assert.equal(statusAfterHelp.running, false, "server start --help must not start the server");
+    assert.match(runNode(["setup", "codex", "--help"]), /Usage: mair setup/);
+    assert.match(runNode(["codex", "--help"]), /Usage: mair codex/);
+    assert.match(runNode(["request", "--help"]), /Usage: mair request/);
+
     const registeredCliRefresh = JSON.parse(runNode([
       "register",
       "cli-refresh",

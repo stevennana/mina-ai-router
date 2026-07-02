@@ -23,6 +23,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user OOB revalidation findings for Web UI create state and local smoke robustness are summarized in completed exec plans 050-051.
 - First-user installed CLI findings are summarized in completed exec plans 052-053.
 - First-user installed verify output findings are summarized in completed exec plans 054-055.
+- First-user verify docs and CLI exploration findings are summarized in completed exec plans 056-058.
 
 ## User Story
 
@@ -66,6 +67,9 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Installed `mair verify` runs the consumer project's npm script | `mair verify` is a Mina package self-check and never executes the current project's npm scripts |
 | Installed `mair verify` success details read like failure | Successful install checks use success-language details while failures keep actionable missing/repair details |
 | Installed `mair verify` misses Web UI static assets | Install verification checks the packaged Web UI index and JS/CSS assets used by the first browser screen |
+| Subcommand `--help` can execute side effects | Help flags are handled before command actions so usage inspection never starts servers, sessions, setup, or request mutations |
+| Duplicate session registration mixes canonical id and display name | Session fingerprint dedupe preserves the canonical id and canonical display name together |
+| User guide mixes checkout verify and installed self-check modes | First-user docs separate checkout `npm run verify` from installed package `mair verify` |
 
 ## Functional Requirements
 
@@ -108,6 +112,9 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 37. Installed `mair verify` must inspect Mina's packaged files or checkout root and must never run a consumer project's `npm run verify`.
 38. Successful installed `mair verify` checks must describe found assets with success-language details.
 39. Installed `mair verify` must fail when the packaged Web UI index or required static JS/CSS assets are missing.
+40. CLI subcommand `--help` and `-h` must print usage without creating state, pid files, tmux sessions, setup config, or request mutations.
+41. Session fingerprint dedupe must not let a later duplicate registration id overwrite the canonical display name.
+42. User-facing docs must distinguish checkout verification from installed package verification.
 
 ## Non-goals
 
@@ -153,3 +160,6 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - In a temporary consumer project with or without its own `verify` script, installed `mair verify` succeeds as a Mina package self-check and does not execute the consumer script.
 - Installed `mair verify` success details do not contain failure-language terms such as missing, required, or not found.
 - Installed smoke starts `mair server`, confirms `/` returns 200 HTML, and verifies that deleting packaged Web UI assets makes `mair verify` return `ok: false`.
+- `mair server start --help`, `mair doctor --help`, setup help, visible-agent help, and request help print usage without executing their underlying actions.
+- Registering the same session fingerprint with a second id preserves one canonical agent whose `id` and `name` remain aligned.
+- User Start Guide, Developer Start Guide, and HTTP UI docs describe checkout `npm run verify` and installed `mair verify` as different modes.

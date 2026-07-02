@@ -32,6 +32,11 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
+  if (hasHelpFlag(argv.slice(3))) {
+    printCommandHelp(command);
+    return;
+  }
+
   const context = createContext();
 
   switch (command) {
@@ -94,6 +99,11 @@ async function main(argv: string[]): Promise<void> {
 }
 
 async function handleServerCommand(args: string[]): Promise<void> {
+  if (hasHelpFlag(args)) {
+    printCommandHelp("server");
+    return;
+  }
+
   const action = args[0] ?? "status";
   const flags = parseFlags(args.slice(1));
 
@@ -1730,6 +1740,10 @@ function parseFlags(args: string[]): Record<string, string> {
   return flags;
 }
 
+function hasHelpFlag(args: string[]): boolean {
+  return args.includes("--help") || args.includes("-h");
+}
+
 function assertCommandAvailable(command: string): void {
   if (commandAvailable(command)) {
     return;
@@ -1838,6 +1852,100 @@ Example:
 State:
   Set MINA_ROUTER_STATE=/path/to/router-state.json to share state between CLI and MCP.
 `);
+}
+
+function printCommandHelp(command: string): void {
+  switch (command) {
+    case "doctor":
+      console.log(`Usage: mair doctor [--client <codex|claude|all>] [--project <path>] [--json] [--ignore-blocked-agents]
+
+Checks local server, client MCP setup, registration skill installation, and route readiness.
+`);
+      return;
+    case "setup":
+      console.log(`Usage: mair setup <codex|claude> [--project <path>] [--mcp-url <url>] [--mcp-name mina-ai-router] [--dry-run]
+
+Configures a chosen client MCP profile and installs the Mina registration skill.
+`);
+      return;
+    case "server":
+      console.log(`Usage: mair server <start|stop|status> [--port 3333] [--host 127.0.0.1]
+
+Starts, stops, or inspects the local Mina HTTP/Web UI server.
+`);
+      return;
+    case "codex":
+      console.log(`Usage: mair codex [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
+
+Starts a visible Codex tmux agent and creates a Mina registry placeholder.
+`);
+      return;
+    case "claude":
+      console.log(`Usage: mair claude [--id <id>] [--session <tmux-session>] [--root <path>] [--no-attach] [--no-register]
+
+Starts a visible Claude tmux agent and creates a Mina registry placeholder.
+`);
+      return;
+    case "register":
+      console.log(`Usage: mair register <id> --agent <type> --transport <transport> --session <session> --root <path>
+
+Registers or refreshes an agent in the local Mina router registry.
+`);
+      return;
+    case "agent":
+      console.log(`Usage: mair agent <id> | mair agent refresh-capabilities <id> [--timeout-ms 300000]
+
+Shows agent detail or asks an agent to refresh its capability profile.
+`);
+      return;
+    case "attach":
+      console.log(`Usage: mair attach <id>
+
+Prints the attach command for a tmux-backed agent.
+`);
+      return;
+    case "setup-codex-pair":
+      console.log(`Usage: mair setup-codex-pair --main-root <path> --helper-root <path>
+
+Developer/demo helper. Use mair setup codex or mair setup claude for normal setup.
+`);
+      return;
+    case "serve":
+      console.log(`Usage: mair serve [--port 3333]
+
+Runs the HTTP/Web UI server in the current process.
+`);
+      return;
+    case "ask":
+      console.log(`Usage: mair ask <target> "question" [--timeout-ms 300000]
+
+Routes a question to a route-ready registered agent.
+`);
+      return;
+    case "requests":
+      console.log(`Usage: mair requests [--target <id>]
+
+Lists routed requests from local router state.
+`);
+      return;
+    case "request":
+      console.log(`Usage: mair request <request-id> [retry|cancel|archive|unarchive|interrupt|recover]
+
+Shows or changes a request lifecycle state.
+`);
+      return;
+    case "health":
+      console.log("Usage: mair health\n\nShows router health and readiness counts.");
+      return;
+    case "verify":
+      console.log("Usage: mair verify\n\nRuns checkout verification in a checkout, or installed package self-checks in an installed package.");
+      return;
+    case "version":
+      console.log("Usage: mair version\n\nPrints the installed Mina AI Router package version.");
+      return;
+    default:
+      printHelp();
+  }
 }
 
 function printJson(value: unknown): void {

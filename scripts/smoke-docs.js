@@ -56,6 +56,9 @@ const markdownFiles = [
   "docs/exec-plans/completed/053-installed-cli-verify-contract.md",
   "docs/exec-plans/completed/054-installed-verify-success-details.md",
   "docs/exec-plans/completed/055-installed-web-ui-asset-verify.md",
+  "docs/exec-plans/completed/056-cli-subcommand-help-no-side-effects.md",
+  "docs/exec-plans/completed/057-session-fingerprint-display-name-dedupe.md",
+  "docs/exec-plans/completed/058-verify-docs-install-mode-clarity.md",
   ...reviewFiles,
 ];
 
@@ -108,8 +111,11 @@ assert.match(read("docs/USER-START-GUIDE.md"), /trust approval, MCP setup, or pe
 assert.match(read("docs/USER-START-GUIDE.md"), /mair setup codex/);
 assert.match(read("docs/USER-START-GUIDE.md"), /mair setup claude/);
 assert.match(read("docs/USER-START-GUIDE.md"), /mair doctor/);
+assert.match(read("docs/USER-START-GUIDE.md"), /Verify the linked command/);
+assert.match(read("docs/USER-START-GUIDE.md"), /For a GitHub checkout, the full test suite is/);
+assert.match(read("docs/USER-START-GUIDE.md"), /When Mina is installed as a packaged CLI/);
 assert.match(read("docs/USER-START-GUIDE.md"), /installed-package self-check/);
-assert.match(read("docs/USER-START-GUIDE.md"), /without running any npm/);
+assert.match(read("docs/USER-START-GUIDE.md"), /without\s+running any npm/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Codex users/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Claude users/);
 assert.match(read("docs/USER-START-GUIDE.md"), /owns the live state/);
@@ -137,8 +143,9 @@ assert.match(read("docs/HTTP-UI-MCP.md"), /Connect Agent guide/);
 assert.match(read("docs/HTTP-UI-MCP.md"), /mair setup codex/);
 assert.match(read("docs/HTTP-UI-MCP.md"), /mair setup claude/);
 assert.match(read("docs/HTTP-UI-MCP.md"), /only when you use both clients/);
-assert.match(read("docs/HTTP-UI-MCP.md"), /installed Mina package/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /installed package/);
 assert.match(read("docs/HTTP-UI-MCP.md"), /npm run verify/);
+assert.match(read("docs/HTTP-UI-MCP.md"), /linked checkout may make `mair verify` run that same suite/);
 assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /Recommended/);
 assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /mair setup codex/);
 assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /mair setup claude/);
@@ -182,11 +189,14 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Inst
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair verify` runs the consumer project's npm script/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair verify` success details read like failure/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Installed `mair verify` misses Web UI static assets/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Subcommand `--help` can execute side effects/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Duplicate session registration mixes canonical id and display name/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /User guide mixes checkout verify and installed self-check modes/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-055/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-058/);
 assert.match(read("docs/exec-plans/completed/023-cli-server-proxy-register-ask.md"), /CLI server proxy for register and ask/);
 assert.match(read("docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md"), /CLI server proxy for agent start and refresh/);
 assert.match(read("docs/exec-plans/completed/025-health-running-server-mcp-url.md"), /Health running server MCP URL/);
@@ -248,6 +258,12 @@ assert.match(read("docs/exec-plans/completed/054-installed-verify-success-detail
 assert.match(read("docs/exec-plans/completed/054-installed-verify-success-details.md"), /success-language detail/);
 assert.match(read("docs/exec-plans/completed/055-installed-web-ui-asset-verify.md"), /Installed Web UI asset verify/);
 assert.match(read("docs/exec-plans/completed/055-installed-web-ui-asset-verify.md"), /200 HTML/);
+assert.match(read("docs/exec-plans/completed/056-cli-subcommand-help-no-side-effects.md"), /CLI subcommand help no side effects/);
+assert.match(read("docs/exec-plans/completed/056-cli-subcommand-help-no-side-effects.md"), /does not start a server/);
+assert.match(read("docs/exec-plans/completed/057-session-fingerprint-display-name-dedupe.md"), /Session fingerprint display name dedupe/);
+assert.match(read("docs/exec-plans/completed/057-session-fingerprint-display-name-dedupe.md"), /canonical display name/);
+assert.match(read("docs/exec-plans/completed/058-verify-docs-install-mode-clarity.md"), /Verify docs install mode clarity/);
+assert.match(read("docs/exec-plans/completed/058-verify-docs-install-mode-clarity.md"), /Checkout full verification/);
 assert.doesNotMatch(read("docs/GETTING-STARTED.md"), /Required Setup Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /Setup Reference Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /mair setup codex/);

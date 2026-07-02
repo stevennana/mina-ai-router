@@ -43,7 +43,9 @@ export class AgentRegistry {
     const next: Agent = {
       ...agent,
       id: canonicalId,
-      name: agent.name || current?.name || canonicalId,
+      name: currentByFingerprint && currentByFingerprint.id !== agent.id
+        ? currentByFingerprint.name || currentByFingerprint.id
+        : agent.name || current?.name || canonicalId,
       capabilitySummary: agent.capabilitySummary ?? current?.capabilitySummary,
       capabilitySources: agent.capabilitySources ?? current?.capabilitySources,
       capabilitySource: agent.capabilitySource ?? current?.capabilitySource,

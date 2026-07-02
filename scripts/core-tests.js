@@ -295,8 +295,10 @@ function testRegistryIdempotentRegistration() {
     sessionFingerprint: "payment-session",
   });
   assert.equal(duplicate.id, "payment");
+  assert.equal(duplicate.name, "payment");
   assert.equal(registry.get("payment-copy"), undefined);
   assert.equal(registry.list().length, 1);
+  assert.equal(registry.list()[0].name, "payment");
   assert.equal(duplicate.registrationHistory.length, 3);
   assert.match(duplicate.registrationWarnings[0], /matched existing session fingerprint/);
   assert.equal(duplicate.lastRegistrationAttemptAt, "2026-01-01T00:02:00.000Z");

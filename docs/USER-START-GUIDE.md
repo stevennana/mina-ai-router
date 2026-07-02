@@ -29,11 +29,10 @@ npm run build
 npm link
 ```
 
-Verify:
+Verify the linked command:
 
 ```sh
 mair version
-mair verify
 ```
 
 Expected output:
@@ -45,9 +44,16 @@ Expected output:
 }
 ```
 
-`mair verify` is an installed-package self-check. It validates Mina's packaged CLI,
-MCP server, HTTP server, docs, and registration skill without running any npm
-script from your current project.
+For a GitHub checkout, the full test suite is:
+
+```sh
+npm run verify
+```
+
+When Mina is installed as a packaged CLI instead of linked from this checkout,
+`mair verify` runs an installed-package self-check. It validates Mina's packaged
+CLI, MCP server, HTTP server, Web UI assets, docs, and registration skill without
+running any npm script from your current project.
 
 ## 2. Start the Router
 

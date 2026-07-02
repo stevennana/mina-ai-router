@@ -56,3 +56,6 @@
 - [x] installed-cli-verify-contract — Installed CLI verify contract
 - [x] installed-verify-success-details — Installed verify success details
 - [x] installed-web-ui-asset-verify — Installed Web UI asset verify
+- [x] cli-subcommand-help-no-side-effects — CLI subcommand help no side effects
+- [x] session-fingerprint-display-name-dedupe — Session fingerprint display name dedupe
+- [x] verify-docs-install-mode-clarity — Verify docs install mode clarity

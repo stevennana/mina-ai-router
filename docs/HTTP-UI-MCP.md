@@ -105,8 +105,10 @@ mair version
 mair verify
 ```
 
-`mair verify` checks the installed Mina package from its own package root. For
-repository development, use `npm run verify` to run the full checkout test suite.
+For repository development, use `npm run verify` to run the full checkout test
+suite. A linked checkout may make `mair verify` run that same suite from the Mina
+package root. In an installed package, `mair verify` checks the packaged CLI,
+MCP server, HTTP server, Web UI assets, docs, and registration skill.
 
 `mair health`, `mair agents`, and `mair agent <id>` prefer live status from a running server whose recorded state path matches the current CLI state path. This keeps health output correct when the server was started with a non-default port and when an agent is actively busy inside the server process.
 
