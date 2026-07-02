@@ -1773,6 +1773,13 @@ function parseFlags(args: string[]): Record<string, string> {
       continue;
     }
 
+    const inlineValueIndex = token.indexOf("=");
+    if (inlineValueIndex > 2) {
+      const key = token.slice(2, inlineValueIndex);
+      flags[key] = token.slice(inlineValueIndex + 1);
+      continue;
+    }
+
     const key = token.slice(2);
     const value = args[index + 1];
     if (!value || value.startsWith("--")) {

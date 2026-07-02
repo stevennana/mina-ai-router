@@ -130,6 +130,31 @@ function testPermissionPromptDetection() {
     ].join("\n"),
   );
   assert.equal(staleCodexUpdatePrompt, undefined);
+  const passiveCodexUpdateBanner = detectAgentBootstrapPrompt(
+    codexAgent,
+    [
+      "Update available! 0.142.3 -> 0.142.5",
+      "Run npm install -g @openai/codex to update.",
+      "",
+      ">_ OpenAI Codex (v0.142.3)",
+      "› Summarize recent commits",
+    ].join("\n"),
+  );
+  assert.equal(passiveCodexUpdateBanner, undefined);
+  const staleCodexUpdateMenuWithNormalPrompt = detectAgentBootstrapPrompt(
+    codexAgent,
+    [
+      "Update available! 0.142.3 -> 0.142.5",
+      "Release notes: https://github.com/openai/codex/releases/latest",
+      "› 1. Update now (runs `npm install -g @openai/codex`)",
+      "2. Skip",
+      "3. Skip until next version",
+      "Press enter to continue",
+      "",
+      "› Write tests for @filename",
+    ].join("\n"),
+  );
+  assert.equal(staleCodexUpdateMenuWithNormalPrompt, undefined);
 
   const claudePrompt = detectAgentPermissionPrompt(
     claudeAgent,
@@ -138,6 +163,63 @@ function testPermissionPromptDetection() {
   assert.equal(claudePrompt.client, "claude");
   assert.equal(claudePrompt.kind, "permission-approval");
   assert.match(claudePrompt.action, /tmux attach -t claude-session/);
+  const claudeScopedPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      "cd /tmp/project && ls -la .claude/skills/mina-ai-router-agent && echo register_agent && echo list_agents",
+      "Compound command contains cd with output redirection - manual approval required to prevent path resolution bypass",
+    ].join("\n"),
+  );
+  assert.equal(claudeScopedPrompt.client, "claude");
+  assert.equal(claudeScopedPrompt.kind, "scoped-command-approval");
+  const claudeUnscopedPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      "cd /tmp/other && ls -la .claude/skills/mina-ai-router-agent && echo register_agent",
+      "Compound command contains cd with output redirection - manual approval required to prevent path resolution bypass",
+    ].join("\n"),
+  );
+  assert.equal(claudeUnscopedPrompt?.kind, "permission-approval");
+  const claudeMcpRegisterPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Tool use",
+      "mina-ai-router - register_agent(",
+      '  id: "claude",',
+      '  agentType: "claude",',
+      '  transport: "tmux",',
+      '  sessionId: "claude-session",',
+      '  projectRoot: "/tmp/project",',
+      ") (MCP)",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. Yes, and don't ask again for mina-ai-router - register_agent commands in /tmp/project",
+      "  3. No",
+    ].join("\n"),
+  );
+  assert.equal(claudeMcpRegisterPrompt.client, "claude");
+  assert.equal(claudeMcpRegisterPrompt.kind, "mcp-registration-approval");
+  const claudeFolderTrustPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Accessing workspace:",
+      "",
+      "/tmp/project",
+      "",
+      "Quick safety check: Is this a project you created or one you trust?",
+      "Claude Code'll be able to read, edit, and execute files here.",
+      "",
+      "❯ 1. Yes, I trust this folder",
+      "  2. No, exit",
+      "",
+      "Enter to confirm · Esc to cancel",
+    ].join("\n"),
+  );
+  assert.equal(claudeFolderTrustPrompt.client, "claude");
+  assert.equal(claudeFolderTrustPrompt.kind, "claude-folder-trust");
 
   assert.equal(detectAgentPermissionPrompt(codexAgent, "ready for input"), undefined);
 }

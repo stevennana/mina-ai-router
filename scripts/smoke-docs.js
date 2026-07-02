@@ -69,6 +69,14 @@ const markdownFiles = [
   "docs/exec-plans/completed/066-guided-bootstrap-actions.md",
   "docs/exec-plans/completed/067-real-cli-release-gate-docs.md",
   "docs/exec-plans/completed/068-update-skip-clearance-gate.md",
+  "docs/exec-plans/completed/069-codex-passive-update-banner-detection.md",
+  "docs/exec-plans/completed/070-generic-self-registration-retry.md",
+  "docs/exec-plans/completed/071-claude-scoped-registration-approval.md",
+  "docs/exec-plans/completed/072-codex-latest-prompt-segment-detection.md",
+  "docs/exec-plans/completed/073-pending-registration-retry-confirmed-at.md",
+  "docs/exec-plans/completed/074-claude-mcp-registration-approval.md",
+  "docs/exec-plans/completed/075-claude-folder-trust-guided-action.md",
+  "docs/exec-plans/completed/076-cli-equals-flag-parser.md",
   ...reviewFiles,
 ];
 
@@ -222,13 +230,27 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /prom
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /client-update-required/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /smoke:real-cli-contract/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /wait for the update prompt to clear/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Passive Codex update banner/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /pending registration state/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /selected project root/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /latest prompt segment/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /register_agent/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /--key=value/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /client-update-required/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-068/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-076/);
+assert.match(read("docs/exec-plans/completed/072-codex-latest-prompt-segment-detection.md"), /latest interactive prompt/);
+assert.match(read("docs/exec-plans/completed/073-pending-registration-retry-confirmed-at.md"), /confirmedByAgentAt/);
+assert.match(read("docs/exec-plans/completed/074-claude-mcp-registration-approval.md"), /register_agent/);
+assert.match(read("docs/exec-plans/completed/075-claude-folder-trust-guided-action.md"), /folder trust/);
+assert.match(read("docs/exec-plans/completed/076-cli-equals-flag-parser.md"), /--flag=value/);
+assert.match(read("docs/exec-plans/completed/069-codex-passive-update-banner-detection.md"), /Passive Codex update banners|passive update banners/);
+assert.match(read("docs/exec-plans/completed/070-generic-self-registration-retry.md"), /CLI-created pending agent/);
+assert.match(read("docs/exec-plans/completed/071-claude-scoped-registration-approval.md"), /project root/);
 assert.match(read("docs/exec-plans/completed/068-update-skip-clearance-gate.md"), /Update skip clearance gate/);
 assert.match(read("docs/exec-plans/completed/068-update-skip-clearance-gate.md"), /prompt has cleared/);
 assert.match(read("docs/exec-plans/completed/064-project-cwd-mcp-visibility.md"), /Project cwd MCP visibility/);

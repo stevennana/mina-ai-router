@@ -702,6 +702,8 @@ function captureAgentTerminal(id: string) {
   const text = tmux.capture(agent.tmuxTarget ?? agent.sessionId);
   const detectedBootstrapPrompt = detectAgentBootstrapPrompt(agent, text);
   const bootstrapPrompt = agent.bootstrapStatus === "registration-pending"
+    && detectedBootstrapPrompt
+    && !["mcp-registration-approval", "scoped-command-approval"].includes(detectedBootstrapPrompt.kind)
     ? undefined
     : detectedBootstrapPrompt;
   const resolvedPermission = !bootstrapPrompt && agent.bootstrapStatus === "permission-required";
@@ -713,8 +715,8 @@ function captureAgentTerminal(id: string) {
     : resolvedPermission
       ? context.registry.register({
         ...agent,
-        bootstrapStatus: isPendingUiRegistration(agent) ? "registration-pending" : "created",
-        registrationStatus: isPendingUiRegistration(agent) ? "pending" : agent.registrationStatus,
+        bootstrapStatus: needsSelfRegistration(agent) ? "created" : "created",
+        registrationStatus: needsSelfRegistration(agent) ? "pending" : agent.registrationStatus,
         permissionProfileStatus: agent.permissionProfileStatus === "unsupported" ? agent.permissionProfileStatus : "supported",
         permissionProfileDetail: "Previous permission prompt no longer appears in the terminal capture.",
       })
@@ -731,7 +733,7 @@ function captureAgentTerminal(id: string) {
       trustPrompt: Boolean(bootstrapPrompt && bootstrapPrompt.kind !== "client-update"),
       permissionPrompt: bootstrapPrompt,
       actions: terminalActions(nextAgent, bootstrapPrompt),
-      pendingRegistration: isPendingUiRegistration(nextAgent),
+      pendingRegistration: needsSelfRegistration(nextAgent),
     },
   };
 }
@@ -764,11 +766,12 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   }
 
   let registration = "unchanged";
-  const shouldRetryRegistration = (enter && !text && isPendingUiRegistration(agent))
+  const shouldRetryRegistration = (enter && !text && needsSelfRegistration(agent))
     || action?.id === "approve-project-trust"
+    || action?.id === "approve-claude-project-trust"
     || action?.id === "skip-codex-update"
     || action?.id === "retry-self-registration";
-  if (shouldRetryRegistration && isPendingUiRegistration(agent)) {
+  if (shouldRetryRegistration && needsSelfRegistration(agent)) {
     sleep(1_200);
     const capture = tmux.capture(target);
     const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
@@ -1177,6 +1180,22 @@ function isPendingUiRegistration(agent: Agent): boolean {
   return agent.capabilitySources?.startsWith("created from Mina UI") ?? false;
 }
 
+function needsSelfRegistration(agent: Agent): boolean {
+  if (agent.transport !== "tmux") {
+    return false;
+  }
+  if (agent.registrationStatus === "confirmed") {
+    return false;
+  }
+  if (agent.mcpPreflightStatus === "missing" || agent.mcpPreflightStatus === "stale") {
+    return false;
+  }
+  if (agent.bootstrapStatus === "mcp-configuring" || agent.bootstrapStatus === "failed") {
+    return false;
+  }
+  return agent.registrationStatus === "pending" || isPendingUiRegistration(agent);
+}
+
 function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined): TerminalAction[] {
   if (prompt?.kind === "client-update") {
     return [
@@ -1208,6 +1227,30 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
     ];
   }
 
+  if (prompt?.kind === "claude-folder-trust") {
+    return [
+      {
+        id: "approve-claude-project-trust",
+        label: "Approve Claude Trust",
+        description: "Sends Enter for the visible Claude folder trust prompt after you have reviewed the project path.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "mcp-registration-approval") {
+    return [
+      {
+        id: "approve-mcp-registration",
+        label: "Approve MCP Registration",
+        description: "Approves option 1 for this Mina register_agent MCP call only.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
   if (prompt?.kind === "permission-approval") {
     return [
       {
@@ -1219,7 +1262,19 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
     ];
   }
 
-  if (isPendingUiRegistration(agent)) {
+  if (prompt?.kind === "scoped-command-approval") {
+    return [
+      {
+        id: "approve-scoped-registration-command",
+        label: "Approve Scoped Command",
+        description: "Approves the visible Mina registration command because it is scoped to this project root.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (needsSelfRegistration(agent)) {
     return [
       {
         id: "retry-self-registration",

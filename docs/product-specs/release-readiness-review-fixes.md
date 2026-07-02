@@ -25,7 +25,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user installed verify output findings are summarized in completed exec plans 054-055.
 - First-user verify docs and CLI exploration findings are summarized in completed exec plans 056-058.
 - Real CLI/Web UI multi-agent findings from 2026-07-02 are summarized in completed exec plans 059-063.
-- Real CLI/Web UI follow-up findings from 2026-07-02 are split into completed exec plans 064-068, including the second follow-up prompt-clearance issue.
+- Real CLI/Web UI follow-up findings from 2026-07-02 are split into completed exec plans 064-076, including the real 6-repo follow-up recovery work.
 
 ## User Story
 
@@ -79,6 +79,12 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Claude MCP visibility is checked outside the selected project context | MCP setup, doctor, CLI preflight, and Web UI preflight run `mcp get/list` from the selected project root |
 | Codex update skip guidance uses raw Enter | Update prompts expose a prompt-specific skip action that sends an explicit skip choice instead of bare Enter |
 | Codex update skip can register too early | The skip action must wait for the update prompt to clear before sending self-registration |
+| Passive Codex update banner blocks usable prompt | Only active update choice menus produce `client-update-required`; passive banners above `›` do not block registration |
+| CLI-created pending agents cannot retry from Web UI | Any visible pending tmux agent can retry self-registration once blockers clear |
+| Claude scoped registration command approval is manual-only | Project-root-scoped Mina registration command approvals can use a guided action while unknown approvals remain manual |
+| Stale Codex update menu remains in scrollback | Codex update detection is anchored to the latest prompt segment |
+| Claude MCP register approval has no action | Mina MCP `register_agent` approval prompts get a scoped guided approval action |
+| `--project=/path` configures the wrong root | CLI flag parser accepts `--key=value` syntax |
 | Guided approval loop is docs-only | Terminal API and UI expose prompt-specific guided actions with a clear safety policy |
 | Opt-in real CLI smoke can be missed before release | Release docs distinguish default verify from the required local real CLI contract gate |
 
@@ -133,6 +139,12 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 47. MCP setup, doctor, CLI visible-agent preflight, and Web UI create-agent preflight must execute client visibility checks from the selected project root.
 48. Codex update prompts must not use raw Enter as a claimed skip action; known prompts need a prompt-specific explicit skip input.
 49. A Codex update skip action must not send the Mina self-registration prompt while the update prompt is still visible.
+50. Passive Codex update banners must not be treated as active update menus when a normal Codex prompt is available.
+51. Self-registration retry must be based on pending registration state, not only Web UI-created placeholders.
+52. Claude command approval automation must be scoped to Mina registration intent and the selected project root.
+53. Codex update detection must ignore stale update menus when a later normal prompt is visible.
+54. Claude MCP `register_agent` approval prompts must have a scoped guided action.
+55. CLI setup flags must support `--project=/path` syntax without falling back to cwd.
 49. Terminal bootstrap responses must include prompt-specific action metadata and a small safety policy vocabulary for UI rendering.
 50. Release readiness docs must state what default `npm run verify` proves and what the opt-in real CLI contract smoke proves.
 

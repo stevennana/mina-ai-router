@@ -82,3 +82,13 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-02T16:11:28+09:00: manually completed real-cli-release-gate-docs -> NONE | reason=real CLI opt-in release gate docs and skip output are protected
 - 2026-07-02T17:10:00+09:00: seeded second follow-up prompt-clearance task from docs/reviews/2026-07-02-real-cli-webui-multi-agent-second-followup-review.md; current task update-skip-clearance-gate
 - 2026-07-02T17:25:00+09:00: manually completed update-skip-clearance-gate -> NONE | reason=Codex update skip waits for prompt clearance before self-registration retry
+- 2026-07-02T17:45:00+09:00: seeded real 6-repo bootstrap readiness wave from docs/reviews/2026-07-02-real-6repo-usage-review.md; current task codex-passive-update-banner-detection
+- 2026-07-02T18:05:00+09:00: manually completed codex-passive-update-banner-detection -> generic-self-registration-retry | reason=passive Codex update banners no longer block normal prompts
+- 2026-07-02T18:05:00+09:00: manually completed generic-self-registration-retry -> claude-scoped-registration-approval | reason=CLI-created pending tmux agents can retry self-registration from Web UI
+- 2026-07-02T18:05:00+09:00: manually completed claude-scoped-registration-approval -> NONE | reason=Claude scoped Mina registration command approval has guided action coverage
+- 2026-07-02T18:40:00+09:00: seeded real 6-repo follow-up startup recovery wave from docs/reviews/2026-07-02-real-6repo-usage-review.md; current task codex-latest-prompt-segment-detection
+- 2026-07-02T19:05:00+09:00: manually completed codex-latest-prompt-segment-detection -> pending-registration-retry-confirmed-at | reason=Codex update detection now follows latest prompt segment
+- 2026-07-02T19:05:00+09:00: manually completed pending-registration-retry-confirmed-at -> claude-mcp-registration-approval | reason=pending registration retry ignores stale confirmed timestamp
+- 2026-07-02T19:05:00+09:00: manually completed claude-mcp-registration-approval -> claude-folder-trust-guided-action | reason=Claude MCP register approval has scoped guided action
+- 2026-07-02T19:05:00+09:00: manually completed claude-folder-trust-guided-action -> cli-equals-flag-parser | reason=Claude folder trust has project-scoped guided action
+- 2026-07-02T19:05:00+09:00: manually completed cli-equals-flag-parser -> NONE | reason=CLI parser supports --key=value syntax

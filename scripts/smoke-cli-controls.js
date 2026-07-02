@@ -154,6 +154,16 @@ async function main() {
     assert.equal(healthWithRunningServer.mcp.httpUrl, `http://127.0.0.1:${port}/mcp`);
 
     const setupEnv = createFakeClientSetupEnv(`http://127.0.0.1:${port}/mcp`);
+    const codexEqualsDryRun = JSON.parse(runNode([
+      "setup",
+      "codex",
+      `--project=${tempDir}`,
+      `--mcp-url=http://127.0.0.1:${port}/mcp`,
+      "--dry-run",
+    ], setupEnv));
+    assert.equal(codexEqualsDryRun.ok, true);
+    assert.equal(codexEqualsDryRun.projectRoot, tempDir);
+    assert.equal(codexEqualsDryRun.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     const codexSetup = JSON.parse(runNode(["setup", "codex", "--project", tempDir, "--json"], setupEnv));
     assert.equal(codexSetup.ok, true);
     assert.equal(codexSetup.mcpUrl, `http://127.0.0.1:${port}/mcp`);

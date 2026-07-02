@@ -141,18 +141,19 @@ export function detectAgentPermissionPrompt(agent: Agent, capture: string): Agen
 
 export function detectAgentBootstrapPrompt(agent: Agent, capture: string): AgentPermissionPrompt | undefined {
   const promptWindow = recentPromptWindow(capture);
-  const normalized = promptWindow.replace(/\s+/g, " ").trim();
+  const latestSegment = latestInteractiveSegment(promptWindow);
+  const normalized = latestSegment.replace(/\s+/g, " ").trim();
   if (!normalized) {
     return undefined;
   }
 
-  if (agent.agentType === "codex" && hasCodexUpdatePrompt(normalized)) {
+  if (agent.agentType === "codex" && hasActiveCodexUpdatePrompt(latestSegment)) {
     return {
       client: "codex",
       kind: "client-update",
       message: "Codex is waiting at an update prompt before Mina can continue registration.",
       action: `Attach with "tmux attach -t ${agent.sessionId}" and choose a safe update option, or use Mina's Skip Codex Update action when available.`,
-      evidence: promptEvidence(promptWindow, codexUpdatePatterns),
+      evidence: promptEvidence(latestSegment, [codexUpdateBannerPattern, ...codexUpdateChoicePatterns]),
     };
   }
 
@@ -163,6 +164,36 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
       message: "Codex is waiting for directory trust approval before it can work in this project.",
       action: `Review the project directory, then attach with "tmux attach -t ${agent.sessionId}" or press Send Enter in Mina to approve the prompt.`,
       evidence: promptEvidence(promptWindow, codexTrustPatterns),
+    };
+  }
+
+  if (agent.agentType === "claude" && hasClaudeMcpRegistrationApproval(normalized, agent)) {
+    return {
+      client: "claude",
+      kind: "mcp-registration-approval",
+      message: "Claude is waiting for approval of the Mina MCP register_agent call.",
+      action: `Review the Mina MCP registration call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
+      evidence: promptEvidence(latestSegment, claudeMcpRegistrationApprovalPatterns),
+    };
+  }
+
+  if (agent.agentType === "claude" && hasClaudeFolderTrustPrompt(normalized, agent.projectRoot)) {
+    return {
+      client: "claude",
+      kind: "claude-folder-trust",
+      message: "Claude is waiting for trust approval of this project folder.",
+      action: `Review the folder path, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
+      evidence: promptEvidence(latestSegment, claudeFolderTrustPatterns),
+    };
+  }
+
+  if (agent.agentType === "claude" && hasClaudeScopedRegistrationApproval(normalized, agent.projectRoot)) {
+    return {
+      client: "claude",
+      kind: "scoped-command-approval",
+      message: "Claude is waiting for approval of a Mina registration command scoped to this project.",
+      action: `Review the scoped command, then approve it in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
+      evidence: promptEvidence(promptWindow, claudeScopedRegistrationApprovalPatterns),
     };
   }
 
@@ -183,19 +214,61 @@ function hasCodexTrustPrompt(value: string): boolean {
   return codexTrustPatterns.some((pattern) => pattern.test(value));
 }
 
-function hasCodexUpdatePrompt(value: string): boolean {
-  return codexUpdatePatterns.some((pattern) => pattern.test(value));
+function hasActiveCodexUpdatePrompt(value: string): boolean {
+  const lines = promptLines(value);
+  const latestNormalPromptIndex = lastIndexWhere(lines, (line) => codexNormalPromptPattern.test(line));
+  const latestUpdateChoiceIndex = lastIndexWhere(lines, (line) => codexUpdateChoiceLinePatterns.some((pattern) => pattern.test(line)));
+  if (latestNormalPromptIndex > latestUpdateChoiceIndex) {
+    return false;
+  }
+
+  return codexUpdateBannerPattern.test(value)
+    && codexUpdateChoicePatterns.every((pattern) => pattern.test(value));
 }
 
 function hasClaudePermissionPrompt(value: string): boolean {
   return claudePermissionPatterns.some((pattern) => pattern.test(value));
 }
 
-const codexUpdatePatterns = [
-  /update available!\s+\S+\s*->\s*\S+/i,
-  /skip until next version/i,
-  /update now.+npm install/i,
+function hasClaudeScopedRegistrationApproval(value: string, projectRoot: string): boolean {
+  if (!projectRoot || !claudeScopedRegistrationApprovalPatterns.some((pattern) => pattern.test(value))) {
+    return false;
+  }
+
+  return value.includes(projectRoot)
+    && value.includes("cd ")
+    && minaRegistrationIntentPatterns.some((pattern) => pattern.test(value))
+    && !unsafeShellCommandPatterns.some((pattern) => pattern.test(value));
+}
+
+function hasClaudeMcpRegistrationApproval(value: string, agent: Agent): boolean {
+  if (!claudeMcpRegistrationApprovalPatterns.every((pattern) => pattern.test(value))) {
+    return false;
+  }
+  return value.includes(agent.id)
+    && value.includes(agent.sessionId)
+    && includesProjectRoot(value, agent.projectRoot);
+}
+
+function hasClaudeFolderTrustPrompt(value: string, projectRoot: string): boolean {
+  return claudeFolderTrustPatterns.every((pattern) => pattern.test(value))
+    && includesProjectRoot(value, projectRoot);
+}
+
+const codexUpdateBannerPattern = /update available!\s+\S+\s*->\s*\S+/i;
+
+const codexUpdateChoicePatterns = [
+  /(?:^|\s)1[.)]?\s*update now/i,
+  /(?:^|\s)2[.)]?\s*skip(?:\s|$)/i,
 ];
+
+const codexUpdateChoiceLinePatterns = [
+  /^[›>\s]*1[.)]?\s*update now/i,
+  /^[›>\s]*2[.)]?\s*skip(?:\s|$)/i,
+  /^[›>\s]*3[.)]?\s*skip until next version/i,
+];
+
+const codexNormalPromptPattern = /^›\s+(?!1[.)]?\s*update now|2[.)]?\s*skip(?:\s|$)|3[.)]?\s*skip until next version).+/i;
 
 const codexTrustPatterns = [
   /do you trust the contents of this directory\?/i,
@@ -210,11 +283,132 @@ const claudePermissionPatterns = [
   /permission.+(?:press enter|continue|approve|allow)/i,
 ];
 
+const claudeFolderTrustPatterns = [
+  /accessing workspace:/i,
+  /yes,\s*i trust this folder/i,
+  /enter to confirm/i,
+];
+
+const claudeMcpRegistrationApprovalPatterns = [
+  /mina-ai-router\s+-\s+register_agent/i,
+  /do you want to proceed\?/i,
+  /1\.\s*yes/i,
+  /\(mcp\)/i,
+];
+
+const claudeScopedRegistrationApprovalPatterns = [
+  /bash command/i,
+  /manual approval required/i,
+  /compound command contains cd/i,
+];
+
+const minaRegistrationIntentPatterns = [
+  /mina-ai-router-agent/i,
+  /mina ai router/i,
+  /register_agent/i,
+  /list_agents/i,
+];
+
+const unsafeShellCommandPatterns = [
+  /\brm\s+-/i,
+  /\bsudo\b/i,
+  /\bchmod\b/i,
+  /\bchown\b/i,
+  /\bcurl\b/i,
+  /\bwget\b/i,
+  /\bnpm\s+(?:install|i)\b/i,
+  /\bpnpm\s+(?:install|add)\b/i,
+  /\byarn\s+add\b/i,
+];
+
 function recentPromptWindow(capture: string): string {
   return capture
     .split(/\r?\n/)
     .slice(-80)
     .join("\n");
+}
+
+function latestInteractiveSegment(capture: string): string {
+  const lines = capture.split(/\r?\n/);
+  const trimmed = lines.map((line) => line.trim());
+  const latestCompletionIndex = lastIndexWhere(trimmed, (line) =>
+    /^(ready|trusted-|approved-|codex prompt ready|selected:)/i.test(line));
+  const latestPromptishIndex = lastIndexWhere(trimmed, (line) =>
+    /^›\s+/.test(line)
+    || /do you want to proceed\?/i.test(line)
+    || /quick safety check:/i.test(line)
+    || /bash command/i.test(line)
+    || /update available!/i.test(line)
+    || /do you trust the contents of this directory\?/i.test(line));
+  if (latestCompletionIndex > latestPromptishIndex) {
+    return lines.slice(latestCompletionIndex).join("\n");
+  }
+
+  const latestNormalPromptIndex = lastIndexWhere(trimmed, (line) => codexNormalPromptPattern.test(line));
+  const latestUpdateChoiceIndex = lastIndexWhere(trimmed, (line) => codexUpdateChoiceLinePatterns.some((pattern) => pattern.test(line)));
+  const latestUpdateBannerIndex = lastIndexWhere(trimmed, (line) => codexUpdateBannerPattern.test(line));
+  if (latestNormalPromptIndex > latestUpdateChoiceIndex && latestNormalPromptIndex > latestUpdateBannerIndex) {
+    return lines.slice(latestNormalPromptIndex).join("\n");
+  }
+
+  const latestMcpRegisterIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\s+-\s+register_agent/i.test(line));
+  if (latestMcpRegisterIndex >= 0) {
+    const toolUseIndex = lastIndexWhere(trimmed.slice(0, latestMcpRegisterIndex + 1), (line) => /tool use/i.test(line));
+    return lines.slice(Math.max(0, toolUseIndex >= 0 ? toolUseIndex : latestMcpRegisterIndex)).join("\n");
+  }
+
+  const latestWorkspaceIndex = lastIndexWhere(trimmed, (line) => /accessing workspace:/i.test(line));
+  if (latestWorkspaceIndex >= 0) {
+    return lines.slice(latestWorkspaceIndex).join("\n");
+  }
+
+  const latestBashIndex = lastIndexWhere(trimmed, (line) => /bash command/i.test(line));
+  if (latestBashIndex >= 0) {
+    return lines.slice(latestBashIndex).join("\n");
+  }
+
+  if (latestUpdateBannerIndex >= 0) {
+    return lines.slice(latestUpdateBannerIndex).join("\n");
+  }
+
+  return capture;
+}
+
+function promptLines(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function lastIndexWhere<T>(values: T[], predicate: (value: T) => boolean): number {
+  for (let index = values.length - 1; index >= 0; index -= 1) {
+    if (predicate(values[index])) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function includesProjectRoot(value: string, projectRoot: string): boolean {
+  return projectRootAliases(projectRoot).some((alias) => value.includes(alias));
+}
+
+function projectRootAliases(projectRoot: string): string[] {
+  const aliases = new Set([projectRoot]);
+  if (projectRoot.startsWith("/tmp/")) {
+    aliases.add(`/private${projectRoot}`);
+  }
+  if (projectRoot.startsWith("/var/")) {
+    aliases.add(`/private${projectRoot}`);
+  }
+  if (projectRoot.startsWith("/private/tmp/")) {
+    aliases.add(projectRoot.replace(/^\/private/, ""));
+  }
+  if (projectRoot.startsWith("/private/var/")) {
+    aliases.add(projectRoot.replace(/^\/private/, ""));
+  }
+  return [...aliases].filter(Boolean);
 }
 
 function promptEvidence(capture: string, patterns: RegExp[]): string {

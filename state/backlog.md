@@ -69,3 +69,11 @@
 - [x] guided-bootstrap-actions — Guided bootstrap actions
 - [x] real-cli-release-gate-docs — Real CLI release gate docs
 - [x] update-skip-clearance-gate — Update skip clearance gate
+- [x] codex-passive-update-banner-detection — Codex passive update banner detection
+- [x] generic-self-registration-retry — Generic self-registration retry
+- [x] claude-scoped-registration-approval — Claude scoped registration approval
+- [x] codex-latest-prompt-segment-detection — Codex latest prompt segment detection
+- [x] pending-registration-retry-confirmed-at — Pending registration retry confirmed-at
+- [x] claude-mcp-registration-approval — Claude MCP registration approval
+- [x] claude-folder-trust-guided-action — Claude folder trust guided action
+- [x] cli-equals-flag-parser — CLI equals flag parser

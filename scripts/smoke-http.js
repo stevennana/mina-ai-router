@@ -15,6 +15,11 @@ const uiSession = `mina-http-ui-${process.pid}`;
 const uiPromptSession = `mina-http-ui-prompt-${process.pid}`;
 const promptSession = `mina-http-permission-${process.pid}`;
 const promptAdvanceSession = `mina-http-permission-advance-${process.pid}`;
+const passiveCodexSession = `mina-http-passive-codex-${process.pid}`;
+const cliPendingSession = `mina-http-cli-pending-${process.pid}`;
+const claudeScopedSession = `mina-http-claude-scoped-${process.pid}`;
+const claudeMcpApprovalSession = `mina-http-claude-mcp-approval-${process.pid}`;
+const claudeTrustSession = `mina-http-claude-trust-${process.pid}`;
 const timeoutSession = `mina-http-timeout-${process.pid}`;
 const fakeBinDir = join(tempDir, "fake-bin");
 const fakeClientLog = join(tempDir, "fake-client-calls.log");
@@ -45,6 +50,23 @@ writeFileSync(statePath, `${JSON.stringify({
       capabilityUpdatedAt: "2026-01-01T00:00:00.000Z",
       lastCapabilityRefreshAt: "2026-01-01T00:00:00.000Z",
       lastSeenAt: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "cli-pending-retry",
+      name: "cli-pending-retry",
+      agentType: "codex",
+      transport: "tmux",
+      sessionId: cliPendingSession,
+      tmuxTarget: cliPendingSession,
+      projectRoot: tempDir,
+      bootstrapStatus: "created",
+      registrationSource: "cli",
+      registrationStatus: "pending",
+      confirmedByAgentAt: "2026-07-02T08:49:59.669Z",
+      mcpPreflightStatus: "configured",
+      capabilitySummary: "Pending self-registration capability notice.",
+      capabilitySources: "created from Mina CLI",
+      sessionFingerprint: cliPendingSession,
     },
     {
       id: "ui-tmux-missing",
@@ -123,6 +145,19 @@ async function main() {
     });
     assert.equal(directories.path, tempDir);
     assert.ok(Array.isArray(directories.entries));
+
+    execFileSync("tmux", ["new-session", "-d", "-s", cliPendingSession, "-x", "200", "-y", "60", "-c", tempDir, "/bin/sh"], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    const cliPendingTerminal = await json(`${baseUrl}/api/agents/cli-pending-retry/terminal`);
+    assert.equal(cliPendingTerminal.terminal.pendingRegistration, true);
+    assert.equal(cliPendingTerminal.terminal.permissionPrompt, undefined);
+    assert.equal(cliPendingTerminal.terminal.actions[0].id, "retry-self-registration");
+    const cliPendingRetry = await postJson(`${baseUrl}/api/agents/cli-pending-retry/terminal/input`, {
+      actionId: "retry-self-registration",
+    });
+    assert.equal(cliPendingRetry.registration, "registration prompt sent to agent");
+    assert.equal(cliPendingRetry.agent.bootstrapStatus, "registration-pending");
 
     const uiCreated = await postJson(`${baseUrl}/api/agents/create-tmux`, {
       id: "ui-created",
@@ -313,6 +348,38 @@ async function main() {
     assert.equal(permissionAdvanceInput.terminal.trustPrompt, false);
     assert.equal(permissionAdvanceInput.terminal.pendingRegistration, true);
 
+    const passiveCodexScriptPath = join(tempDir, "codex-passive-update-banner-fixture.sh");
+    writeFileSync(passiveCodexScriptPath, [
+      "printf 'Update available! 0.142.3 -> 0.142.5\\n'",
+      "printf 'Release notes: https://github.com/openai/codex/releases/latest\\n'",
+      "printf '› 1. Update now (runs `npm install -g @openai/codex`)\\n'",
+      "printf '2. Skip\\n'",
+      "printf '3. Skip until next version\\n'",
+      "printf 'Press enter to continue\\n'",
+      "printf '\\n>_ OpenAI Codex (v0.142.3)\\n'",
+      "printf '› Summarize recent commits\\n'",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const passiveCodex = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-codex-passive-update",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: passiveCodexSession,
+      startupCommand: `/bin/sh ${passiveCodexScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(passiveCodex.registration, "registration prompt sent to agent");
+    assert.notEqual(passiveCodex.agent.bootstrapStatus, "client-update-required");
+    const passiveCodexTerminal = await json(`${baseUrl}/api/agents/ui-codex-passive-update/terminal`);
+    assert.notEqual(passiveCodexTerminal.terminal.permissionPrompt?.kind, "client-update");
+    assert.equal(
+      passiveCodexTerminal.terminal.actions.some((action) => action.id === "skip-codex-update"),
+      false,
+      "passive update banner must not expose skip-codex-update",
+    );
+
     const updatePromptScriptPath = join(tempDir, "codex-update-prompt-fixture.sh");
     writeFileSync(updatePromptScriptPath, [
       "printf 'Update available! 0.142.3 -> 0.142.4\\n'",
@@ -370,6 +437,110 @@ async function main() {
     });
     assert.equal(updateRetry.registration, "registration prompt sent to agent");
     assert.equal(updateRetry.agent.bootstrapStatus, "registration-pending");
+
+    const claudeScopedScriptPath = join(tempDir, "claude-scoped-command-approval-fixture.sh");
+    writeFileSync(claudeScopedScriptPath, [
+      "printf 'Bash command\\n'",
+      `printf 'cd ${tempDir} && ls -la .claude/skills/mina-ai-router-agent && echo register_agent && echo list_agents\\n'`,
+      "printf 'Compound command contains cd with output redirection - manual approval required to prevent path resolution bypass\\n'",
+      "IFS= read -r approval",
+      "printf 'approved-scoped-command:%s\\n' \"$approval\"",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const claudeScoped = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-claude-scoped",
+      agentType: "claude",
+      projectRoot: tempDir,
+      sessionId: claudeScopedSession,
+      startupCommand: `/bin/sh ${claudeScopedScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(claudeScoped.registration, "waiting for permission approval");
+    assert.equal(claudeScoped.agent.bootstrapStatus, "permission-required");
+    const claudeScopedTerminal = await json(`${baseUrl}/api/agents/ui-claude-scoped/terminal`);
+    assert.equal(claudeScopedTerminal.terminal.permissionPrompt.kind, "scoped-command-approval");
+    assert.equal(claudeScopedTerminal.terminal.actions[0].id, "approve-scoped-registration-command");
+    const claudeScopedApproval = await postJson(`${baseUrl}/api/agents/ui-claude-scoped/terminal/input`, {
+      actionId: "approve-scoped-registration-command",
+    });
+    assert.equal(claudeScopedApproval.registration, "unchanged");
+    assert.match(claudeScopedApproval.terminal.text, /approved-scoped-command/);
+    assert.doesNotMatch(claudeScopedApproval.terminal.text, /Use Mina AI Router MCP register_agent/);
+
+    const claudeMcpApprovalScriptPath = join(tempDir, "claude-mcp-register-approval-fixture.sh");
+    writeFileSync(claudeMcpApprovalScriptPath, [
+      "printf 'Tool use\\n\\n'",
+      "printf 'mina-ai-router - register_agent(\\n'",
+      "printf '  id: \"ui-claude-mcp-approval\",\\n'",
+      "printf '  agentType: \"claude\",\\n'",
+      "printf '  transport: \"tmux\",\\n'",
+      `printf '  sessionId: "${claudeMcpApprovalSession}",\\n'`,
+      `printf '  projectRoot: "${tempDir}",\\n'`,
+      "printf ') (MCP)\\n\\n'",
+      "printf 'Do you want to proceed?\\n'",
+      "printf '❯ 1. Yes\\n'",
+      `printf '  2. Yes, and don'\"'\"'t ask again for mina-ai-router - register_agent commands in ${tempDir}\\n'`,
+      "printf '  3. No\\n\\n'",
+      "printf 'Esc to cancel · Tab to amend\\n'",
+      "IFS= read -r approval",
+      "printf 'approved-mcp-registration:%s\\n' \"$approval\"",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const claudeMcpApproval = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-claude-mcp-approval",
+      agentType: "claude",
+      projectRoot: tempDir,
+      sessionId: claudeMcpApprovalSession,
+      startupCommand: `/bin/sh ${claudeMcpApprovalScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(claudeMcpApproval.registration, "waiting for permission approval");
+    const claudeMcpTerminal = await json(`${baseUrl}/api/agents/ui-claude-mcp-approval/terminal`);
+    assert.equal(claudeMcpTerminal.terminal.permissionPrompt.kind, "mcp-registration-approval");
+    assert.equal(claudeMcpTerminal.terminal.actions[0].id, "approve-mcp-registration");
+    const claudeMcpApproved = await postJson(`${baseUrl}/api/agents/ui-claude-mcp-approval/terminal/input`, {
+      actionId: "approve-mcp-registration",
+    });
+    assert.equal(claudeMcpApproved.registration, "unchanged");
+    assert.match(claudeMcpApproved.terminal.text, /approved-mcp-registration/);
+    assert.doesNotMatch(claudeMcpApproved.terminal.text, /Use Mina AI Router MCP register_agent/);
+
+    const claudeTrustScriptPath = join(tempDir, "claude-folder-trust-fixture.sh");
+    writeFileSync(claudeTrustScriptPath, [
+      "printf 'Accessing workspace:\\n\\n'",
+      `printf '${tempDir}\\n\\n'`,
+      "printf 'Quick safety check: Is this a project you created or one you trust?\\n'",
+      "printf 'Claude Code'\"'\"'ll be able to read, edit, and execute files here.\\n\\n'",
+      "printf '❯ 1. Yes, I trust this folder\\n'",
+      "printf '  2. No, exit\\n\\n'",
+      "printf 'Enter to confirm · Esc to cancel\\n'",
+      "IFS= read -r approval",
+      "printf 'trusted-folder:%s\\n' \"$approval\"",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const claudeTrust = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-claude-folder-trust",
+      agentType: "claude",
+      projectRoot: tempDir,
+      sessionId: claudeTrustSession,
+      startupCommand: `/bin/sh ${claudeTrustScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(claudeTrust.registration, "waiting for permission approval");
+    const claudeTrustTerminal = await json(`${baseUrl}/api/agents/ui-claude-folder-trust/terminal`);
+    assert.equal(claudeTrustTerminal.terminal.permissionPrompt.kind, "claude-folder-trust");
+    assert.equal(claudeTrustTerminal.terminal.actions[0].id, "approve-claude-project-trust");
+    const claudeTrustApproved = await postJson(`${baseUrl}/api/agents/ui-claude-folder-trust/terminal/input`, {
+      actionId: "approve-claude-project-trust",
+    });
+    assert.equal(claudeTrustApproved.registration, "registration prompt sent to agent");
+    assert.equal(claudeTrustApproved.agent.bootstrapStatus, "registration-pending");
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "http-smoke",
@@ -647,6 +818,15 @@ async function main() {
       });
     } catch {
       // Temporary permission advance fixture session may not exist.
+    }
+    for (const session of [passiveCodexSession, cliPendingSession, claudeScopedSession, claudeMcpApprovalSession, claudeTrustSession]) {
+      try {
+        execFileSync("tmux", ["kill-session", "-t", session], {
+          stdio: ["ignore", "ignore", "ignore"],
+        });
+      } catch {
+        // Temporary fixture session may not exist.
+      }
     }
     try {
       execFileSync("tmux", ["kill-session", "-t", timeoutSession], {
