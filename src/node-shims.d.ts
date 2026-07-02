@@ -34,8 +34,10 @@ declare class Buffer extends Uint8Array {
 
 declare module "node:fs" {
   export function appendFileSync(path: string, data: string): void;
+  export function closeSync(fd: number): void;
   export function existsSync(path: string): boolean;
   export function mkdirSync(path: string, options?: { recursive?: boolean }): void;
+  export function openSync(path: string, flags: string): number;
   export function readFileSync(path: string): Buffer;
   export function readFileSync(path: string, encoding: "utf8"): string;
   export function readdirSync(path: string, options?: { withFileTypes?: false }): string[];
@@ -116,6 +118,7 @@ declare module "node:child_process" {
     file: string,
     args?: readonly string[],
     options?: {
+      cwd?: string;
       encoding?: "utf8";
       input?: string;
       stdio?:
@@ -132,7 +135,7 @@ declare module "node:child_process" {
       cwd?: string;
       detached?: boolean;
       env?: Record<string, string | undefined>;
-      stdio?: "inherit" | "ignore";
+      stdio?: "inherit" | "ignore" | readonly ["ignore", number, number];
     },
   ): {
     on(event: "exit", listener: (code: number | null) => void): void;

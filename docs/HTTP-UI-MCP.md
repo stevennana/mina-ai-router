@@ -34,21 +34,33 @@ mair server start --port 3333
 mair server status
 ```
 
+When this long-running server is active, it is the live owner for the matching router state file. Compatible CLI reads and writes proxy to the server instead of using a separate one-shot snapshot, which keeps `/api/state`, the Web UI, MCP calls, and the persisted state file consistent.
+
+`mair server start` waits for `/api/health` before reporting success. Bind failures such as `EADDRINUSE` and stale pid files that point at non-Mina servers are surfaced as operator diagnostics rather than raw parser errors.
+
 Stop:
 
 ```sh
 mair server stop
 ```
 
-## Connect Codex CLI
+## Connect Codex or Claude CLI
 
 ```sh
-codex mcp remove mina-ai-router
-codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
-codex mcp get mina-ai-router
+# Codex users
+mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
+mair setup claude --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
 
-Expected transport:
+Use `mair doctor --client all --project /path/to/project` only when you use both clients.
+
+The Connect Agent guide in the UI shows the same setup commands with the live MCP URL for the current server. Manual repair commands are still available in the inspector when a selected agent is stuck in `mcp-configuring`.
+
+Expected MCP URL after setup:
 
 ```text
 transport: streamable_http
@@ -92,6 +104,15 @@ mair health
 mair version
 mair verify
 ```
+
+For repository development, use `npm run verify` to run the full checkout test
+suite. A linked checkout may make `mair verify` run that same suite from the Mina
+package root. In an installed package, `mair verify` checks the packaged CLI,
+MCP server, HTTP server, Web UI assets, docs, and registration skill.
+
+Default verification does not require real Codex or Claude accounts. For local release readiness of the real CLI flow, run `MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract` after `npm run verify`; it proves the installed client context can see `mina-ai-router` in the client MCP list.
+
+`mair health`, `mair agents`, and `mair agent <id>` prefer live status from a running server whose recorded state path matches the current CLI state path. This keeps health output correct when the server was started with a non-default port and when an agent is actively busy inside the server process.
 
 ## Visible Agent Commands
 

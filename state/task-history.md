@@ -1,0 +1,94 @@
+# Ralph Task History
+
+No promoted tasks yet for milestone 0.2.
+- 2026-06-28T13:42:43.899Z: promoted request-protocol-diagnostics-foundation -> request-detail-diagnostics
+- 2026-06-28T13:49:35.651Z: promoted request-detail-diagnostics -> request-retry-cancel-archive
+- 2026-06-28T14:15:52.014Z: branched request-retry-cancel-archive -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 | blocker=deterministic_failure|npm-run-smoke-cli-controls|no-path-details
+- 2026-06-28T14:20:21.282Z: manually promoted request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 -> request-retry-cancel-archive | reason=deterministic RCA evidence passed; read-only Codex evaluator failed to initialize in this sandbox with Operation not permitted
+- 2026-06-28T14:26:39.436Z: branched request-retry-cancel-archive -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 | blocker=deterministic_failure|npm-run-smoke-cli-controls|no-path-details
+- 2026-06-28T14:37:17.877Z: manually promoted request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 -> request-retry-cancel-archive | reason=RCA deterministic check passed and blocker evidence is explicit; read-only Codex evaluator failed to initialize in this sandbox with Operation not permitted | artifact=state/evaluation.json
+- 2026-06-28T14:44:42.938Z: branched request-retry-cancel-archive -> request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 | blocker=deterministic_failure|npm-run-smoke-cli-controls|no-path-details
+- 2026-06-28T14:48:46.784Z: promoted request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 -> request-retry-cancel-archive
+- 2026-06-28T14:52:01.636Z: promoted request-retry-cancel-archive -> capability-refresh-command
+- 2026-06-28T15:02:43.787Z: promoted capability-refresh-command -> capability-freshness-ui
+- 2026-06-29T02:47:06.797Z: manually promoted capability-freshness-ui -> agent-health-core-api | reason=manual completion of 005 after browser permission blocker; live in-app browser desktop/mobile layout verified | artifact=state/artifacts/manual-005-browser-evidence
+- 2026-06-29T03:02:21.399Z: manually promoted agent-health-core-api -> agent-health-ui-cli | reason=manual completion of 006 after required core/API health checks passed
+- 2026-06-29T03:22:26.880Z: manually promoted agent-health-ui-cli -> collaboration-doc-walkthrough | reason=manual completion of 007 after UI and CLI health checks passed
+- 2026-06-29T03:28:26.110Z: manually promoted collaboration-doc-walkthrough -> NONE | reason=manual completion of 008 after docs walkthrough checks passed
+- 2026-06-29T05:10:28.533Z: promoted bootstrap-state-model -> permission-trust-readiness
+- 2026-06-29T05:24:16.670Z: promoted permission-trust-readiness -> mcp-preflight-agent-create
+- 2026-06-29T05:36:38.374Z: promoted mcp-preflight-agent-create -> idempotent-registration-handshake
+- 2026-06-29T05:50:08.686Z: promoted idempotent-registration-handshake -> caller-identity-self-avoidance
+- 2026-06-29T05:57:08.488Z: promoted caller-identity-self-avoidance -> capability-profile-schema-scoring
+- 2026-06-29T06:01:40.037Z: promoted capability-profile-schema-scoring -> capability-profile-ui-cli
+- 2026-06-29T06:14:06.287Z: promoted capability-profile-ui-cli -> request-lease-state
+- 2026-06-29T06:30:19.886Z: promoted request-lease-state -> transaction-recovery-controls
+- 2026-06-29T06:44:36.359Z: promoted transaction-recovery-controls -> bootstrap-docs-and-smoke-hardening
+- 2026-06-29T06:51:04.765Z: promoted bootstrap-docs-and-smoke-hardening -> NONE
+- 2026-06-29T07:35:00+09:00: seeded branch review release-readiness fix wave from docs/reviews/2026-06-29-collaboration-reliability-branch-review.md; current task router-recovery-lock-release
+- 2026-06-29T07:21:40.711Z: promoted router-recovery-lock-release -> orphan-archive-semantics
+- 2026-06-29T07:27:32.786Z: promoted orphan-archive-semantics -> cli-blocked-agent-placeholder
+- 2026-06-29T07:32:52.564Z: promoted cli-blocked-agent-placeholder -> release-version-and-verify-contract
+- 2026-06-29T07:44:49.305Z: promoted release-version-and-verify-contract -> NONE
+- 2026-06-29T09:00:00+09:00: seeded fresh operator review fix wave from docs/reviews/2026-06-29-fresh-operator-review.md; current task cli-server-proxy-register-ask
+- 2026-06-29T09:35:00+09:00: manually completed cli-server-proxy-register-ask -> cli-server-proxy-agent-start-refresh | reason=fresh operator P1 register/ask proxy checks passed
+- 2026-06-29T09:35:00+09:00: manually completed cli-server-proxy-agent-start-refresh -> health-running-server-mcp-url | reason=remaining CLI mutation proxy checks passed
+- 2026-06-29T09:35:00+09:00: manually completed health-running-server-mcp-url -> fresh-operator-smoke-hardening | reason=non-default MCP health URL check passed
+- 2026-06-29T09:35:00+09:00: manually completed fresh-operator-smoke-hardening -> NONE | reason=release hardening checks passed
+- 2026-06-29T10:05:00+09:00: seeded deep operator review live-read consistency wave from docs/reviews/2026-06-29-fresh-operator-review.md; current task cli-live-read-proxy-health-agents
+- 2026-06-29T10:25:00+09:00: manually completed cli-live-read-proxy-health-agents -> cli-live-read-offline-hardening | reason=live CLI read proxy busy-status checks passed
+- 2026-06-29T10:25:00+09:00: manually completed cli-live-read-offline-hardening -> NONE | reason=offline fallback and release hardening checks passed
+- 2026-06-30T09:30:00+09:00: seeded deep operator startup diagnostics wave from docs/reviews/2026-06-29-fresh-operator-review.md; current task server-start-readiness-and-bind-failure
+- 2026-06-30T09:55:00+09:00: manually completed server-start-readiness-and-bind-failure -> live-proxy-stale-pid-diagnostics | reason=startup readiness and occupied-port checks passed
+- 2026-06-30T09:55:00+09:00: manually completed live-proxy-stale-pid-diagnostics -> startup-diagnostics-release-hardening | reason=stale/non-Mina pid diagnostics checks passed
+- 2026-06-30T09:55:00+09:00: manually completed startup-diagnostics-release-hardening -> NONE | reason=release hardening checks passed
+- 2026-06-30T10:20:00+09:00: manually completed doc-review-lifecycle-and-smoke-sync -> NONE | reason=docs review lifecycle and smoke contract checks passed
+- 2026-06-30T10:45:00+09:00: manually completed review-cleanup-safe-docs-gate -> NONE | reason=review file cleanup no longer breaks docs verification
+- 2026-06-30T11:10:00+09:00: seeded fresh real-user Web UI review follow-up from docs/reviews/2026-06-30-fresh-real-user-review.md; current task first-user-ui-port-terminal-affordances
+- 2026-06-30T11:30:00+09:00: manually completed first-user-ui-port-terminal-affordances -> NONE | reason=first-user UI port and terminal affordance checks passed
+- 2026-06-30T12:00:00+09:00: manually completed visible-agent-mcp-and-unarchive-error-cleanup -> NONE | reason=visible-agent MCP URL and unarchive error cleanup checks passed
+- 2026-06-30T12:30:00+09:00: manually completed first-user-ui-accessibility-create-refresh -> NONE | reason=first-user label accessibility and create-agent refresh checks passed
+- 2026-06-30T13:00:00+09:00: manually completed codex-prompt-detection-precision -> NONE | reason=Codex update prompt no longer classified as directory trust
+- 2026-06-30T23:20:00+09:00: manually completed mcp-blocked-agent-readiness -> NONE | reason=MCP-blocked and registration-pending agents no longer count as available
+- 2026-06-30T23:55:00+09:00: manually completed route-readiness-enforcement -> NONE | reason=Non-ready agents no longer accept normal routed work
+- 2026-07-01T14:45:00+09:00: manually completed health-docs-readiness-language -> NONE | reason=User guide needs-attention definition now covers first-run readiness blockers
+- 2026-07-01T15:30:00+09:00: manually completed first-run-doctor-command -> first-run-setup-codex-claude | reason=mair doctor reports server/client/MCP/skill readiness
+- 2026-07-01T15:30:00+09:00: manually completed first-run-setup-codex-claude -> ui-setup-surface | reason=mair setup codex/claude configures MCP and registration skill
+- 2026-07-01T15:30:00+09:00: manually completed ui-setup-surface -> demo-helper-demotion | reason=Connect guide and inspector expose setup/verify guidance
+- 2026-07-01T15:30:00+09:00: manually completed demo-helper-demotion -> NONE | reason=setup-codex-pair no longer uses maintainer-local defaults
+- 2026-07-01T16:20:00+09:00: manually completed doctor-blocked-agent-readiness -> choose-one-setup-docs-ui | reason=doctor fails on blocked route readiness by default
+- 2026-07-01T16:20:00+09:00: manually completed choose-one-setup-docs-ui -> getting-started-oob-cleanup | reason=first-user docs and UI use choose-one setup
+- 2026-07-01T16:20:00+09:00: manually completed getting-started-oob-cleanup -> NONE | reason=Getting Started points to automated OOB setup first
+- 2026-07-01T17:15:00+09:00: manually completed visible-agent-mcp-config-detection -> doctor-mcp-repair-action | reason=visible agent creation consumes verified MCP client config
+- 2026-07-01T17:15:00+09:00: manually completed doctor-mcp-repair-action -> NONE | reason=doctor MCP blockers now show concrete setup commands
+- 2026-07-01T18:40:00+09:00: manually completed http-create-registration-pending -> cli-controls-dynamic-ports | reason=HTTP create-agent now persists registration-pending after prompt send
+- 2026-07-01T18:40:00+09:00: manually completed cli-controls-dynamic-ports -> NONE | reason=CLI controls smoke uses dynamic loopback ports with helper diagnostics
+- 2026-07-01T19:25:00+09:00: manually completed installed-cli-version-source -> installed-cli-verify-contract | reason=installed CLI and MCP versions resolve from Mina package root
+- 2026-07-01T19:25:00+09:00: manually completed installed-cli-verify-contract -> NONE | reason=installed mair verify is a Mina package self-check and ignores consumer npm scripts
+- 2026-07-01T21:50:00+09:00: manually completed installed-verify-success-details -> installed-web-ui-asset-verify | reason=installed verify success checks now use success-language details
+- 2026-07-01T21:50:00+09:00: manually completed installed-web-ui-asset-verify -> NONE | reason=installed verify and smoke now cover packaged Web UI assets and root HTML
+- 2026-07-01T22:45:00+09:00: manually completed cli-subcommand-help-no-side-effects -> session-fingerprint-display-name-dedupe | reason=subcommand help flags now print usage before side-effectful actions
+- 2026-07-01T22:45:00+09:00: manually completed session-fingerprint-display-name-dedupe -> verify-docs-install-mode-clarity | reason=session fingerprint dedupe preserves canonical id and display name together
+- 2026-07-01T22:45:00+09:00: manually completed verify-docs-install-mode-clarity -> NONE | reason=first-user docs now distinguish checkout verification from installed package self-checks
+- 2026-07-02T00:00:00+09:00: manually completed claude-session-mcp-visibility -> codex-update-prompt-bootstrap-blocker | reason=real CLI/Web UI review follow-up checks MCP list visibility
+- 2026-07-02T00:00:00+09:00: manually completed codex-update-prompt-bootstrap-blocker -> permission-state-advance-after-approval | reason=Codex update prompts are distinct bootstrap blockers
+- 2026-07-02T00:00:00+09:00: manually completed permission-state-advance-after-approval -> guided-bootstrap-approval-loop-design | reason=permission approval can advance to registration-pending
+- 2026-07-02T00:00:00+09:00: manually completed guided-bootstrap-approval-loop-design -> real-cli-contract-smoke | reason=docs explain first-run bootstrap blocker loop
+- 2026-07-02T00:00:00+09:00: manually completed real-cli-contract-smoke -> NONE | reason=optional real CLI MCP visibility smoke added
+- 2026-07-02T15:55:00+09:00: seeded follow-up real CLI/Web UI hardening wave from docs/reviews/2026-07-02-real-cli-webui-multi-agent-followup-review.md; current task project-cwd-mcp-visibility
+- 2026-07-02T16:11:28+09:00: manually completed project-cwd-mcp-visibility -> safe-codex-update-skip | reason=project-root cwd MCP visibility checks pass for CLI and Web UI
+- 2026-07-02T16:11:28+09:00: manually completed safe-codex-update-skip -> guided-bootstrap-actions | reason=Codex update prompts now use explicit guided skip action
+- 2026-07-02T16:11:28+09:00: manually completed guided-bootstrap-actions -> real-cli-release-gate-docs | reason=Terminal API/UI exposes prompt-specific guided bootstrap actions
+- 2026-07-02T16:11:28+09:00: manually completed real-cli-release-gate-docs -> NONE | reason=real CLI opt-in release gate docs and skip output are protected
+- 2026-07-02T17:10:00+09:00: seeded second follow-up prompt-clearance task from docs/reviews/2026-07-02-real-cli-webui-multi-agent-second-followup-review.md; current task update-skip-clearance-gate
+- 2026-07-02T17:25:00+09:00: manually completed update-skip-clearance-gate -> NONE | reason=Codex update skip waits for prompt clearance before self-registration retry
+- 2026-07-02T17:45:00+09:00: seeded real 6-repo bootstrap readiness wave from docs/reviews/2026-07-02-real-6repo-usage-review.md; current task codex-passive-update-banner-detection
+- 2026-07-02T18:05:00+09:00: manually completed codex-passive-update-banner-detection -> generic-self-registration-retry | reason=passive Codex update banners no longer block normal prompts
+- 2026-07-02T18:05:00+09:00: manually completed generic-self-registration-retry -> claude-scoped-registration-approval | reason=CLI-created pending tmux agents can retry self-registration from Web UI
+- 2026-07-02T18:05:00+09:00: manually completed claude-scoped-registration-approval -> NONE | reason=Claude scoped Mina registration command approval has guided action coverage
+- 2026-07-02T18:40:00+09:00: seeded real 6-repo follow-up startup recovery wave from docs/reviews/2026-07-02-real-6repo-usage-review.md; current task codex-latest-prompt-segment-detection
+- 2026-07-02T19:05:00+09:00: manually completed codex-latest-prompt-segment-detection -> pending-registration-retry-confirmed-at | reason=Codex update detection now follows latest prompt segment
+- 2026-07-02T19:05:00+09:00: manually completed pending-registration-retry-confirmed-at -> claude-mcp-registration-approval | reason=pending registration retry ignores stale confirmed timestamp
+- 2026-07-02T19:05:00+09:00: manually completed claude-mcp-registration-approval -> claude-folder-trust-guided-action | reason=Claude MCP register approval has scoped guided action
+- 2026-07-02T19:05:00+09:00: manually completed claude-folder-trust-guided-action -> cli-equals-flag-parser | reason=Claude folder trust has project-scoped guided action
+- 2026-07-02T19:05:00+09:00: manually completed cli-equals-flag-parser -> NONE | reason=CLI parser supports --key=value syntax

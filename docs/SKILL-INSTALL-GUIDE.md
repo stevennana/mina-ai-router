@@ -8,9 +8,27 @@ skills/mina-ai-router-agent/SKILL.md
 
 The skill lets Codex or Claude register the current visible tmux-backed CLI session with MAIR without requiring the user to write a full registration payload.
 
+## Recommended
+
+Use first-run setup instead of linking the skill by hand:
+
+```sh
+# Codex users
+mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
+mair setup claude --project /path/to/project
+mair doctor --client claude --project /path/to/project
+```
+
+If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
+
+`mair setup` links this skill into the right client location and verifies MCP config for the running router URL. Use the manual steps below only for custom profiles or repair.
+
 ## Codex
 
-Install the skill into your Codex skills directory:
+Manual Codex skill install:
 
 ```sh
 mkdir -p ~/.codex/skills
@@ -45,7 +63,7 @@ Expected behavior:
 
 Claude Code project skills live under `.claude/skills/*/SKILL.md`.
 
-For a single project, copy or link the MAIR skill into that project:
+Manual Claude project skill install:
 
 ```sh
 cd /path/to/project

@@ -2,7 +2,7 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { appendFileSync } from "node:fs";
-import { AgentRegistry, AgentRouter, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
+import { AgentRegistry, AgentRouter, FileState, RequestStore, packageVersion, type Agent, type TransportType } from "../../../packages/core/src";
 import { DefaultTransportRegistry, HeadlessTransport, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type {
   JsonValue,
@@ -15,13 +15,12 @@ import type {
 type RuntimeModule = typeof import("@minasoft/mcp-runtime");
 
 declare const __dirname: string;
+declare const require: { resolve(specifier: string): string };
 
 const importEsm = new Function("specifier", "return import(specifier)") as (
   specifier: string,
 ) => Promise<RuntimeModule>;
-const runtimeModuleUrl = pathToFileURL(
-  join(__dirname, "../../../../node_modules/@minasoft/mcp-runtime/dist/index.js"),
-).href;
+const runtimeModuleUrl = pathToFileURL(require.resolve("@minasoft/mcp-runtime")).href;
 
 interface JsonRpcMessage {
   jsonrpc: "2.0";
@@ -139,7 +138,11 @@ async function createProvider(): Promise<McpRuntimeProvider> {
       description: "List registered Mina helper agents.",
       inputSchema: {
         type: "object",
-        properties: {},
+        properties: {
+          callerAgentId: { type: "string" },
+          sourceAgent: { type: "string" },
+          callerSessionFingerprint: { type: "string" },
+        },
         additionalProperties: false,
       },
     },
@@ -154,11 +157,15 @@ async function createProvider(): Promise<McpRuntimeProvider> {
           agentType: { type: "string" },
           transport: { type: "string" },
           sessionId: { type: "string" },
+          sessionFingerprint: { type: "string" },
           projectRoot: { type: "string" },
           tmuxTarget: { type: "string" },
           startupCommand: { type: "string" },
           capabilitySummary: { type: "string" },
           capabilitySources: { type: "string" },
+          capabilitySource: { type: "string" },
+          capabilityUpdatedAt: { type: "string" },
+          lastCapabilityRefreshAt: { type: "string" },
         },
         required: ["id", "agentType", "transport", "sessionId", "projectRoot"],
         additionalProperties: false,
@@ -172,6 +179,10 @@ async function createProvider(): Promise<McpRuntimeProvider> {
         properties: {
           target: { type: "string" },
           task: { type: "string" },
+          sourceAgent: { type: "string" },
+          callerAgentId: { type: "string" },
+          callerSessionFingerprint: { type: "string" },
+          allowSelfCall: { type: "boolean" },
           timeoutMs: { type: "number" },
         },
         required: ["target", "task"],
@@ -195,7 +206,7 @@ async function createProvider(): Promise<McpRuntimeProvider> {
   providerPromise = Promise.resolve({
     serverInfo: {
       name: "mina-ai-router",
-      version: "0.1.0",
+      version: packageVersion(),
     },
     tools: {
       async list() {
@@ -213,16 +224,28 @@ async function createProvider(): Promise<McpRuntimeProvider> {
 async function callTool(name: string, args: Record<string, JsonValue>): Promise<McpToolCallResult> {
   switch (name) {
     case "list_agents": {
-      const agents = await context.router.listAgentStatuses();
+      const caller = resolveCallerAgent(args);
+      const agents = await context.router.listAgentStatuses({ callerAgentId: caller?.id });
       return jsonToolResult({ agents });
     }
     case "register_agent": {
       try {
         const agent = agentFromArgs(args);
-        context.registry.register(agent);
+        const now = new Date().toISOString();
+        const registered = context.registry.register({
+          ...agent,
+          bootstrapStatus: "ready",
+          registrationSource: "mcp",
+          registrationStatus: "confirmed",
+          lastRegistrationAttemptAt: now,
+          confirmedByAgentAt: now,
+          sessionFingerprint: agent.sessionFingerprint ?? agent.sessionId,
+        }, {
+          capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "generated" : undefined,
+        });
         context.save();
         const agents = await context.router.listAgentStatuses();
-        return jsonToolResult({ agent, agents });
+        return jsonToolResult({ agent: registered, agents });
       } catch (error) {
         return {
           kind: "invalid_params",
@@ -234,13 +257,21 @@ async function callTool(name: string, args: Record<string, JsonValue>): Promise<
       const target = typeof args.target === "string" ? args.target : "";
       const task = typeof args.task === "string" ? args.task : "";
       const timeoutMs = typeof args.timeoutMs === "number" ? args.timeoutMs : undefined;
+      const caller = resolveCallerAgent(args);
+      const allowSelfCall = args.allowSelfCall === true;
 
       if (!target || !task) {
         return { kind: "invalid_params", message: "call_agent requires string target and task." };
       }
 
       try {
-        const response = await context.router.callAgent({ target, task, timeoutMs });
+        const response = await context.router.callAgent({
+          sourceAgent: caller?.id,
+          target,
+          task,
+          timeoutMs,
+          allowSelfCall,
+        });
         return jsonToolResult(response as unknown);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -276,6 +307,16 @@ async function callTool(name: string, args: Record<string, JsonValue>): Promise<
   }
 }
 
+function resolveCallerAgent(args: Record<string, JsonValue>): Agent | undefined {
+  const callerAgentId = stringValue(args.callerAgentId) ?? stringValue(args.sourceAgent);
+  if (callerAgentId) {
+    return context.registry.get(callerAgentId);
+  }
+
+  const fingerprint = stringValue(args.callerSessionFingerprint);
+  return fingerprint ? context.registry.findBySessionFingerprint(fingerprint) : undefined;
+}
+
 function agentFromArgs(args: Record<string, JsonValue>): Agent {
   const id = requiredString(args.id, "id");
   return {
@@ -284,11 +325,15 @@ function agentFromArgs(args: Record<string, JsonValue>): Agent {
     agentType: requiredString(args.agentType, "agentType"),
     transport: requiredString(args.transport, "transport") as TransportType,
     sessionId: requiredString(args.sessionId, "sessionId"),
+    sessionFingerprint: stringValue(args.sessionFingerprint) ?? stringValue(args.sessionId),
     projectRoot: requiredString(args.projectRoot, "projectRoot"),
     tmuxTarget: stringValue(args.tmuxTarget),
     startupCommand: stringValue(args.startupCommand),
     capabilitySummary: stringValue(args.capabilitySummary),
     capabilitySources: stringValue(args.capabilitySources),
+    capabilitySource: capabilitySourceValue(args.capabilitySource),
+    capabilityUpdatedAt: stringValue(args.capabilityUpdatedAt),
+    lastCapabilityRefreshAt: stringValue(args.lastCapabilityRefreshAt),
   };
 }
 
@@ -302,6 +347,10 @@ function requiredString(value: JsonValue | undefined, field: string): string {
 
 function stringValue(value: JsonValue | undefined): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function capabilitySourceValue(value: JsonValue | undefined): Agent["capabilitySource"] | undefined {
+  return value === "manual" || value === "generated" ? value : undefined;
 }
 
 function jsonToolResult(value: unknown): McpToolCallResult {

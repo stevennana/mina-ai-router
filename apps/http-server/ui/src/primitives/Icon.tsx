@@ -25,7 +25,8 @@ export type IconName =
   | "router"
   | "send"
   | "settings"
-  | "terminal";
+  | "terminal"
+  | "unarchive";
 
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {
   return (

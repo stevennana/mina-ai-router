@@ -18,10 +18,14 @@ Use Mina AI Router when you want several CLI agents to work together across loca
 - see live agent status, capabilities, terminal previews, and request history in one browser console
 - keep orchestration local-first on your machine
 
-## Install
+## Install From GitHub
 
 ```sh
-npm install -g @minasoft/mina-ai-router
+git clone https://github.com/stevennana/mina-ai-router.git
+cd mina-ai-router
+npm install
+npm run build
+npm link
 mair version
 ```
 
@@ -38,23 +42,27 @@ Open the Web UI:
 http://127.0.0.1:3333/
 ```
 
+While this server is running, it owns the live router state for that state file. Compatible `mair` CLI reads and writes route through the running server, so `mair health`, `mair agents`, the Web UI, and the MCP endpoint agree on busy/available status without a restart.
+
+`mair server start` reports success only after the local Mina health endpoint is ready. If startup fails because the port is occupied, or a stale pid file points at a non-Mina process, Mina reports an actionable diagnostic instead of a healthy-looking server.
+
 ## Connect Codex or Claude
 
-Codex:
+Run setup from the project you want an agent to work in. It discovers the matching running router URL, configures MCP, installs the registration skill, and verifies the client profile.
 
 ```sh
-codex mcp remove mina-ai-router
-codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
-codex mcp get mina-ai-router
+# Codex users
+mair setup codex --project /path/to/project
+mair doctor --client codex --project /path/to/project
+
+# Claude users
+mair setup claude --project /path/to/project
+mair doctor --client claude --project /path/to/project
 ```
 
-Claude:
+If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
 
-```sh
-claude mcp remove mina-ai-router
-claude mcp add --transport http mina-ai-router http://127.0.0.1:3333/mcp
-claude mcp get mina-ai-router
-```
+Manual MCP repair commands are still documented in the MCP Client Setup guide for unusual client profiles.
 
 ## Create an Agent
 
@@ -72,6 +80,8 @@ mair claude
 
 You can also create agents from the Web UI by right-clicking the `Live Agent Flow` area and choosing `Create tmux Agent`.
 
+Newly created agents move through explicit readiness states instead of silently appearing ready. The UI and CLI can show `created`, `permission-required`, `mcp-configuring`, `registration-pending`, `ready`, or `failed`. If a Codex or Claude session is waiting for trust approval or MCP setup, the agent is not treated as ready for collaboration until that blocker is visible and resolved.
+
 ## Collaborate Between Agents
 
 From a registered Codex or Claude session, ask it to use Mina AI Router:
@@ -84,13 +94,29 @@ Summarize the method, endpoint, parameters, and source files.
 
 The source agent calls MCP `list_agents`, selects a target, sends the task with `call_agent`, and waits for the routed answer.
 
+Mina passes caller identity into MCP results so an agent can recognize itself. `list_agents` marks the caller with `isSelf`, and `call_agent` rejects accidental self-calls unless `allowSelfCall: true` is provided for diagnostics.
+
+## Inspect Reliability
+
+The browser console is built for local live operations, not hidden background orchestration. During a two-agent collaboration you can:
+
+- open the routed request detail to inspect lifecycle, parsed answer, raw terminal evidence, and parser diagnostics
+- retry, cancel, archive, unarchive, interrupt, or mark recovered requests from the activity panel
+- distinguish fresh, stale, missing, generated, manually edited, strong, thin, and missing capability profiles
+- inspect MCP preflight state and permission/trust blockers before a new CLI session is routed work
+- recover long transactions where the router timed out but the target terminal may still be running
+- see health states shared by the CLI and UI: `available`, `busy`, `stale`, `missing`, `needs-attention`, and `unknown`
+- use `mair health`, `mair agents`, and `mair agent <id>` to confirm the same status model from a terminal
+- trust `mair health` to report the MCP URL for the matching running server, including non-default ports
+- see active server-routed requests as `busy` from both the browser and CLI read commands
+
 ## What You Get
 
 - Local HTTP UI at `http://127.0.0.1:3333/`
 - Local MCP endpoint at `http://127.0.0.1:3333/mcp`
 - `mair` CLI for server and agent controls
 - Browser operations console with live flow, inspector, terminal preview, and activity log
-- Agent capability summaries and editable metadata
+- Agent capability summaries, structured capability profiles, readiness state, and editable metadata
 - MCP tools: `list_agents`, `register_agent`, `call_agent`, `get_request_status`
 - Repo-local skill for agent self-registration
 

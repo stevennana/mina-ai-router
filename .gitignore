@@ -3,6 +3,15 @@
 /dist
 /data/*.json
 /data/*.log
+/state/artifacts/
+/state/*.json
+/state/*.txt
+/state/*.md
+!/state/README.md
+!/state/current-task.txt
+!/state/run-log.md
+!/state/task-history.md
+!/state/backlog.md
 .DS_Store
 .idea/*
 

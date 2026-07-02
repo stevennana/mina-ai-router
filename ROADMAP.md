@@ -34,6 +34,8 @@ Shipped in `0.1.x`:
 
 Goal: make agent-to-agent work dependable enough for daily local development.
 
+Status: implementation wave completed through request diagnostics, capability refresh, health/readiness, self-call avoidance, structured capability profiles, request leases, and manual transaction recovery. The remaining work for this milestone is documentation, smoke hardening, release review, and any fixes found while using the feature branch.
+
 ### 0.2.1 Request Protocol Hardening
 
 - Define a documented request envelope for `call_agent`.
@@ -85,6 +87,22 @@ Done when:
 
 - The UI and CLI agree on agent health.
 - Stale or missing agents are visually obvious.
+
+### 0.2.5 Agent Bootstrap Reliability
+
+- Add bootstrap states for created, starting, permission-required, MCP configuring, registration pending, ready, and failed agents.
+- Add permission/trust readiness handling for Web UI and CLI-created Codex/Claude sessions.
+- Add MCP preflight before self-registration prompts.
+- Make Web UI-created placeholders and agent self-registration idempotent.
+- Add caller identity so agents can identify themselves and avoid self-calls.
+- Replace shallow capability text with structured, evidence-backed capability profiles.
+- Add request leases and session recovery controls for long transactions that outlive router timeouts.
+
+Done when:
+
+- A newly created agent cannot silently look ready while blocked on permission or MCP setup.
+- Agents can identify their own entry in MCP `list_agents` results.
+- Long-running timed-out requests can be cancelled, interrupted, or marked recovered from the UI or CLI.
 
 ## Milestone 0.3: Team Workspace
 

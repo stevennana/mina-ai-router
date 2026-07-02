@@ -269,6 +269,7 @@ export function LiveFlow({
             return (
               <button
                 className={["agent-node", selectedAgentId === agent.id ? "selected" : "", isActive ? "active-request" : "", failed ? "failed-request" : ""].filter(Boolean).join(" ")}
+                data-health-status={agent.status}
                 key={agent.id}
                 ref={(node) => { nodeRefs.current[agent.id] = node; }}
                 style={{ left: positions[agent.id].left, top: positions[agent.id].top }}

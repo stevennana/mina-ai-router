@@ -5,6 +5,7 @@ import type {
   McpToolCallResult,
 } from "@minasoft/mcp-runtime";
 import type { Agent, AgentRegistry, AgentRouter, RequestStore, TransportType } from "../../core/src";
+import { packageVersion } from "../../core/src";
 
 export interface MinaMcpContext {
   registry: AgentRegistry;
@@ -19,7 +20,11 @@ const tools: McpTool[] = [
     description: "List registered Mina helper agents.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        callerAgentId: { type: "string" },
+        sourceAgent: { type: "string" },
+        callerSessionFingerprint: { type: "string" },
+      },
       additionalProperties: false,
     },
   },
@@ -34,11 +39,15 @@ const tools: McpTool[] = [
         agentType: { type: "string" },
         transport: { type: "string" },
         sessionId: { type: "string" },
+        sessionFingerprint: { type: "string" },
         projectRoot: { type: "string" },
         tmuxTarget: { type: "string" },
         startupCommand: { type: "string" },
         capabilitySummary: { type: "string" },
         capabilitySources: { type: "string" },
+        capabilitySource: { type: "string" },
+        capabilityUpdatedAt: { type: "string" },
+        lastCapabilityRefreshAt: { type: "string" },
       },
       required: ["id", "agentType", "transport", "sessionId", "projectRoot"],
       additionalProperties: false,
@@ -52,6 +61,10 @@ const tools: McpTool[] = [
       properties: {
         target: { type: "string" },
         task: { type: "string" },
+        sourceAgent: { type: "string" },
+        callerAgentId: { type: "string" },
+        callerSessionFingerprint: { type: "string" },
+        allowSelfCall: { type: "boolean" },
         timeoutMs: { type: "number" },
       },
       required: ["target", "task"],
@@ -76,7 +89,7 @@ export function createMinaMcpProvider(context: MinaMcpContext): McpRuntimeProvid
   return {
     serverInfo: {
       name: "mina-ai-router",
-      version: "0.1.0",
+      version: packageVersion(),
     },
     tools: {
       async list() {
@@ -96,17 +109,29 @@ async function callTool(
 ): Promise<McpToolCallResult> {
   switch (name) {
     case "list_agents": {
-      const agents = await context.router.listAgentStatuses();
+      const caller = resolveCallerAgent(context.registry, args);
+      const agents = await context.router.listAgentStatuses({ callerAgentId: caller?.id });
       return jsonToolResult({ agents });
     }
     case "register_agent": {
       try {
         const agent = agentFromArgs(args);
-        context.registry.register(agent);
+        const now = new Date().toISOString();
+        const registered = context.registry.register({
+          ...agent,
+          bootstrapStatus: "ready",
+          registrationSource: "mcp",
+          registrationStatus: "confirmed",
+          lastRegistrationAttemptAt: now,
+          confirmedByAgentAt: now,
+          sessionFingerprint: agent.sessionFingerprint ?? agent.sessionId,
+        }, {
+          capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "generated" : undefined,
+        });
         context.save();
         const agents = await context.router.listAgentStatuses();
         return jsonToolResult({
-          agent,
+          agent: registered,
           agents,
         });
       } catch (error) {
@@ -120,13 +145,21 @@ async function callTool(
       const target = typeof args.target === "string" ? args.target : "";
       const task = typeof args.task === "string" ? args.task : "";
       const timeoutMs = typeof args.timeoutMs === "number" ? args.timeoutMs : undefined;
+      const caller = resolveCallerAgent(context.registry, args);
+      const allowSelfCall = args.allowSelfCall === true;
 
       if (!target || !task) {
         return { kind: "invalid_params", message: "call_agent requires string target and task." };
       }
 
       try {
-        const response = await context.router.callAgent({ target, task, timeoutMs });
+        const response = await context.router.callAgent({
+          sourceAgent: caller?.id,
+          target,
+          task,
+          timeoutMs,
+          allowSelfCall,
+        });
         return jsonToolResult(response);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -152,6 +185,9 @@ async function callTool(
           requestId: found.id,
           status: found.status,
           error: found.error,
+          diagnosticStatus: found.diagnosticStatus,
+          parserDiagnostics: found.parserDiagnostics,
+          rawEvidence: found.rawEvidence,
         });
       } catch {
         return { kind: "not_found", message: `Request "${requestId}" was not found.` };
@@ -162,6 +198,19 @@ async function callTool(
   }
 }
 
+function resolveCallerAgent(
+  registry: AgentRegistry,
+  args: Record<string, JsonValue>,
+): Agent | undefined {
+  const callerAgentId = stringValue(args.callerAgentId) ?? stringValue(args.sourceAgent);
+  if (callerAgentId) {
+    return registry.get(callerAgentId);
+  }
+
+  const fingerprint = stringValue(args.callerSessionFingerprint);
+  return fingerprint ? registry.findBySessionFingerprint(fingerprint) : undefined;
+}
+
 function agentFromArgs(args: Record<string, JsonValue>): Agent {
   const id = requiredString(args.id, "id");
   return {
@@ -170,11 +219,15 @@ function agentFromArgs(args: Record<string, JsonValue>): Agent {
     agentType: requiredString(args.agentType, "agentType"),
     transport: requiredString(args.transport, "transport") as TransportType,
     sessionId: requiredString(args.sessionId, "sessionId"),
+    sessionFingerprint: stringValue(args.sessionFingerprint) ?? stringValue(args.sessionId),
     projectRoot: requiredString(args.projectRoot, "projectRoot"),
     tmuxTarget: stringValue(args.tmuxTarget),
     startupCommand: stringValue(args.startupCommand),
     capabilitySummary: stringValue(args.capabilitySummary),
     capabilitySources: stringValue(args.capabilitySources),
+    capabilitySource: capabilitySourceValue(args.capabilitySource),
+    capabilityUpdatedAt: stringValue(args.capabilityUpdatedAt),
+    lastCapabilityRefreshAt: stringValue(args.lastCapabilityRefreshAt),
   };
 }
 
@@ -188,6 +241,10 @@ function requiredString(value: JsonValue | undefined, field: string): string {
 
 function stringValue(value: JsonValue | undefined): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function capabilitySourceValue(value: JsonValue | undefined): Agent["capabilitySource"] | undefined {
+  return value === "manual" || value === "generated" ? value : undefined;
 }
 
 function jsonToolResult(value: unknown): McpToolCallResult {

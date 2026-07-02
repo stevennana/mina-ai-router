@@ -1,4 +1,4 @@
-import type { DirectoryListing, HealthState, RouterAgent, UiState } from "../domain/types";
+import type { DirectoryListing, HealthState, RouterAgent, TerminalAction, UiState } from "../domain/types";
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
@@ -28,8 +28,8 @@ export const routerApi = {
   restartAgent: (id: string) => api<{ agent: RouterAgent; state: UiState }>(`/api/agents/${encodeURIComponent(id)}/restart`, {
     method: "POST",
   }),
-  createTmuxAgent: (body: { agentType: string; projectRoot: string; id?: string; sessionId?: string }) =>
-    api<{ agent: RouterAgent; state: UiState; existed: boolean; registration: string; nextAction: string; attachCommand: string; mairAttachCommand: string }>("/api/agents/create-tmux", {
+  createTmuxAgent: (body: { agentType: string; projectRoot: string; id?: string; sessionId?: string; permissionProfile?: string }) =>
+    api<{ agent: RouterAgent; state: UiState; existed: boolean; registration: string; nextAction: string; attachCommand: string; mairAttachCommand: string; permissionProfile: Pick<RouterAgent, "permissionProfile" | "permissionProfileStatus" | "permissionProfileDetail">; mcpPreflight: Pick<RouterAgent, "mcpPreflightStatus" | "mcpPreflightDetail" | "mcpSetupCommand" | "mcpVerifyCommand" | "mcpRemoveCommand" | "mcpUrl"> & { status: string; nextAction: string; canSendSelfRegistrationPrompt: boolean } }>("/api/agents/create-tmux", {
       method: "POST",
       body: JSON.stringify(body),
     }),
@@ -37,7 +37,7 @@ export const routerApi = {
     method: "POST",
     body: JSON.stringify({ target, task, timeoutMs: 300000 }),
   }),
-  requestAction: (requestId: string, action: "retry" | "cancel" | "archive") =>
+  requestAction: (requestId: string, action: "retry" | "cancel" | "archive" | "unarchive" | "interrupt" | "recover") =>
     api<{ result: { requestId?: string; targetAgent?: string }; state: UiState }>(`/api/requests/${encodeURIComponent(requestId)}/${action}`, {
       method: "POST",
     }),
@@ -45,11 +45,11 @@ export const routerApi = {
     method: "POST",
     body: JSON.stringify({ olderThanMs: 30 * 60 * 1000 }),
   }),
-  terminal: (agentId: string) => api<{ terminal: { text: string; trustPrompt: boolean; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal`),
-  terminalInput: (agentId: string, text: string, enter: boolean) =>
-    api<{ registration: string; terminal: { text: string; trustPrompt: boolean; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal/input`, {
+  terminal: (agentId: string) => api<{ terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; actions: TerminalAction[]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal`),
+  terminalInput: (agentId: string, text: string, enter: boolean, actionId?: string) =>
+    api<{ registration: string; terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; actions: TerminalAction[]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal/input`, {
       method: "POST",
-      body: JSON.stringify({ text, enter }),
+      body: JSON.stringify({ text, enter, actionId }),
     }),
   setupPair: () => api<{ helper: RouterAgent }>("/api/setup-codex-pair", {
     method: "POST",

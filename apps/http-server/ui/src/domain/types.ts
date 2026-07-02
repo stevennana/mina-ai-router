@@ -1,5 +1,99 @@
-export type AgentStatus = "available" | "busy" | "missing" | "unknown" | string;
+export type AgentStatus = "available" | "busy" | "stale" | "missing" | "needs-attention" | "unknown" | string;
+export type AgentBootstrapStatus =
+  | "created"
+  | "starting"
+  | "permission-required"
+  | "client-update-required"
+  | "mcp-configuring"
+  | "registration-pending"
+  | "ready"
+  | "failed"
+  | "unknown"
+  | string;
+export type AgentRegistrationSource = "manual" | "mcp" | "web-ui" | "cli" | "system" | "unknown" | string;
+export type AgentRegistrationStatus = "placeholder" | "pending" | "confirmed" | "failed" | "unknown" | string;
+export type AgentPermissionProfileStatus = "not-requested" | "supported" | "unsupported" | string;
+export type AgentMcpPreflightStatus = "configured" | "missing" | "stale" | "unsupported" | string;
+export type AgentPermissionPrompt = {
+  client: "codex" | "claude" | "unknown" | string;
+  kind: "directory-trust" | "permission-approval" | "client-update" | string;
+  message: string;
+  action: string;
+  evidence: string;
+};
+
+export type TerminalAction = {
+  id: string;
+  label: string;
+  description: string;
+  policy: "manual" | "guided" | "auto-safe" | string;
+  input?: {
+    text?: string;
+    enter?: boolean;
+  };
+};
+
+export type AgentRegistrationEvent = {
+  at: string;
+  source: AgentRegistrationSource;
+  status: AgentRegistrationStatus;
+  agentId: string;
+  sessionFingerprint?: string;
+};
+
+export type AgentCapabilityProfile = {
+  projectPurpose?: string;
+  primaryLanguages?: string[];
+  keyAreas?: string[];
+  canAnswer?: string[];
+  cannotAnswerYet?: string[];
+  evidence?: string[];
+  quality: "strong" | "thin" | "missing";
+  qualityReasons?: string[];
+};
 export type RequestStatus = "created" | "sent" | "waiting" | "answered" | "failed" | "timeout" | "cancelled" | "archived" | string;
+export type RequestDiagnosticStatus =
+  | "pending"
+  | "answered"
+  | "timeout"
+  | "cancelled"
+  | "archived"
+  | "parse_failure"
+  | "transport_failure"
+  | "unknown_failure"
+  | string;
+
+export type ResponseParserDiagnostics = {
+  kind: "parsed" | "missing_markers" | "missing_start_marker" | "placeholder_only" | string;
+  requestId: string;
+  message: string;
+  startMarkerFound: boolean;
+  endMarkerFound: boolean;
+  candidateCount: number;
+  placeholderCount: number;
+  answerLength?: number;
+};
+
+export type RequestRawEvidence = {
+  kind: "transport_capture" | "prompt_envelope" | string;
+  capturedAt: string;
+  characterCount: number;
+  excerpt: string;
+  truncated: boolean;
+};
+
+export type RequestLeaseStatus = "active" | "released" | "orphaned" | string;
+export type RequestRecoveryStatus = "interrupted" | "recovered" | string;
+
+export type RequestRecoveryEvent = {
+  at: string;
+  action: "cancel" | "interrupt" | "recover" | string;
+  source: "cli" | "http" | "ui" | "system" | string;
+  message: string;
+  previousLeaseStatus?: RequestLeaseStatus;
+  activeRequestId?: string;
+  terminalTarget?: string;
+};
 
 export type RouterAgent = {
   id: string;
@@ -11,9 +105,43 @@ export type RouterAgent = {
   tmuxTarget?: string;
   capabilitySummary?: string;
   capabilitySources?: string;
+  capabilitySource?: "manual" | "generated";
+  capabilityUpdatedAt?: string;
+  lastCapabilityRefreshAt?: string;
+  capabilityProfile?: AgentCapabilityProfile;
+  bootstrapStatus?: AgentBootstrapStatus;
+  registrationSource?: AgentRegistrationSource;
+  registrationStatus?: AgentRegistrationStatus;
+  lastRegistrationAttemptAt?: string;
+  confirmedByAgentAt?: string;
+  sessionFingerprint?: string;
+  registrationHistory?: AgentRegistrationEvent[];
+  registrationWarnings?: string[];
+  permissionProfile?: "default" | "direct-workspace-read" | string;
+  permissionProfileStatus?: AgentPermissionProfileStatus;
+  permissionProfileDetail?: string;
+  permissionPrompt?: AgentPermissionPrompt;
+  mcpPreflightStatus?: AgentMcpPreflightStatus;
+  mcpPreflightDetail?: string;
+  mcpSetupCommand?: string;
+  mcpVerifyCommand?: string;
+  mcpRemoveCommand?: string;
+  mcpUrl?: string;
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+  activeRequestId?: string;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
+  healthCheckedAt?: string;
+  staleAfterMs?: number;
   detail?: string;
+  routeReady?: boolean;
+  routeBlockedReason?: string;
   status: AgentStatus;
   lastRequestStatus?: string;
+  isSelf?: boolean;
 };
 
 export type RouterRequest = {
@@ -24,6 +152,25 @@ export type RouterRequest = {
   status: RequestStatus;
   answer?: string;
   error?: string;
+  retryOfRequestId?: string;
+  retriedByRequestId?: string;
+  archivedAt?: string;
+  archivedFromStatus?: RequestStatus;
+  diagnosticStatus?: RequestDiagnosticStatus;
+  parserDiagnostics?: ResponseParserDiagnostics;
+  rawEvidence?: RequestRawEvidence;
+  promptEvidence?: RequestRawEvidence;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
+  leaseOwnerAgentId?: string;
+  leaseTargetSessionId?: string;
+  leaseTargetSessionFingerprint?: string;
+  recoveryStatus?: RequestRecoveryStatus;
+  recoveryEvents?: RequestRecoveryEvent[];
+  interruptedAt?: string;
+  recoveredAt?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -41,7 +188,9 @@ export type HealthState = {
     total: number;
     available: number;
     busy: number;
+    stale: number;
     missing: number;
+    needsAttention: number;
     unknown: number;
   };
   requests: {

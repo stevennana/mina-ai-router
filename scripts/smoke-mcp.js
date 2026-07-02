@@ -1,10 +1,11 @@
 const assert = require("node:assert/strict");
 const { spawn, execFileSync } = require("node:child_process");
-const { existsSync, mkdtempSync, writeFileSync } = require("node:fs");
+const { existsSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
 const repoRoot = join(__dirname, "..");
+const packageVersion = require(join(repoRoot, "package.json")).version;
 const distCli = join(repoRoot, "dist", "apps", "cli", "src", "index.js");
 const distMcp = join(repoRoot, "dist", "apps", "mcp-server", "src", "index.js");
 const session = `mina-router-mcp-${process.pid}`;
@@ -22,13 +23,49 @@ async function main() {
 
   writeResponder();
   cleanup();
+  writeFileSync(statePath, `${JSON.stringify({
+    agents: [
+      {
+        id: "payment",
+        name: "payment",
+        agentType: "shell",
+        transport: "tmux",
+        sessionId: session,
+        projectRoot: tempDir,
+        bootstrapStatus: "created",
+        registrationSource: "web-ui",
+        registrationStatus: "pending",
+        lastRegistrationAttemptAt: "2026-01-01T00:00:00.000Z",
+        sessionFingerprint: session,
+      },
+      {
+        id: "mcp-blocked",
+        name: "mcp-blocked",
+        agentType: "codex",
+        transport: "headless",
+        sessionId: "mcp-blocked",
+        projectRoot: tempDir,
+        bootstrapStatus: "mcp-configuring",
+        registrationSource: "web-ui",
+        registrationStatus: "pending",
+        mcpPreflightStatus: "missing",
+      },
+    ],
+    requests: [],
+  }, null, 2)}\n`);
 
   try {
-    run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
+    try {
+      run("tmux", ["new-session", "-d", "-s", session, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${responderPath}`]);
+    } catch (error) {
+      if (reportTmuxDenied(error)) return;
+      throw error;
+    }
     const mcp = new McpClient(distMcp, env);
     try {
       const initialize = await mcp.request("initialize", {});
       assert.equal(initialize.serverInfo.name, "mina-ai-router");
+      assert.equal(initialize.serverInfo.version, packageVersion);
 
       const tools = await mcp.request("tools/list", {});
       assert.deepEqual(
@@ -43,23 +80,67 @@ async function main() {
           agentType: "shell",
           transport: "tmux",
           sessionId: session,
+          sessionFingerprint: session,
           projectRoot: tempDir,
           capabilitySummary: "Handles payment project questions and returns marker-wrapped tmux responses.",
           capabilitySources: "AGENTS.md, package.json",
         })).content[0].text,
       );
       assert.equal(registered.agent.id, "payment");
+      assert.equal(registered.agent.bootstrapStatus, "ready");
+      assert.equal(registered.agent.registrationSource, "mcp");
+      assert.equal(registered.agent.registrationStatus, "confirmed");
+      assert.ok(registered.agent.confirmedByAgentAt);
+      assert.ok(registered.agent.registrationHistory.length >= 2);
       assert.equal(registered.agent.capabilitySummary, "Handles payment project questions and returns marker-wrapped tmux responses.");
+      assert.equal(registered.agent.capabilitySource, "generated");
+      assert.ok(registered.agent.capabilityUpdatedAt);
+      assert.ok(registered.agent.lastCapabilityRefreshAt);
 
       const agents = JSON.parse((await mcp.callTool("list_agents", {})).content[0].text);
-      assert.equal(agents.agents[0].id, "payment");
-      assert.equal(agents.agents[0].status, "available");
-      assert.equal(agents.agents[0].capabilitySources, "AGENTS.md, package.json");
+      const paymentAgent = agents.agents.find((agent) => agent.id === "payment");
+      assert.equal(paymentAgent.isSelf, undefined);
+      assert.equal(paymentAgent.status, "available");
+      assert.equal(paymentAgent.routeReady, true);
+      assert.equal(paymentAgent.capabilitySources, "AGENTS.md, package.json");
+      assert.equal(paymentAgent.capabilitySource, "generated");
+      const blockedAgent = agents.agents.find((agent) => agent.id === "mcp-blocked");
+      assert.equal(blockedAgent.status, "needs-attention");
+      assert.equal(blockedAgent.routeReady, false);
+      assert.match(blockedAgent.routeBlockedReason, /MCP setup|self-registration|MCP preflight/);
+
+      const callerAgents = JSON.parse((await mcp.callTool("list_agents", {
+        callerSessionFingerprint: session,
+      })).content[0].text);
+      assert.equal(callerAgents.agents.find((agent) => agent.id === "payment").isSelf, true);
+
+      const blockedSelfCall = await mcp.callTool("call_agent", {
+        target: "payment",
+        task: "MCP self-call should be blocked",
+        callerSessionFingerprint: session,
+        timeoutMs: 1_000,
+      });
+      assert.match(JSON.stringify(blockedSelfCall), /Refusing self-call/);
+
+      const blockedRouteCall = await mcp.callTool("call_agent", {
+        target: "mcp-blocked",
+        task: "MCP route readiness should be blocked",
+        callerSessionFingerprint: session,
+        timeoutMs: 1_000,
+      });
+      assert.match(JSON.stringify(blockedRouteCall), /not ready to receive routed work/);
+      const stateAfterBlockedRoute = JSON.parse(readFileSync(statePath, "utf8"));
+      assert.equal(
+        stateAfterBlockedRoute.requests.filter((request) => request.targetAgent === "mcp-blocked").length,
+        0,
+      );
 
       const call = JSON.parse(
         (await mcp.callTool("call_agent", {
           target: "payment",
           task: "MCP tmux smoke",
+          callerSessionFingerprint: session,
+          allowSelfCall: true,
           timeoutMs: 5_000,
         })).content[0].text,
       );
@@ -184,6 +265,19 @@ function run(file, args, commandEnv = process.env) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
+}
+
+function reportTmuxDenied(error) {
+  const details = `${error.stderr || ""}${error.message || ""}`;
+  if (!/Operation not permitted/.test(details)) {
+    return false;
+  }
+
+  console.log([
+    "mcp smoke skipped: tmux socket denied by environment",
+    details.trim(),
+  ].join("\n"));
+  return true;
 }
 
 function cleanup() {

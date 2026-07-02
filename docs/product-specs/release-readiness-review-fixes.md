@@ -1,0 +1,205 @@
+# Release Readiness Review Fixes
+
+Date: 2026-06-29
+
+## Purpose
+
+The collaboration reliability branch passed the main 0.2 implementation wave, but review passes found release-blocking and release-confusing gaps. This spec defines the follow-up waves required before merge or release.
+
+## Source Reviews
+
+- The resolved 2026-06-29 branch and fresh-operator review findings are summarized in this product spec and the completed exec plans for tasks 019-031.
+- Resolved first-time user documentation review findings are summarized in completed exec plans 032-033 so ephemeral review files can be removed after cleanup.
+- Fresh real-user Web UI review findings are summarized in completed exec plan 034.
+- Full user functional review findings are summarized in completed exec plan 035.
+- First-user accessibility and create-refresh review findings are summarized in completed exec plan 036.
+- First-user Codex prompt detection findings are summarized in completed exec plan 037.
+- First-user revalidation readiness findings are summarized in completed exec plan 038.
+- First-user route readiness findings are summarized in completed exec plan 039.
+- First-user health documentation findings are summarized in completed exec plan 040.
+- First-user out-of-box setup automation findings are summarized in completed exec plans 041-044.
+- First-user OOB revalidation findings are summarized in completed exec plans 045-047.
+- First-user OOB agent-start findings are summarized in completed exec plans 048-049.
+- First-user OOB revalidation findings for Web UI create state and local smoke robustness are summarized in completed exec plans 050-051.
+- First-user installed CLI findings are summarized in completed exec plans 052-053.
+- First-user installed verify output findings are summarized in completed exec plans 054-055.
+- First-user verify docs and CLI exploration findings are summarized in completed exec plans 056-058.
+- Real CLI/Web UI multi-agent findings from 2026-07-02 are summarized in completed exec plans 059-063.
+- Real CLI/Web UI follow-up findings from 2026-07-02 are split into completed exec plans 064-076, including the real 6-repo follow-up recovery work.
+
+## User Story
+
+As a local operator, I want recovery, agent creation, and version diagnostics to match what the UI and CLI claim, so I can trust the branch without restarting the server or reading implementation details.
+
+## Findings To Address
+
+| Review finding | Desired outcome |
+| --- | --- |
+| Recovered timeout requests leave `AgentRouter` busy lock stuck | Recovering an orphaned request clears persisted lease state and the live in-memory lock in the same server process |
+| Archiving orphaned requests can preserve orphaned lease state | Archive behavior for orphaned requests is explicit, UI/API/CLI aligned, and does not leave a hidden stuck agent |
+| CLI-created visible agents are not persisted when registration is blocked | CLI-started Codex/Claude agents appear in registry, UI, health, and CLI lists even when permission or MCP setup blocks registration |
+| Version values are inconsistent | CLI and MCP runtime version surfaces match `package.json.version` |
+| Diff whitespace and docs smoke verification drift | Release verification catches docs smoke and branch diff whitespace before merge |
+| CLI and HTTP server can diverge and overwrite router state | While a matching HTTP server is running, normal mutating CLI commands proxy to the server-owned live state instead of writing stale file snapshots |
+| `mair health` reports the wrong MCP URL after `server start --port` | Health reports the running matching server's MCP URL before falling back to default/env URL construction |
+| CLI health and agents misreport busy agents while server is routing | CLI read commands use the matching running server's live status so busy/available state matches the UI and API during active routes |
+| `server start` reports success when port bind fails | Server startup reports success only after Mina readiness is confirmed, and bind failures are surfaced as actionable errors |
+| Live CLI proxy gives raw JSON parse error for non-Mina pid target | Stale or non-Mina pid-file targets produce actionable diagnostics instead of raw parser output |
+| Docs verification still requires a deleted review file | Release docs and `smoke:docs` validate durable summaries and existing Markdown links so review file cleanup does not break docs verification |
+| UI shows `Port 3333` on a non-default server port | Command bar connection metadata is derived from the authoritative MCP URL or omitted when unavailable |
+| Non-tmux `Open Terminal` affordance is misleading | Inspector and menu terminal actions are transport-aware and do not imply direct terminal control for headless agents |
+| CLI visible-agent MCP preflight ignores the running server port | `mair codex` and `mair claude` build MCP setup guidance from the matching live server's MCP URL before falling back to defaults |
+| Unarchived answered requests show archive reason as Error | Archive-only reasons are cleared when non-error requests are unarchived while true request errors are preserved |
+| Ask dialog `Task` label is not accessible | Form controls use explicit `id` / `htmlFor` associations for reliable accessibility and label-based tests |
+| UI-created tmux agent may not appear until manual refresh | The Web UI applies the create-agent API's returned state immediately and keeps the new agent selected |
+| Codex update prompt is misclassified as directory trust | Codex trust detection requires trust-specific evidence and does not treat generic enter-to-continue prompts as directory approval |
+| MCP-blocked tmux agents are counted as available | Health classification separates transport reachability from route readiness, so MCP-blocked or registration-pending agents need attention instead of inflating the available count |
+| Non-ready agents still accept routed work | Core routing, MCP `call_agent`, HTTP `/api/ask`, and Web UI Ask controls honor shared route readiness before creating requests |
+| User guide defines `needs-attention` too narrowly | Health docs explain that `needs-attention` covers both failed routed requests and first-run readiness blockers such as permission, MCP setup, and pending self-registration |
+| First-run MCP and skill setup is still manual | `mair setup codex`, `mair setup claude`, and `mair doctor` automate and verify client MCP plus registration-skill setup |
+| Demo `setup-codex-pair` looks like the general setup path | General docs and help prefer `mair setup`; the pair helper is labeled developer/demo and requires explicit roots |
+| `mair doctor` can report success while agents are not route-ready | Blocked agents make doctor fail by default and include repair guidance |
+| First-user docs imply both Codex and Claude setup are required | Docs and UI use a choose-one setup flow; `--client all` is only for users who run both clients |
+| Getting Started still frames manual setup guides as required | Getting Started points to automated setup first and treats manual MCP/skill docs as repair references |
+| Visible agent start does not consume verified MCP setup | CLI and Web UI create-agent inspect client MCP config before preflight |
+| Doctor MCP repair guidance repeats the blocker reason | MCP blockers show concrete `mair setup <client>` and follow-up doctor commands |
+| Web UI create-agent leaves prompt-sent agents as `created` | HTTP/Web UI prompt-success branch persists `registration-pending` like the CLI |
+| CLI controls smoke uses fixed derived ports | Smoke helper ports are dynamically allocated and listen failures include stderr |
+| Installed `mair version` reads the consumer project's version | Package version lookup is anchored to the Mina package root and ignores consumer cwd package metadata |
+| Installed `mair verify` runs the consumer project's npm script | `mair verify` is a Mina package self-check and never executes the current project's npm scripts |
+| Installed `mair verify` success details read like failure | Successful install checks use success-language details while failures keep actionable missing/repair details |
+| Installed `mair verify` misses Web UI static assets | Install verification checks the packaged Web UI index and JS/CSS assets used by the first browser screen |
+| Subcommand `--help` can execute side effects | Help flags are handled before command actions so usage inspection never starts servers, sessions, setup, or request mutations |
+| Duplicate session registration mixes canonical id and display name | Session fingerprint dedupe preserves the canonical id and canonical display name together |
+| User guide mixes checkout verify and installed self-check modes | First-user docs separate checkout `npm run verify` from installed package `mair verify` |
+| Claude MCP verification can pass shell checks while real sessions cannot see Mina | Setup and doctor verify both `mcp get` and `<client> mcp list`, and visible-agent preflight consumes only list-visible entries |
+| Codex update prompt blocks Web UI-created agents | Update prompts become `client-update-required` blockers with terminal guidance instead of stale created placeholders |
+| Permission-required state can stay stuck after approval | Terminal capture and Enter handling advance cleared prompts to `registration-pending` and retry self-registration |
+| Real first-run bootstrap lacks an operator contract smoke | A skipped-by-default real CLI contract smoke documents and probes installed Codex/Claude MCP visibility when explicitly enabled |
+| Claude MCP visibility is checked outside the selected project context | MCP setup, doctor, CLI preflight, and Web UI preflight run `mcp get/list` from the selected project root |
+| Codex update skip guidance uses raw Enter | Update prompts expose a prompt-specific skip action that sends an explicit skip choice instead of bare Enter |
+| Codex update skip can register too early | The skip action must wait for the update prompt to clear before sending self-registration |
+| Passive Codex update banner blocks usable prompt | Only active update choice menus produce `client-update-required`; passive banners above `›` do not block registration |
+| CLI-created pending agents cannot retry from Web UI | Any visible pending tmux agent can retry self-registration once blockers clear |
+| Claude scoped registration command approval is manual-only | Project-root-scoped Mina registration command approvals can use a guided action while unknown approvals remain manual |
+| Stale Codex update menu remains in scrollback | Codex update detection is anchored to the latest prompt segment |
+| Claude MCP register approval has no action | Mina MCP `register_agent` approval prompts get a scoped guided approval action |
+| `--project=/path` configures the wrong root | CLI flag parser accepts `--key=value` syntax |
+| Guided approval loop is docs-only | Terminal API and UI expose prompt-specific guided actions with a clear safety policy |
+| Opt-in real CLI smoke can be missed before release | Release docs distinguish default verify from the required local real CLI contract gate |
+
+## Functional Requirements
+
+1. Request recovery actions must go through a domain boundary that can clear request state, agent lease fields, and `AgentRouter` live locks together.
+2. Archiving an orphaned request must either release the orphaned lease or be unavailable until recovery. For this wave, use release-on-archive because the current UI already offers Archive for orphaned requests.
+3. CLI-created visible agents must be persisted immediately as pending or blocked records before permission/MCP checks can stop the self-registration prompt.
+4. Runtime version reporting must be single-source or checked against `package.json`.
+5. Release verification must include docs smoke and branch whitespace checks.
+6. While the HTTP server is running for the same state file, the server owns live router state and compatible CLI mutations must route through it.
+7. CLI register, ask, agent-start placeholder, and capability-refresh flows must be visible through `/api/state` without restarting the server.
+8. `mair health` must prefer a running server status MCP URL when the pid file points at the same resolved state path.
+9. While a matching HTTP server is running, CLI read commands that expose live status must read from the server instead of reconstructing health from a one-shot local router.
+10. `mair health`, `mair agents`, and `mair agent <id>` must agree with `/api/health` and `/api/state` for active busy agents during a server-routed request.
+11. `mair server start` must wait for a Mina readiness response before reporting a healthy running server.
+12. Startup bind failures must not leave pid files that look like healthy Mina servers.
+13. CLI live read/write helpers must diagnose stale or non-Mina pid-file targets without leaking raw JSON parser errors.
+14. Docs smoke may validate current review files when they exist, but must also pass when resolved review files have been deleted.
+15. Product specs and active task queue docs must not point operators at deleted review files.
+16. The Web UI must not show a hard-coded default port when the server is running on another port.
+17. Non-tmux agents must not expose enabled terminal controls that suggest tmux-style direct control is available.
+18. CLI visible-agent startup must use the matching running server's MCP URL for preflight setup guidance when that server owns the same state file.
+19. Unarchiving non-error requests must not leave archive-only reasons in `error`; unarchiving failed/timeout requests must preserve true failure errors.
+20. Primary Web UI forms must expose explicit accessible label associations.
+21. UI-created agent flows must update the visible React state from the mutation response without requiring a manual refresh.
+22. Codex directory-trust detection must not classify generic startup/update prompts as approval prompts based only on `Press enter to continue`.
+23. Known bootstrap blockers must prevent `available` readiness even when the underlying tmux transport is reachable: `mcp-configuring`, `permission-required`, `registration-pending`, `registrationStatus: pending`, and `mcpPreflightStatus: missing|stale` report as non-available attention states until resolved.
+24. Normal routed work must be rejected before request creation when a target is not route-ready. `list_agents` and UI state must expose `routeReady` and a blocker reason so callers and users can choose a ready target or resolve setup first.
+25. First-user docs must define `needs-attention` broadly enough to cover failed routed requests and first-run readiness blockers.
+26. First-run setup must configure and verify Codex and Claude MCP profiles against the matching running router URL, then install the registration skill in the expected client/project location.
+27. A doctor command must report server, client binary, MCP config, skill install, and blocked-agent readiness as a clear pass/fail matrix.
+28. Specialized demo helpers must not use maintainer-local defaults or appear as the primary onboarding path.
+29. Doctor must fail by default when any known agent is not route-ready, while offering an explicit environment-only override.
+30. First-user setup docs and UI must make Codex and Claude setup a choose-one flow unless the user runs both clients.
+31. Getting Started must not call manual MCP or skill installation required for the normal path.
+32. Visible agent creation must detect already-configured Codex and Claude MCP profiles instead of requiring hidden flags after `mair setup`.
+33. Doctor repair actions for MCP blockers must be concrete setup commands, not only problem descriptions.
+34. Web UI/API create-agent must store `registration-pending` after sending the self-registration prompt.
+35. CLI controls smoke must avoid fixed local port assumptions and surface helper listen failures.
+36. Installed CLI and MCP version surfaces must resolve the Mina package version from the installed package root, not from `process.cwd()`.
+37. Installed `mair verify` must inspect Mina's packaged files or checkout root and must never run a consumer project's `npm run verify`.
+38. Successful installed `mair verify` checks must describe found assets with success-language details.
+39. Installed `mair verify` must fail when the packaged Web UI index or required static JS/CSS assets are missing.
+40. CLI subcommand `--help` and `-h` must print usage without creating state, pid files, tmux sessions, setup config, or request mutations.
+41. Session fingerprint dedupe must not let a later duplicate registration id overwrite the canonical display name.
+42. User-facing docs must distinguish checkout verification from installed package verification.
+43. MCP setup and preflight must require both named config output and list-visible client output before treating a real client profile as configured.
+44. Codex client update prompts must be visible as a distinct non-route-ready bootstrap blocker.
+45. When a permission prompt disappears after operator input, Mina must advance the placeholder to `registration-pending` and retry the self-registration prompt.
+46. Release verification must include an optional real CLI contract smoke that is safe to skip in CI and explicit to run on a real operator machine.
+47. MCP setup, doctor, CLI visible-agent preflight, and Web UI create-agent preflight must execute client visibility checks from the selected project root.
+48. Codex update prompts must not use raw Enter as a claimed skip action; known prompts need a prompt-specific explicit skip input.
+49. A Codex update skip action must not send the Mina self-registration prompt while the update prompt is still visible.
+50. Passive Codex update banners must not be treated as active update menus when a normal Codex prompt is available.
+51. Self-registration retry must be based on pending registration state, not only Web UI-created placeholders.
+52. Claude command approval automation must be scoped to Mina registration intent and the selected project root.
+53. Codex update detection must ignore stale update menus when a later normal prompt is visible.
+54. Claude MCP `register_agent` approval prompts must have a scoped guided action.
+55. CLI setup flags must support `--project=/path` syntax without falling back to cwd.
+49. Terminal bootstrap responses must include prompt-specific action metadata and a small safety policy vocabulary for UI rendering.
+50. Release readiness docs must state what default `npm run verify` proves and what the opt-in real CLI contract smoke proves.
+
+## Non-goals
+
+- Redesigning the request lease model beyond the reviewed defects.
+- Adding autonomous terminal interruption.
+- Building a full package release workflow.
+- Changing npm/GitHub publishing policy.
+
+## Acceptance Criteria
+
+- Recovering an orphaned timeout request allows a new request to the same agent in the same process.
+- Archiving an orphaned request does not leave `activeRequestId`, `leaseStatus: "orphaned"`, or a live busy lock behind.
+- `mair codex` / `mair claude` blocked by permission or MCP preflight leave visible registry records with blocker fields.
+- `mair version` and MCP `serverInfo.version` match `package.json.version`.
+- `npm run verify`, `npm run smoke:docs`, `git diff --check main...HEAD`, runtime version checks, and `npm pack --dry-run` are documented and runnable for release readiness.
+- With a running matching HTTP server, CLI `register`, `ask`, visible agent bootstrap, and capability refresh update the server-owned state and cannot be overwritten by a later HTTP mutation.
+- With a non-default running server port, `mair health` reports the same MCP URL as `mair server status`.
+- During an active server-routed request, `mair health`, `mair agents`, and `mair agent <id>` report the target agent as busy when `/api/health` and `/api/state` do.
+- Starting the server on an occupied port fails clearly and does not report `running: true`.
+- A pid file pointing at a live non-Mina HTTP server produces an actionable stale/non-Mina diagnostic for reads and mutations.
+- `npm run smoke:docs` validates current review docs when present, allows `docs/reviews/` to be empty, and fails on broken local Markdown links in required release docs.
+- The Web UI command bar and Connect Agent guide agree on non-default MCP URLs.
+- Headless/non-tmux agents show clear terminal-unavailable UI while tmux agents keep terminal preview and attach-copy actions.
+- With a matching non-default server running, `mair codex --no-attach --no-register` reports MCP setup commands for the running server URL.
+- Archive/unarchive/retry flows do not make answered requests look errored because of prior archive reasons.
+- Ask and capability-edit fields are label-addressable.
+- After creating a tmux agent in the Web UI, the new agent appears from the returned state without pressing Refresh.
+- Codex update prompts that contain `Press enter to continue` do not surface directory-trust approval guidance or `trustPrompt: true`.
+- MCP-blocked Web UI and CLI-created tmux agents remain visible with setup guidance, but `/api/health`, `mair health`, `mair agents`, and `mair agent <id>` do not count or display them as route-ready `available` agents.
+- MCP-blocked targets cannot receive normal routed work through core `callAgent`, HTTP `/api/ask`, MCP `call_agent`, or enabled Web UI Ask controls; failed readiness checks return actionable guidance and do not create requests.
+- The User Start Guide explains that newly created blocked agents may show `needs-attention` until permission, MCP setup, or self-registration is resolved.
+- `mair setup codex`, `mair setup claude`, and `mair doctor` exist, prefer the matching running server MCP URL, and are covered by CLI smoke with fake client binaries.
+- The Web UI Connect Agent guide exposes setup and doctor commands for Codex and Claude, and the inspector shows verify/reset guidance for MCP-blocked agents.
+- `setup-codex-pair` fails without explicit roots and is labeled as a developer/demo helper instead of a first-user setup path.
+- `mair doctor --json` returns `ok: false` and exits non-zero when a known agent has `routeReady: false`, unless `--ignore-blocked-agents` is explicitly provided.
+- README, Getting Started, User Start Guide, MCP Client Setup, Skill Install Guide, HTTP UI docs, and Connect Guide default to `mair setup <chosen-client>` plus `mair doctor --client <chosen-client>`.
+- `mair setup codex` followed by `mair codex` and `mair setup claude` followed by `mair claude` use configured MCP preflight without asking for setup again.
+- Web UI create-agent detects configured client MCP from the host environment without a hidden `mcpConfigured` request body.
+- MCP-blocked doctor output includes `mair setup <client> --project <root>` and a matching `mair doctor --client <client>` follow-up command.
+- HTTP/Web UI create-agent response and `/api/state` show `registration-pending` after the registration prompt is sent.
+- CLI controls smoke dynamically allocates helper ports and reports `EADDRINUSE` style listen errors directly.
+- In a temporary consumer project whose `package.json.version` is `2.3.4`, installed `mair version` and MCP `serverInfo.version` report the Mina package version.
+- In a temporary consumer project with or without its own `verify` script, installed `mair verify` succeeds as a Mina package self-check and does not execute the consumer script.
+- Installed `mair verify` success details do not contain failure-language terms such as missing, required, or not found.
+- Installed smoke starts `mair server`, confirms `/` returns 200 HTML, and verifies that deleting packaged Web UI assets makes `mair verify` return `ok: false`.
+- `mair server start --help`, `mair doctor --help`, setup help, visible-agent help, and request help print usage without executing their underlying actions.
+- Registering the same session fingerprint with a second id preserves one canonical agent whose `id` and `name` remain aligned.
+- User Start Guide, Developer Start Guide, and HTTP UI docs describe checkout `npm run verify` and installed `mair verify` as different modes.
+- `mair setup <client>`, `mair doctor`, CLI visible-agent preflight, and Web UI create-agent preflight require `mina-ai-router` to appear in `<client> mcp list`.
+- Codex update prompts show `client-update-required`, `trustPrompt: false`, and a next action to skip or resolve the update prompt.
+- After the operator clears a permission prompt from the Web UI terminal, the agent response advances to `registration-pending` and sends the registration prompt.
+- `npm run smoke:real-cli-contract` skips by default and probes installed client MCP list visibility only when `MINA_REAL_CLI_SMOKE=1` is set.
+- Claude project-specific MCP visibility checks are covered by a fake-client regression that only reports Mina from the selected project cwd.
+- Codex update prompt handling offers a prompt-specific skip action and smoke coverage proves it does not send bare Enter.
+- The Web UI terminal bootstrap surface renders guided action labels for known prompts and leaves unknown prompts manual.
+- Local release guidance requires `npm run verify` plus `MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract` before claiming real Codex/Claude OOB flow readiness.

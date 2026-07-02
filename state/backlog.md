@@ -1,0 +1,89 @@
+# Backlog
+
+- [x] request-protocol-diagnostics-foundation — Request protocol diagnostics foundation
+- [x] request-detail-diagnostics — Request detail diagnostics
+- [x] request-retry-cancel-archive — Request retry cancel archive controls
+- [x] request-retry-cancel-archive-rca-npm-run-smoke-cli-controls-1c9e8619 — RCA: Request retry cancel archive controls blocker
+- [x] capability-refresh-command — Capability refresh command
+- [x] capability-freshness-ui — Capability freshness UI
+- [x] agent-health-core-api — Agent health core and API
+- [x] agent-health-ui-cli — Agent health UI and CLI
+- [x] collaboration-doc-walkthrough — Collaboration documentation walkthrough
+- [x] bootstrap-state-model — Bootstrap state model
+- [x] permission-trust-readiness — Permission and trust readiness
+- [x] mcp-preflight-agent-create — MCP preflight for agent creation
+- [x] idempotent-registration-handshake — Idempotent registration handshake
+- [x] caller-identity-self-avoidance — Caller identity and self-call avoidance
+- [x] capability-profile-schema-scoring — Capability profile schema and scoring
+- [x] capability-profile-ui-cli — Capability profile UI and CLI
+- [x] request-lease-state — Request lease state
+- [x] transaction-recovery-controls — Transaction recovery controls
+- [x] bootstrap-docs-and-smoke-hardening — Bootstrap documentation and smoke hardening
+- [x] router-recovery-lock-release — Router recovery lock release
+- [x] orphan-archive-semantics — Orphan archive semantics
+- [x] cli-blocked-agent-placeholder — CLI blocked agent placeholder
+- [x] release-version-and-verify-contract — Release version and verify contract
+- [x] cli-server-proxy-register-ask — CLI server proxy for register and ask
+- [x] cli-server-proxy-agent-start-refresh — CLI server proxy for agent start and refresh
+- [x] health-running-server-mcp-url — Health running server MCP URL
+- [x] fresh-operator-smoke-hardening — Fresh operator smoke hardening
+- [x] cli-live-read-proxy-health-agents — CLI live read proxy for health and agents
+- [x] cli-live-read-offline-hardening — CLI live read offline hardening
+- [x] server-start-readiness-and-bind-failure — Server start readiness and bind failure
+- [x] live-proxy-stale-pid-diagnostics — Live proxy stale pid diagnostics
+- [x] startup-diagnostics-release-hardening — Startup diagnostics release hardening
+- [x] doc-review-lifecycle-and-smoke-sync — Doc review lifecycle and smoke sync
+- [x] review-cleanup-safe-docs-gate — Review cleanup safe docs gate
+- [x] first-user-ui-port-terminal-affordances — First user UI port and terminal affordances
+- [x] visible-agent-mcp-and-unarchive-error-cleanup — Visible agent MCP and unarchive error cleanup
+- [x] first-user-ui-accessibility-create-refresh — First user UI accessibility and create refresh
+- [x] codex-prompt-detection-precision — Codex prompt detection precision
+- [x] mcp-blocked-agent-readiness — MCP blocked agent readiness
+- [x] route-readiness-enforcement — Route readiness enforcement
+- [x] health-docs-readiness-language — Health docs readiness language
+- [x] first-run-doctor-command — First-run doctor command
+- [x] first-run-setup-codex-claude — First-run setup for Codex and Claude
+- [x] ui-setup-surface — UI setup surface
+- [x] demo-helper-demotion — Demo helper demotion
+- [x] doctor-blocked-agent-readiness — Doctor blocked agent readiness
+- [x] choose-one-setup-docs-ui — Choose-one setup docs and UI
+- [x] getting-started-oob-cleanup — Getting Started OOB cleanup
+- [x] visible-agent-mcp-config-detection — Visible agent MCP config detection
+- [x] doctor-mcp-repair-action — Doctor MCP repair action
+- [x] http-create-registration-pending — HTTP create registration pending
+- [x] cli-controls-dynamic-ports — CLI controls dynamic ports
+- [x] installed-cli-version-source — Installed CLI version source
+- [x] installed-cli-verify-contract — Installed CLI verify contract
+- [x] installed-verify-success-details — Installed verify success details
+- [x] installed-web-ui-asset-verify — Installed Web UI asset verify
+- [x] cli-subcommand-help-no-side-effects — CLI subcommand help no side effects
+- [x] session-fingerprint-display-name-dedupe — Session fingerprint display name dedupe
+- [x] verify-docs-install-mode-clarity — Verify docs install mode clarity
+- [x] claude-session-mcp-visibility — Claude session MCP visibility
+- [x] codex-update-prompt-bootstrap-blocker — Codex update prompt bootstrap blocker
+- [x] permission-state-advance-after-approval — Permission state advance after approval
+- [x] guided-bootstrap-approval-loop-design — Guided bootstrap approval loop design
+- [x] real-cli-contract-smoke — Real CLI contract smoke
+- [x] project-cwd-mcp-visibility — Project cwd MCP visibility
+- [x] safe-codex-update-skip — Safe Codex update skip
+- [x] guided-bootstrap-actions — Guided bootstrap actions
+- [x] real-cli-release-gate-docs — Real CLI release gate docs
+- [x] update-skip-clearance-gate — Update skip clearance gate
+- [x] codex-passive-update-banner-detection — Codex passive update banner detection
+- [x] generic-self-registration-retry — Generic self-registration retry
+- [x] claude-scoped-registration-approval — Claude scoped registration approval
+- [x] codex-latest-prompt-segment-detection — Codex latest prompt segment detection
+- [x] pending-registration-retry-confirmed-at — Pending registration retry confirmed-at
+- [x] claude-mcp-registration-approval — Claude MCP registration approval
+- [x] claude-folder-trust-guided-action — Claude folder trust guided action
+- [x] cli-equals-flag-parser — CLI equals flag parser
+- [x] codex-mcp-registration-approval — Codex MCP registration approval
+- [x] claude-readonly-registration-approvals — Claude read-only registration approvals
+- [x] six-repo-bootstrap-revalidation-docs — Six-repo bootstrap revalidation docs
+- [x] codex-mcp-list-agents-approval — Codex MCP list_agents approval
+- [x] claude-mcp-list-agents-verification — Claude MCP list_agents verification
+- [x] claude-cwd-scoped-readonly-approval — Claude cwd-scoped read-only approval
+- [x] claude-idle-text-prompt-precision — Claude idle text prompt precision
+- [x] claude-devnull-readonly-approval — Claude devnull read-only approval
+- [x] claude-mcp-call-agent-approval — Claude MCP call_agent approval
+- [x] doctor-client-scoped-oob-check — Doctor client-scoped OOB check

@@ -1,5 +1,15 @@
 import type { RouterAgent, RouterRequest } from "./types";
 
+const capabilityFreshnessWindowMs = 7 * 24 * 60 * 60 * 1000;
+
+export type CapabilityFreshness = {
+  state: "missing" | "manual" | "fresh" | "stale";
+  label: string;
+  detail: string;
+  timestampLabel: string;
+  sourceLabel: string;
+};
+
 export function displayAgentName(agent: RouterAgent): string {
   return `${capitalize(agent.agentType || "agent")} ${agent.id}`;
 }
@@ -18,15 +28,79 @@ export function mairAttachCommand(agent: RouterAgent): string {
   return `mair attach ${agent.id}`;
 }
 
+export function mairRefreshCapabilitiesCommand(agent: RouterAgent): string {
+  return `mair agent refresh-capabilities ${agent.id}`;
+}
+
+export function isRouteReady(agent: RouterAgent): boolean {
+  return agent.routeReady !== false;
+}
+
+export function routeBlockedReason(agent: RouterAgent): string {
+  return agent.routeBlockedReason || healthMessage(agent);
+}
+
 export function healthMessage(agent: RouterAgent): string {
+  if (agent.bootstrapStatus === "mcp-configuring") {
+    return agent.mcpPreflightDetail || "This agent is waiting for Mina MCP setup before self-registration.";
+  }
+  if (agent.bootstrapStatus === "permission-required") {
+    return agent.permissionPrompt?.action
+      || agent.detail
+      || "This agent is waiting for a permission or trust prompt before it can receive routed work.";
+  }
+  if (agent.bootstrapStatus === "client-update-required") {
+    return agent.permissionPrompt?.action
+      || agent.detail
+      || "This agent is waiting at a client update prompt before registration can continue.";
+  }
   if (agent.status === "available") return "Agent session is reachable. It can receive routed requests.";
+  if (agent.status === "busy") return "Agent is currently handling a routed request.";
+  if (agent.status === "stale") {
+    return agent.detail || `No confirmed agent reachability since ${formatDateTime(agent.lastSeenAt || agent.lastActivityAt)}. Refresh or restart before routing important work.`;
+  }
   if (agent.status === "missing") {
     return agent.detail || `tmux session "${agent.sessionId}" is missing. Restart the session or re-register the agent.`;
+  }
+  if (agent.status === "needs-attention") {
+    return agent.detail || "The last routed request failed or timed out. Inspect the request before sending more work.";
   }
   if (agent.status === "unknown") {
     return "This transport does not expose a live health check yet. Calls may still work if the transport is headless or mock.";
   }
   return "Agent status needs operator attention.";
+}
+
+export function bootstrapLabel(agent: RouterAgent): string {
+  const status = agent.bootstrapStatus || "unknown";
+  const registration = agent.registrationStatus ? ` / ${agent.registrationStatus}` : "";
+  return `${status}${registration}`;
+}
+
+export function permissionProfileLabel(agent: RouterAgent): string {
+  const profile = agent.permissionProfile || "default";
+  const status = agent.permissionProfileStatus || "unknown";
+  return `${profile} / ${status}`;
+}
+
+export function mcpPreflightLabel(agent: RouterAgent): string {
+  return agent.mcpPreflightStatus || "unknown";
+}
+
+export function capabilityQualityLabel(agent: RouterAgent): string {
+  return agent.capabilityProfile?.quality ?? "missing";
+}
+
+export function capabilityQualityDetail(agent: RouterAgent): string {
+  const reason = agent.capabilityProfile?.qualityReasons?.[0];
+  if (reason) return reason;
+  if (agent.capabilityProfile?.quality === "strong") return "Profile includes answerable domains and evidence.";
+  if (agent.capabilityProfile?.quality === "thin") return "Profile needs clearer answerable domains or stronger evidence.";
+  return "No structured capability profile has been recorded.";
+}
+
+export function capabilityProfileList(value?: string[], fallback = "No evidence recorded."): string[] {
+  return value?.filter(Boolean).length ? value.filter(Boolean) : [fallback];
 }
 
 export function latestRequestFor(agentId: string, requests: RouterRequest[]): RouterRequest | undefined {
@@ -61,6 +135,56 @@ export function shortCapability(agent: RouterAgent): string {
   return text.length > 88 ? `${text.slice(0, 85)}...` : text;
 }
 
+export function capabilityFreshness(agent: RouterAgent, now = Date.now()): CapabilityFreshness {
+  const hasSummary = Boolean(agent.capabilitySummary?.trim());
+  const hasSources = Boolean(agent.capabilitySources?.trim());
+  const updatedAt = agent.capabilityUpdatedAt || agent.lastCapabilityRefreshAt;
+  const timestampLabel = formatDateTime(updatedAt);
+  const sourceLabel = capabilitySourceLabel(agent);
+
+  if (!hasSummary && !hasSources) {
+    return {
+      state: "missing",
+      label: "Missing",
+      detail: "No capability summary has been registered for this agent.",
+      timestampLabel,
+      sourceLabel,
+    };
+  }
+
+  if (agent.capabilitySource === "manual") {
+    return {
+      state: "manual",
+      label: "Manual",
+      detail: "This capability card was edited by an operator and is not agent-generated.",
+      timestampLabel,
+      sourceLabel,
+    };
+  }
+
+  const refreshTime = Date.parse(agent.lastCapabilityRefreshAt || agent.capabilityUpdatedAt || "");
+  if (!Number.isFinite(refreshTime)) {
+    return {
+      state: "stale",
+      label: "Stale",
+      detail: "Generated capability metadata has no refresh timestamp.",
+      timestampLabel,
+      sourceLabel,
+    };
+  }
+
+  const isStale = now - refreshTime > capabilityFreshnessWindowMs;
+  return {
+    state: isStale ? "stale" : "fresh",
+    label: isStale ? "Stale" : "Fresh",
+    detail: isStale
+      ? "Generated capability metadata is older than 7 days."
+      : "Generated capability metadata was refreshed within 7 days.",
+    timestampLabel,
+    sourceLabel,
+  };
+}
+
 export function latencyLabel(request: RouterRequest): string {
   const start = Date.parse(request.createdAt || "");
   const end = Date.parse(request.updatedAt || "");
@@ -75,6 +199,18 @@ export function formatTime(value?: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+export function formatDateTime(value?: string): string {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString([], {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function isPendingUiRegistration(agent: RouterAgent): boolean {
   return agent.capabilitySummary === "Pending self-registration capability notice."
     && agent.capabilitySources === "created from Mina UI";
@@ -82,4 +218,10 @@ export function isPendingUiRegistration(agent: RouterAgent): boolean {
 
 export function capitalize(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function capabilitySourceLabel(agent: RouterAgent): string {
+  if (agent.capabilitySource === "manual") return "manual edit";
+  if (agent.capabilitySource === "generated") return "agent-generated";
+  return "unknown source";
 }

@@ -1,0 +1,15 @@
+Current task: NONE
+
+The health docs readiness language follow-up is complete. No active Ralph task remains in docs/exec-plans/active/.
+
+Completed tasks:
+- first-user-ui-port-terminal-affordances
+- visible-agent-mcp-and-unarchive-error-cleanup
+- first-user-ui-accessibility-create-refresh
+- codex-prompt-detection-precision
+- mcp-blocked-agent-readiness
+- route-readiness-enforcement
+- health-docs-readiness-language
+
+Next operator step:
+- Review ROADMAP.md and decide whether to open the next milestone wave.

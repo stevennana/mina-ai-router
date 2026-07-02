@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { HealthState, MenuState, ModalState, RouterAgent, RouterRequest, UiState } from "./domain/types";
-import { agentRequests, attachCommand, displayAgentName, mairAttachCommand } from "./domain/helpers";
+import { agentRequests, attachCommand, displayAgentName, isRouteReady, mairAttachCommand, mairRefreshCapabilitiesCommand, routeBlockedReason } from "./domain/helpers";
 import { copyText, routerApi } from "./lib/api";
 import { CommandBar } from "./features/CommandBar";
 import { LiveFlow } from "./features/LiveFlow";
@@ -132,6 +132,10 @@ export function App() {
       const agent = agentById(agentId);
       if (agent) void run(async () => copyText(attachCommand(agent)));
     }
+    if (action === "copy-refresh") {
+      const agent = agentById(agentId);
+      if (agent) void run(async () => copyText(mairRefreshCapabilitiesCommand(agent)));
+    }
     if (action === "restart") {
       const agent = agentById(agentId);
       if (!agent) return;
@@ -245,6 +249,7 @@ export function App() {
         onAgentAction={openAgentAction}
         onFlowAction={openFlowAction}
         onClose={() => setMenu({ kind: "none" })}
+        agent={menu.kind === "agent" ? agentById(menu.agentId) : undefined}
       />
       {renderModal()}
     </div>
@@ -256,9 +261,9 @@ export function App() {
       return <Modal title="Connect an agent" subtitle="Start a visible CLI session and let it self-register through MCP" onClose={() => setModal({ kind: "none" })}><ConnectGuide mcpUrl={state.mcpUrl} /></Modal>;
     }
     if (modal.kind === "create-agent") {
-      return <Modal title="Create tmux agent" subtitle="Start Codex or Claude in a project directory" onClose={() => setModal({ kind: "none" })}><CreateTmuxAgentForm onCreated={(agent) => {
+      return <Modal title="Create tmux agent" subtitle="Start Codex or Claude in a project directory" onClose={() => setModal({ kind: "none" })}><CreateTmuxAgentForm onCreated={(agent, nextState) => {
+        setState(nextState);
         setSelectedAgentId(agent.id);
-        void refresh();
       }} /></Modal>;
     }
     if (modal.kind === "details") {
@@ -280,6 +285,11 @@ export function App() {
     if (modal.kind === "ask") {
       const agent = agentById(modal.agentId);
       if (!agent) return null;
+      if (!isRouteReady(agent)) {
+        return <Modal title={`Ask ${displayAgentName(agent)}`} subtitle="Route a direct task through MCP" onClose={() => setModal({ kind: "none" })}>
+          <div className="notice">{routeBlockedReason(agent)}</div>
+        </Modal>;
+      }
       return <Modal title={`Ask ${displayAgentName(agent)}`} subtitle="Route a direct task through MCP" onClose={() => setModal({ kind: "none" })}><AskAgentForm agent={agent} output={lastAskOutput} onAsk={async (task) => {
         const result = await routerApi.ask(agent.id, task);
         setLastAskOutput(JSON.stringify(result.result || result, null, 2));
@@ -314,10 +324,16 @@ export function App() {
       return <Modal title={request.id} subtitle={`${request.targetAgent}`} onClose={() => setModal({ kind: "none" })}>
         <RequestDetail request={request} onAction={(action, requestId) => void run(async () => {
           if (action === "cancel" && !confirm(`Mark request "${requestId}" as cancelled?`)) return;
+          if (action === "interrupt" && !confirm(`Send Ctrl-C to the terminal for request "${requestId}"?`)) return;
+          if (action === "recover" && !confirm(`Mark request "${requestId}" as recovered and release its lease?`)) return;
           if (action === "archive" && !confirm(`Archive request "${requestId}"?`)) return;
+          if (action === "unarchive" && !confirm(`Unarchive request "${requestId}"?`)) return;
           const result = await routerApi.requestAction(requestId, action);
           setState(result.state);
-          if (action === "retry" && result.result?.requestId) setSelectedRequestId(result.result.requestId);
+          if (action === "retry" && result.result?.requestId) {
+            setSelectedRequestId(result.result.requestId);
+            setModal({ kind: "request", requestId: result.result.requestId });
+          }
         })} />
       </Modal>;
     }

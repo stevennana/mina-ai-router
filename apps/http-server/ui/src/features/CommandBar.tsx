@@ -17,10 +17,16 @@ export function CommandBar({
   onConnect: () => void;
   onCopyMcp: () => void;
 }) {
+  const portLabel = portLabelFromMcpUrl(state.mcpUrl || health?.mcpUrl || "");
   const healthText = health
     ? health.ok
       ? `${health.agents.available}/${health.agents.total} available, ${health.requests.open} open`
-      : `${health.agents.missing} missing, ${health.requests.open} open`
+      : [
+        health.agents.missing ? `${health.agents.missing} missing` : "",
+        health.agents.stale ? `${health.agents.stale} stale` : "",
+        health.agents.needsAttention ? `${health.agents.needsAttention} needs attention` : "",
+        `${health.requests.open} open`,
+      ].filter(Boolean).join(", ")
     : "Health loading...";
 
   return (
@@ -34,7 +40,7 @@ export function CommandBar({
       </div>
       <div className="status-cluster">
         <span className="chip"><span className="dot success" />{healthText}</span>
-        <span className="chip mono">Port 3333</span>
+        {portLabel ? <span className="chip mono">{portLabel}</span> : null}
         <span className="chip chip-copy mono">{state.mcpUrl || "Loading MCP URL..."}</span>
       </div>
       <div className="command-actions">
@@ -45,4 +51,14 @@ export function CommandBar({
       </div>
     </header>
   );
+}
+
+function portLabelFromMcpUrl(mcpUrl: string): string {
+  if (!mcpUrl) return "";
+  try {
+    const url = new URL(mcpUrl);
+    return url.port ? `Port ${url.port}` : "";
+  } catch {
+    return "";
+  }
 }

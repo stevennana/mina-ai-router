@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { DirectoryListing, RouterAgent } from "../domain/types";
+import type { DirectoryListing, RouterAgent, UiState } from "../domain/types";
 import { routerApi } from "../lib/api";
 import { Button } from "../primitives/Button";
 import { TerminalPanel } from "./TerminalPanel";
@@ -8,12 +8,13 @@ import { Icon } from "../primitives/Icon";
 export function CreateTmuxAgentForm({
   onCreated,
 }: {
-  onCreated: (agent: RouterAgent) => void;
+  onCreated: (agent: RouterAgent, state: UiState) => void;
 }) {
   const [agentType, setAgentType] = useState("codex");
   const [projectRoot, setProjectRoot] = useState("");
   const [agentId, setAgentId] = useState("");
   const [sessionId, setSessionId] = useState("");
+  const [permissionProfile, setPermissionProfile] = useState("default");
   const [listing, setListing] = useState<DirectoryListing | undefined>();
   const [output, setOutput] = useState("");
   const [terminalAgentId, setTerminalAgentId] = useState("");
@@ -30,6 +31,7 @@ export function CreateTmuxAgentForm({
       projectRoot,
       id: agentId || undefined,
       sessionId: sessionId || undefined,
+      permissionProfile,
     });
     setOutput(JSON.stringify({
       agent: result.agent.id,
@@ -37,11 +39,13 @@ export function CreateTmuxAgentForm({
       existed: result.existed,
       registration: result.registration,
       nextAction: result.nextAction,
+      permissionProfile: result.permissionProfile,
+      mcpPreflight: result.mcpPreflight,
       tmuxAttach: result.attachCommand,
       mairAttach: result.mairAttachCommand,
     }, null, 2));
     setTerminalAgentId(result.agent.id);
-    onCreated(result.agent);
+    onCreated(result.agent, result.state);
   }
 
   return (
@@ -59,6 +63,7 @@ export function CreateTmuxAgentForm({
       </div>
       <label>Agent id<input value={agentId} onChange={(event) => setAgentId(event.target.value)} placeholder="optional, derived from directory" /></label>
       <label>tmux session<input value={sessionId} onChange={(event) => setSessionId(event.target.value)} placeholder="optional, derived from directory" /></label>
+      <label>Permission profile<select value={permissionProfile} onChange={(event) => setPermissionProfile(event.target.value)}><option value="default">default</option><option value="direct-workspace-read">direct workspace read</option></select></label>
       {listing ? (
         <div className="directory-picker">
           <div className="actions">
@@ -77,7 +82,7 @@ export function CreateTmuxAgentForm({
           </div>
         </div>
       ) : null}
-      <div className="notice" style={{ gridColumn: "1 / -1" }}>Mina will create or reuse the tmux session, register the agent, and send a self-registration prompt.</div>
+      <div className="notice" style={{ gridColumn: "1 / -1" }}>Mina will create or reuse the tmux session, surface permission prompts, and send a self-registration prompt only after the session is ready.</div>
       <div className="actions" style={{ gridColumn: "1 / -1" }}>
         <Button type="submit"><Icon name="add" />Create Agent</Button>
       </div>

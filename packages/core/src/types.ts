@@ -12,6 +12,157 @@ export type RequestStatus =
   | "cancelled"
   | "archived";
 
+export type RequestDiagnosticStatus =
+  | "pending"
+  | "answered"
+  | "timeout"
+  | "cancelled"
+  | "archived"
+  | "parse_failure"
+  | "transport_failure"
+  | "unknown_failure";
+
+export type RequestLeaseStatus =
+  | "active"
+  | "released"
+  | "orphaned";
+
+export type RequestRecoveryStatus =
+  | "interrupted"
+  | "recovered";
+
+export type RequestRecoveryAction =
+  | "archive"
+  | "cancel"
+  | "interrupt"
+  | "recover";
+
+export type RequestRecoverySource =
+  | "cli"
+  | "http"
+  | "ui"
+  | "system";
+
+export type ResponseParserDiagnosticKind =
+  | "parsed"
+  | "missing_markers"
+  | "missing_start_marker"
+  | "placeholder_only";
+
+export interface ResponseParserDiagnostics {
+  kind: ResponseParserDiagnosticKind;
+  requestId: string;
+  message: string;
+  startMarkerFound: boolean;
+  endMarkerFound: boolean;
+  candidateCount: number;
+  placeholderCount: number;
+  answerLength?: number;
+}
+
+export interface RequestRawEvidence {
+  kind: "transport_capture" | "prompt_envelope";
+  capturedAt: string;
+  characterCount: number;
+  excerpt: string;
+  truncated: boolean;
+}
+
+export interface RequestRecoveryEvent {
+  at: string;
+  action: RequestRecoveryAction;
+  source: RequestRecoverySource;
+  message: string;
+  previousLeaseStatus?: RequestLeaseStatus;
+  activeRequestId?: string;
+  terminalTarget?: string;
+}
+
+export type AgentHealthStatus =
+  | "available"
+  | "busy"
+  | "stale"
+  | "missing"
+  | "needs-attention"
+  | "unknown";
+
+export type AgentBootstrapStatus =
+  | "created"
+  | "starting"
+  | "permission-required"
+  | "mcp-configuring"
+  | "registration-pending"
+  | "ready"
+  | "failed"
+  | "unknown"
+  | string;
+
+export type AgentRegistrationSource =
+  | "manual"
+  | "mcp"
+  | "web-ui"
+  | "cli"
+  | "system"
+  | "unknown"
+  | string;
+
+export type AgentRegistrationStatus =
+  | "placeholder"
+  | "pending"
+  | "confirmed"
+  | "failed"
+  | "unknown"
+  | string;
+
+export type AgentPermissionProfileStatus =
+  | "not-requested"
+  | "supported"
+  | "unsupported"
+  | string;
+
+export type AgentMcpPreflightStatus =
+  | "configured"
+  | "missing"
+  | "stale"
+  | "unsupported"
+  | string;
+
+export interface AgentPermissionPrompt {
+  client: "codex" | "claude" | "unknown" | string;
+  kind: "directory-trust" | "permission-approval" | string;
+  message: string;
+  action: string;
+  evidence: string;
+}
+
+export interface AgentTransportStatus {
+  status: AgentHealthStatus;
+  detail?: string;
+  bootstrapStatus?: AgentBootstrapStatus;
+  permissionPrompt?: AgentPermissionPrompt;
+}
+
+export interface AgentRegistrationEvent {
+  at: string;
+  source: AgentRegistrationSource;
+  status: AgentRegistrationStatus;
+  agentId: string;
+  sessionFingerprint?: string;
+}
+
+export type CapabilityQuality = "strong" | "thin" | "missing";
+
+export interface AgentCapabilityProfile {
+  projectPurpose?: string;
+  primaryLanguages?: string[];
+  keyAreas?: string[];
+  canAnswer?: string[];
+  cannotAnswerYet?: string[];
+  evidence?: string[];
+  quality: CapabilityQuality;
+  qualityReasons?: string[];
+}
+
 export interface Agent {
   id: string;
   name: string;
@@ -23,6 +174,34 @@ export interface Agent {
   startupCommand?: string;
   capabilitySummary?: string;
   capabilitySources?: string;
+  capabilitySource?: "manual" | "generated";
+  capabilityUpdatedAt?: string;
+  lastCapabilityRefreshAt?: string;
+  capabilityProfile?: AgentCapabilityProfile;
+  bootstrapStatus?: AgentBootstrapStatus;
+  registrationSource?: AgentRegistrationSource;
+  registrationStatus?: AgentRegistrationStatus;
+  lastRegistrationAttemptAt?: string;
+  confirmedByAgentAt?: string;
+  sessionFingerprint?: string;
+  registrationHistory?: AgentRegistrationEvent[];
+  registrationWarnings?: string[];
+  permissionProfile?: "default" | "direct-workspace-read" | string;
+  permissionProfileStatus?: AgentPermissionProfileStatus;
+  permissionProfileDetail?: string;
+  mcpPreflightStatus?: AgentMcpPreflightStatus;
+  mcpPreflightDetail?: string;
+  mcpSetupCommand?: string;
+  mcpVerifyCommand?: string;
+  mcpRemoveCommand?: string;
+  mcpUrl?: string;
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+  activeRequestId?: string;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
 }
 
 export interface AgentRequest {
@@ -35,6 +214,25 @@ export interface AgentRequest {
   updatedAt: string;
   error?: string;
   answer?: string;
+  retryOfRequestId?: string;
+  retriedByRequestId?: string;
+  archivedAt?: string;
+  archivedFromStatus?: RequestStatus;
+  diagnosticStatus?: RequestDiagnosticStatus;
+  parserDiagnostics?: ResponseParserDiagnostics;
+  rawEvidence?: RequestRawEvidence;
+  promptEvidence?: RequestRawEvidence;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
+  leaseOwnerAgentId?: string;
+  leaseTargetSessionId?: string;
+  leaseTargetSessionFingerprint?: string;
+  recoveryStatus?: RequestRecoveryStatus;
+  recoveryEvents?: RequestRecoveryEvent[];
+  interruptedAt?: string;
+  recoveredAt?: string;
 }
 
 export interface AgentResponse {
@@ -48,6 +246,8 @@ export interface CallAgentInput {
   target: string;
   task: string;
   timeoutMs?: number;
+  retryOfRequestId?: string;
+  allowSelfCall?: boolean;
 }
 
 export interface AgentStatus {
@@ -59,9 +259,43 @@ export interface AgentStatus {
   projectRoot: string;
   capabilitySummary?: string;
   capabilitySources?: string;
-  status: "available" | "missing" | "unknown" | "busy";
+  capabilitySource?: "manual" | "generated";
+  capabilityUpdatedAt?: string;
+  lastCapabilityRefreshAt?: string;
+  capabilityProfile?: AgentCapabilityProfile;
+  bootstrapStatus?: AgentBootstrapStatus;
+  registrationSource?: AgentRegistrationSource;
+  registrationStatus?: AgentRegistrationStatus;
+  lastRegistrationAttemptAt?: string;
+  confirmedByAgentAt?: string;
+  sessionFingerprint?: string;
+  registrationHistory?: AgentRegistrationEvent[];
+  registrationWarnings?: string[];
+  permissionProfile?: "default" | "direct-workspace-read" | string;
+  permissionProfileStatus?: AgentPermissionProfileStatus;
+  permissionProfileDetail?: string;
+  permissionPrompt?: AgentPermissionPrompt;
+  mcpPreflightStatus?: AgentMcpPreflightStatus;
+  mcpPreflightDetail?: string;
+  mcpSetupCommand?: string;
+  mcpVerifyCommand?: string;
+  mcpRemoveCommand?: string;
+  mcpUrl?: string;
+  lastSeenAt?: string;
+  lastActivityAt?: string;
+  activeRequestId?: string;
+  leaseStatus?: RequestLeaseStatus;
+  leaseStartedAt?: string;
+  leaseExpiresAt?: string;
+  leaseReleasedAt?: string;
+  healthCheckedAt: string;
+  staleAfterMs: number;
+  status: AgentHealthStatus;
   detail?: string;
+  routeReady?: boolean;
+  routeBlockedReason?: string;
   lastRequestStatus?: RequestStatus;
+  isSelf?: boolean;
 }
 
 export interface AgentTransport {
@@ -72,7 +306,7 @@ export interface AgentTransport {
     requestId: string,
     timeoutMs: number,
   ): Promise<string>;
-  status?(agent: Agent): Promise<{ status: AgentStatus["status"]; detail?: string }>;
+  status?(agent: Agent): Promise<AgentTransportStatus>;
 }
 
 export interface TransportRegistry {

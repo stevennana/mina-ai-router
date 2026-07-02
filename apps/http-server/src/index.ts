@@ -4,12 +4,22 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { AgentRegistry, AgentRouter, FileState, RequestStore, type Agent, type TransportType } from "../../../packages/core/src";
+import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type AgentCapabilityProfile, type AgentPermissionPrompt, type TransportType } from "../../../packages/core/src";
 import { createMinaMcpProvider } from "../../../packages/mcp/src/provider";
-import { DefaultTransportRegistry, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
+import { DefaultTransportRegistry, detectAgentBootstrapPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type { McpFetchHandler, McpRuntimeProvider } from "@minasoft/mcp-runtime";
 
 type RuntimeModule = typeof import("@minasoft/mcp-runtime");
+type TerminalAction = {
+  id: string;
+  label: string;
+  description: string;
+  policy: "manual" | "guided" | "auto-safe";
+  input?: {
+    text?: string;
+    enter?: boolean;
+  };
+};
 
 declare const __dirname: string;
 
@@ -23,6 +33,7 @@ const runtimeModuleUrl = pathToFileURL(
 const port = Number(process.env.PORT ?? process.env.MINA_HTTP_PORT ?? 3333);
 const host = process.env.HOST ?? process.env.MINA_HTTP_HOST ?? "127.0.0.1";
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
+const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
 const context = createContext();
 let mcpHandlerPromise: Promise<McpFetchHandler> | undefined;
 
@@ -50,6 +61,7 @@ function createContext() {
     registry,
     requestStore,
     transports,
+    agentStaleAfterMs,
     onStateChanged: baseContext.save,
   });
 
@@ -66,6 +78,11 @@ const server = createServer((request, response) => {
       error: error instanceof Error ? error.message : String(error),
     });
   });
+});
+
+(server as unknown as { on(event: "error", listener: (error: unknown) => void): void }).on("error", (error) => {
+  console.error(`Mina AI Router HTTP server failed to start: ${error instanceof Error ? error.message : String(error)}`);
+  throw error instanceof Error ? error : new Error(String(error));
 });
 
 server.listen(port, host, () => {
@@ -124,6 +141,14 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     const body = await readJsonBody(request);
     const agent = registerAgent(body);
     sendJson(response, 200, { agent, state: await getUiState() });
+    return;
+  }
+
+  const agentCapabilityRefreshMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/refresh-capabilities$/);
+  if (agentCapabilityRefreshMatch && request.method === "POST") {
+    const body = await readJsonBody(request);
+    const result = await refreshAgentCapabilities(decodeURIComponent(agentCapabilityRefreshMatch[1]), body);
+    sendJson(response, 200, { ...result, state: await getUiState() });
     return;
   }
 
@@ -186,7 +211,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       sendJson(response, 200, { result, state: await getUiState() });
     } catch (error) {
       context.save();
-      sendJson(response, 500, {
+      sendJson(response, error instanceof AgentNotRouteReadyError ? 409 : 500, {
         error: error instanceof Error ? error.message : String(error),
         state: await getUiState(),
       });
@@ -194,12 +219,19 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     return;
   }
 
-  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive)$/);
+  const requestActionMatch = url.pathname.match(/^\/api\/requests\/([^/]+)\/(retry|cancel|archive|unarchive|interrupt|recover)$/);
   if (requestActionMatch && request.method === "POST") {
     const requestId = decodeURIComponent(requestActionMatch[1]);
     const action = requestActionMatch[2];
-    const result = await handleRequestAction(requestId, action);
-    sendJson(response, 200, { result, state: await getUiState() });
+    try {
+      const result = await handleRequestAction(requestId, action);
+      sendJson(response, 200, { result, state: await getUiState() });
+    } catch (error) {
+      sendJson(response, 400, {
+        error: error instanceof Error ? error.message : String(error),
+        state: await getUiState(),
+      });
+    }
     return;
   }
 
@@ -213,8 +245,12 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   if (url.pathname === "/api/setup-codex-pair" && request.method === "POST") {
     const body = await readJsonBody(request);
-    const result = setupCodexPair(body);
-    sendJson(response, 200, result);
+    try {
+      const result = setupCodexPair(body);
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
     return;
   }
 
@@ -236,9 +272,15 @@ function archiveStaleRequests(olderThanMs: number) {
       continue;
     }
 
-    archived.push(context.requestStore.updateStatus(request.id, "archived", {
+    const archivedRequest = context.requestStore.updateStatus(request.id, "archived", {
+      archivedAt: new Date().toISOString(),
+      archivedFromStatus: request.status,
       error: request.error ?? "Archived as stale by operator.",
-    }));
+      leaseStatus: request.leaseStatus === "active" ? "released" : request.leaseStatus,
+      leaseReleasedAt: request.leaseStatus === "active" ? new Date().toISOString() : request.leaseReleasedAt,
+    });
+    clearAgentLeaseForRequest(archivedRequest);
+    archived.push(archivedRequest);
   }
 
   if (archived.length > 0) {
@@ -252,28 +294,87 @@ async function handleRequestAction(requestId: string, action: string) {
   const request = context.requestStore.require(requestId);
 
   if (action === "retry") {
-    return context.router.callAgent({
+    context.requestStore.assertActionAllowed(request, "retry");
+    const result = await context.router.callAgent({
       sourceAgent: request.sourceAgent,
       target: request.targetAgent,
       task: request.task,
+      retryOfRequestId: request.id,
     });
+    context.requestStore.recordRetry(request.id, result.requestId);
+    context.save();
+    return result;
   }
 
   if (action === "cancel") {
-    const updated = context.requestStore.updateStatus(requestId, "cancelled", {
-      error: "Cancelled by operator from Mina AI Router UI.",
-    });
+    const updated = context.requestStore.cancel(requestId, "Cancelled by operator from Mina AI Router UI.", "ui");
+    clearAgentLeaseForRequest(updated);
     context.save();
     return updated;
   }
 
+  if (action === "interrupt") {
+    const updated = interruptRequest(requestId, "ui");
+    context.save();
+    return updated;
+  }
+
+  if (action === "recover") {
+    const updated = context.router.recoverRequestLease(
+      requestId,
+      "ui",
+      "Marked recovered by operator from Mina AI Router UI.",
+    );
+    return updated;
+  }
+
   if (action === "archive") {
-    const updated = context.requestStore.updateStatus(requestId, "archived");
+    return context.router.archiveRequest(requestId, "ui", "Archived by operator from Mina AI Router UI.");
+  }
+
+  if (action === "unarchive") {
+    const updated = context.requestStore.unarchive(requestId);
     context.save();
     return updated;
   }
 
   throw new Error(`Unsupported request action "${action}".`);
+}
+
+function interruptRequest(requestId: string, source: "cli" | "http" | "ui") {
+  const request = context.requestStore.require(requestId);
+  context.requestStore.assertActionAllowed(request, "interrupt");
+  const agentId = request.leaseOwnerAgentId ?? request.targetAgent;
+  const agent = context.registry.require(agentId);
+  if (agent.transport !== "tmux") {
+    throw new Error(`Request "${requestId}" targets ${agent.transport}, not tmux; open the session manually.`);
+  }
+
+  const target = agent.tmuxTarget ?? agent.sessionId;
+  new TmuxClient().sendInterrupt(target);
+  return context.requestStore.recordInterrupt(requestId, {
+    source,
+    terminalTarget: target,
+    message: `Terminal interrupt sent to ${target}.`,
+  });
+}
+
+function clearAgentLeaseForRequest(request: { leaseOwnerAgentId?: string; id: string }) {
+  if (!request.leaseOwnerAgentId) {
+    return;
+  }
+
+  const agent = context.registry.get(request.leaseOwnerAgentId);
+  if (!agent || agent.activeRequestId !== request.id) {
+    return;
+  }
+
+  context.registry.register({
+    ...agent,
+    activeRequestId: undefined,
+    leaseStatus: "released",
+    leaseReleasedAt: new Date().toISOString(),
+  });
 }
 
 async function handleMcp(
@@ -344,14 +445,16 @@ async function getHealth() {
   const openRequests = requests.filter((request) => ["created", "sent", "waiting"].includes(request.status));
 
   return {
-    ok: agents.every((agent) => agent.status !== "missing"),
+    ok: agents.every((agent) => !["missing", "stale", "needs-attention"].includes(agent.status)),
     statePath,
     mcpUrl: `http://${host}:${port}/mcp`,
     agents: {
       total: agents.length,
       available: agents.filter((agent) => agent.status === "available").length,
       busy: agents.filter((agent) => agent.status === "busy").length,
+      stale: agents.filter((agent) => agent.status === "stale").length,
       missing: agents.filter((agent) => agent.status === "missing").length,
+      needsAttention: agents.filter((agent) => agent.status === "needs-attention").length,
       unknown: agents.filter((agent) => agent.status === "unknown").length,
     },
     requests: {
@@ -369,6 +472,7 @@ function registerAgent(body: Record<string, unknown>): Agent {
   const id = requiredString(body.id, "id");
   const projectRoot = stringValue(body.projectRoot) ?? process.cwd();
   const capabilityNotice = inferCapabilityNotice(projectRoot);
+  const now = new Date().toISOString();
   const agent: Agent = {
     id,
     name: stringValue(body.name) ?? id,
@@ -380,25 +484,169 @@ function registerAgent(body: Record<string, unknown>): Agent {
     startupCommand: stringValue(body.startupCommand),
     capabilitySummary: stringValue(body.capabilitySummary) ?? capabilityNotice.summary,
     capabilitySources: stringValue(body.capabilitySources) ?? capabilityNotice.sources,
+    capabilityProfile: capabilityProfileValue(body.capabilityProfile),
+    bootstrapStatus: stringValue(body.bootstrapStatus) ?? "ready",
+    registrationSource: stringValue(body.registrationSource) ?? "manual",
+    registrationStatus: stringValue(body.registrationStatus) ?? "confirmed",
+    lastRegistrationAttemptAt: stringValue(body.lastRegistrationAttemptAt) ?? now,
+    confirmedByAgentAt: stringValue(body.confirmedByAgentAt) ?? now,
+    sessionFingerprint: stringValue(body.sessionFingerprint) ?? stringValue(body.sessionId) ?? id,
+    permissionProfile: stringValue(body.permissionProfile) ?? "default",
+    permissionProfileStatus: stringValue(body.permissionProfileStatus) ?? "not-requested",
+    permissionProfileDetail: stringValue(body.permissionProfileDetail),
+    mcpPreflightStatus: stringValue(body.mcpPreflightStatus),
+    mcpPreflightDetail: stringValue(body.mcpPreflightDetail),
+    mcpSetupCommand: stringValue(body.mcpSetupCommand),
+    mcpVerifyCommand: stringValue(body.mcpVerifyCommand),
+    mcpRemoveCommand: stringValue(body.mcpRemoveCommand),
+    mcpUrl: stringValue(body.mcpUrl),
   };
 
-  context.registry.register(agent);
+  const registered = context.registry.register(agent, {
+    capabilitySource: agent.capabilitySummary || agent.capabilitySources ? "generated" : undefined,
+  });
   context.save();
-  return agent;
+  return registered;
+}
+
+function capabilityProfileValue(value: unknown): Agent["capabilityProfile"] | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    projectPurpose: stringValue(record.projectPurpose),
+    primaryLanguages: stringArrayValue(record.primaryLanguages),
+    keyAreas: stringArrayValue(record.keyAreas),
+    canAnswer: stringArrayValue(record.canAnswer),
+    cannotAnswerYet: stringArrayValue(record.cannotAnswerYet),
+    evidence: stringArrayValue(record.evidence),
+    quality: "missing",
+  };
+}
+
+function stringArrayValue(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const values = value.filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+    .map((item) => item.trim());
+  return values.length ? values : undefined;
 }
 
 function updateAgent(id: string, body: Record<string, unknown>): Agent {
   const current = context.registry.require(id);
+  const capabilitySummary = stringFieldValue(body, "capabilitySummary");
+  const capabilitySources = stringFieldValue(body, "capabilitySources");
   const next: Agent = {
     ...current,
     name: stringValue(body.name) ?? current.name,
-    capabilitySummary: stringFieldValue(body, "capabilitySummary") ?? current.capabilitySummary,
-    capabilitySources: stringFieldValue(body, "capabilitySources") ?? current.capabilitySources,
   };
 
   context.registry.register(next);
+  const updated = capabilitySummary !== undefined || capabilitySources !== undefined
+    ? context.registry.updateCapabilities(id, {
+      summary: capabilitySummary,
+      sources: capabilitySources,
+      source: "manual",
+    })
+    : context.registry.require(id);
   context.save();
-  return next;
+  return updated;
+}
+
+async function refreshAgentCapabilities(id: string, body: Record<string, unknown>) {
+  const agent = context.registry.require(id);
+  const response = await context.router.callAgent({
+    target: id,
+    task: buildCapabilityRefreshTask(agent),
+    timeoutMs: typeof body.timeoutMs === "number" ? body.timeoutMs : undefined,
+  });
+  const notice = parseCapabilityRefreshAnswer(response.answer);
+  const refreshedAt = new Date().toISOString();
+  const updated = context.registry.updateCapabilities(id, {
+    summary: notice.capabilitySummary,
+    sources: notice.capabilitySources,
+    source: "generated",
+    refreshedAt,
+    profile: notice.capabilityProfile,
+  });
+  context.save();
+
+  return {
+    agent: updated,
+    refresh: {
+      requestId: response.requestId,
+      refreshedAt,
+      capabilitySource: updated.capabilitySource,
+    },
+  };
+}
+
+function buildCapabilityRefreshTask(agent: Agent): string {
+  return [
+    "Refresh your Mina AI Router capability registration for this visible local agent.",
+    "",
+    "Inspect local project docs and metadata before answering.",
+    "Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
+    "If those files are missing, inspect package metadata and the project file tree.",
+    "",
+    "Return only JSON with these string fields:",
+    "{",
+    '  "capabilitySummary": "2-5 short bullets or one short paragraph under 800 characters",',
+    '  "capabilitySources": "comma-separated file paths or project signals used",',
+    '  "capabilityProfile": {',
+    '    "projectPurpose": "what this project implements",',
+    '    "primaryLanguages": ["TypeScript"],',
+    '    "keyAreas": ["router", "MCP endpoint"],',
+    '    "canAnswer": ["specific question domains this agent can answer"],',
+    '    "cannotAnswerYet": ["known limits"],',
+    '    "evidence": ["README.md", "package.json", "src/..."]',
+    "  }",
+    "}",
+    "",
+    "Do not include markdown fences or extra commentary in the JSON body.",
+    "",
+    "Registration context:",
+    `- id: ${agent.id}`,
+    `- agentType: ${agent.agentType}`,
+    `- transport: ${agent.transport}`,
+    `- sessionId: ${agent.sessionId}`,
+    `- projectRoot: ${agent.projectRoot}`,
+  ].join("\n");
+}
+
+function parseCapabilityRefreshAnswer(answer: string): { capabilitySummary: string; capabilitySources: string; capabilityProfile?: Partial<AgentCapabilityProfile> } {
+  const trimmed = answer.trim();
+  const jsonText = trimmed.startsWith("{") ? trimmed : trimmed.slice(trimmed.indexOf("{"), trimmed.lastIndexOf("}") + 1);
+
+  if (!jsonText || !jsonText.startsWith("{") || !jsonText.endsWith("}")) {
+    throw new Error("Capability refresh response did not contain a JSON object.");
+  }
+
+  const parsed = JSON.parse(jsonText) as {
+    capabilitySummary?: unknown;
+    capabilitySources?: unknown;
+    capabilityProfile?: unknown;
+  };
+  const capabilitySummary = typeof parsed.capabilitySummary === "string" ? parsed.capabilitySummary.trim() : "";
+  const capabilitySources = typeof parsed.capabilitySources === "string" ? parsed.capabilitySources.trim() : "";
+
+  if (!capabilitySummary || !capabilitySources) {
+    throw new Error("Capability refresh JSON requires non-empty capabilitySummary and capabilitySources strings.");
+  }
+
+  if (capabilitySummary.length > 800) {
+    throw new Error("Capability refresh JSON capabilitySummary must be under 800 characters.");
+  }
+
+  return {
+    capabilitySummary,
+    capabilitySources,
+    capabilityProfile: capabilityProfileValue(parsed.capabilityProfile),
+  };
 }
 
 function listDirectories(body: Record<string, unknown>) {
@@ -452,13 +700,40 @@ function captureAgentTerminal(id: string) {
 
   const tmux = new TmuxClient({ captureLines: 120 });
   const text = tmux.capture(agent.tmuxTarget ?? agent.sessionId);
+  const detectedBootstrapPrompt = detectAgentBootstrapPrompt(agent, text);
+  const bootstrapPrompt = agent.bootstrapStatus === "registration-pending"
+    && detectedBootstrapPrompt
+    && !["codex-mcp-registration-approval", "mcp-registration-approval", "scoped-command-approval"].includes(detectedBootstrapPrompt.kind)
+    ? undefined
+    : detectedBootstrapPrompt;
+  const resolvedPermission = !bootstrapPrompt && agent.bootstrapStatus === "permission-required";
+  const nextAgent = bootstrapPrompt
+    ? context.registry.register({
+      ...agent,
+      bootstrapStatus: bootstrapPrompt.kind === "client-update" ? "client-update-required" : "permission-required",
+    })
+    : resolvedPermission
+      ? context.registry.register({
+        ...agent,
+        bootstrapStatus: needsSelfRegistration(agent) ? "created" : "created",
+        registrationStatus: needsSelfRegistration(agent) ? "pending" : agent.registrationStatus,
+        permissionProfileStatus: agent.permissionProfileStatus === "unsupported" ? agent.permissionProfileStatus : "supported",
+        permissionProfileDetail: "Previous permission prompt no longer appears in the terminal capture.",
+      })
+      : agent;
+  if (bootstrapPrompt || resolvedPermission) {
+    context.save();
+  }
+
   return {
-    agent,
+    agent: nextAgent,
     terminal: {
       text,
       capturedAt: new Date().toISOString(),
-      trustPrompt: agent.agentType === "codex" && isCodexTrustPrompt(text),
-      pendingRegistration: isPendingUiRegistration(agent),
+      trustPrompt: Boolean(bootstrapPrompt && bootstrapPrompt.kind !== "client-update"),
+      permissionPrompt: bootstrapPrompt,
+      actions: terminalActions(nextAgent, bootstrapPrompt),
+      pendingRegistration: needsSelfRegistration(nextAgent),
     },
   };
 }
@@ -472,9 +747,15 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   const target = agent.tmuxTarget ?? agent.sessionId;
   const text = stringValue(body.text);
   const enter = body.enter === true;
+  const actionId = stringValue(body.actionId);
   const tmux = new TmuxClient({ captureLines: 120 });
+  const action = actionId ? resolveTerminalAction(agent, actionId) : undefined;
 
-  if (text) {
+  if (action?.input?.text) {
+    tmux.sendText(target, action.input.text);
+  } else if (action?.input?.enter) {
+    tmux.sendEnter(target);
+  } else if (text) {
     if (agent.agentType === "codex") {
       tmux.sendCodexText(target, text);
     } else {
@@ -485,16 +766,34 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   }
 
   let registration = "unchanged";
-  if (enter && !text && isPendingUiRegistration(agent)) {
+  const shouldRetryRegistration = (enter && !text && needsSelfRegistration(agent))
+    || action?.id === "approve-project-trust"
+    || action?.id === "approve-claude-project-trust"
+    || action?.id === "skip-codex-update"
+    || action?.id === "approve-scoped-registration-command"
+    || action?.id === "retry-self-registration";
+  if (shouldRetryRegistration && needsSelfRegistration(agent)) {
     sleep(1_200);
     const capture = tmux.capture(target);
-    if (!(agent.agentType === "codex" && isCodexTrustPrompt(capture))) {
+    const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
+    const permissionApprovalAttempt = agent.bootstrapStatus === "permission-required"
+      && bootstrapPrompt?.kind !== "client-update";
+    const updateSkipAttempt = action?.id === "skip-codex-update";
+    if (updateSkipAttempt && bootstrapPrompt?.kind === "client-update") {
+      registration = "update skip sent";
+    } else if (!bootstrapPrompt || permissionApprovalAttempt) {
       if (agent.agentType === "codex") {
         tmux.sendCodexText(target, buildSelfRegistrationPrompt(agent));
       } else {
         tmux.sendText(target, buildSelfRegistrationPrompt(agent));
       }
       registration = "registration prompt sent to agent";
+      context.registry.register({
+        ...agent,
+        bootstrapStatus: "registration-pending",
+        registrationStatus: "pending",
+      });
+      context.save();
     }
   }
 
@@ -521,6 +820,20 @@ function createTmuxAgent(body: Record<string, unknown>) {
   const sessionId = stringValue(body.sessionId) ?? `${agentType}-${sanitizeName(projectName)}`;
   const startupCommand = stringValue(body.startupCommand)
     ?? (agentType === "codex" ? "codex --no-alt-screen" : "claude");
+  const now = new Date().toISOString();
+  const permissionProfile = resolvePermissionProfile(agentType, stringValue(body.permissionProfile) ?? "default", projectRoot);
+  const mcpUrl = `http://${host}:${port}/mcp`;
+  const mcpName = stringValue(body.mcpName) ?? "mina-ai-router";
+  const explicitConfiguredUrl = stringValue(body.mcpConfiguredUrl);
+  const detectedConfiguredUrl = explicitConfiguredUrl
+    ?? (body.mcpConfigured === true ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl, projectRoot));
+  const mcpPreflight = buildMcpPreflight({
+    agentType,
+    mcpUrl,
+    mcpName,
+    configured: body.mcpConfigured === true,
+    configuredUrl: detectedConfiguredUrl,
+  });
   const command = startupCommand.split(/\s+/)[0];
   assertCommandAvailable("tmux");
   assertCommandAvailable(command);
@@ -533,13 +846,27 @@ function createTmuxAgent(body: Record<string, unknown>) {
     sessionId,
     projectRoot,
     startupCommand,
+    bootstrapStatus: "created",
+    registrationSource: "web-ui",
+    registrationStatus: "pending",
+    lastRegistrationAttemptAt: now,
+    sessionFingerprint: sessionId,
+    permissionProfile: permissionProfile.permissionProfile,
+    permissionProfileStatus: permissionProfile.permissionProfileStatus,
+    permissionProfileDetail: permissionProfile.permissionProfileDetail,
+    mcpPreflightStatus: mcpPreflight.mcpPreflightStatus,
+    mcpPreflightDetail: mcpPreflight.mcpPreflightDetail,
+    mcpSetupCommand: mcpPreflight.mcpSetupCommand,
+    mcpVerifyCommand: mcpPreflight.mcpVerifyCommand,
+    mcpRemoveCommand: mcpPreflight.mcpRemoveCommand,
+    mcpUrl: mcpPreflight.mcpUrl,
     ...uiCreatedCapabilityNotice(projectRoot),
   };
 
   const tmux = new TmuxClient();
   const existed = tmux.hasSession(sessionId);
   tmux.ensureSession(agent);
-  context.registry.register(agent);
+  let registeredAgent = context.registry.register(agent);
   context.save();
 
   const sendRegistrationPrompt = body.sendRegistrationPrompt !== false;
@@ -549,33 +876,106 @@ function createTmuxAgent(body: Record<string, unknown>) {
     const delayMs = typeof body.registerDelayMs === "number" ? body.registerDelayMs : 4_000;
     sleep(delayMs);
     const capture = tmux.capture(sessionId);
-    if (agentType === "codex" && isCodexTrustPrompt(capture)) {
-      registration = "waiting for Codex directory trust approval";
-      nextAction = `Attach with "tmux attach -t ${sessionId}", approve the Codex trust prompt, then ask the agent to register this session with Mina AI Router.`;
+    const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
+    if (bootstrapPrompt) {
+      registration = bootstrapPrompt.kind === "client-update"
+        ? "waiting for client update choice"
+        : "waiting for permission approval";
+      nextAction = bootstrapPrompt.action;
+      registeredAgent = context.registry.register({
+        ...agent,
+        bootstrapStatus: bootstrapPrompt.kind === "client-update" ? "client-update-required" : "permission-required",
+      });
+      context.save();
+    } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
+      registration = "waiting for MCP setup";
+      nextAction = mcpPreflight.nextAction;
+      registeredAgent = context.registry.register({
+        ...agent,
+        bootstrapStatus: "mcp-configuring",
+      });
+      context.save();
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
-      if (agentType === "codex") {
-        tmux.sendCodexText(sessionId, prompt);
-      } else {
-        tmux.sendText(sessionId, prompt);
+      try {
+        if (agentType === "codex") {
+          tmux.sendCodexText(sessionId, prompt);
+        } else {
+          tmux.sendText(sessionId, prompt);
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        registration = "registration prompt failed";
+        nextAction = `Resolve the terminal/session blocker for ${sessionId}, then retry agent registration. ${detail}`;
+        registeredAgent = context.registry.register({
+          ...registeredAgent,
+          bootstrapStatus: "failed",
+          registrationStatus: "failed",
+          mcpPreflightDetail: detail,
+        });
+        context.save();
+        return {
+          agent: registeredAgent,
+          existed,
+          attach: `tmux attach -t ${sessionId}`,
+          registration,
+          nextAction,
+          mcpPreflight,
+          permissionProfile,
+          state: {
+            agents: context.registry.list(),
+            requests: context.requestStore.list(),
+          },
+        };
       }
       registration = "registration prompt sent to agent";
+      registeredAgent = context.registry.register({
+        ...registeredAgent,
+        bootstrapStatus: "registration-pending",
+        registrationStatus: "pending",
+      });
+      context.save();
     }
   }
 
   return {
-    agent,
+    agent: registeredAgent,
     existed,
     registration,
     nextAction,
+    permissionProfile,
+    mcpPreflight,
     attachCommand: `tmux attach -t ${sessionId}`,
     mairAttachCommand: `mair attach ${id}`,
   };
 }
 
+function resolvePermissionProfile(
+  agentType: string,
+  requestedProfile: string,
+  projectRoot: string,
+): Pick<Agent, "permissionProfile" | "permissionProfileStatus" | "permissionProfileDetail"> {
+  if (requestedProfile !== "direct-workspace-read") {
+    return {
+      permissionProfile: "default",
+      permissionProfileStatus: "not-requested",
+      permissionProfileDetail: "Default CLI startup. Mina will surface permission prompts instead of hiding them.",
+    };
+  }
+
+  return {
+    permissionProfile: "direct-workspace-read",
+    permissionProfileStatus: "unsupported",
+    permissionProfileDetail: `No known ${agentType} startup flag in Mina is both direct-read and scoped only to ${projectRoot}. Mina will start the default command and surface permission prompts.`,
+  };
+}
+
 function setupCodexPair(body: Record<string, unknown>) {
-  const mainRoot = stringValue(body.mainRoot) ?? "/Users/stevenna/WebstormProjects/minasoftai";
-  const helperRoot = stringValue(body.helperRoot) ?? "/Users/stevenna/PycharmProjects/mina-ralph-loop-bootstrap-nextjs";
+  const mainRoot = stringValue(body.mainRoot);
+  const helperRoot = stringValue(body.helperRoot);
+  if (!mainRoot || !helperRoot) {
+    throw new Error("setup-codex-pair is a developer/demo helper. Provide explicit mainRoot and helperRoot. Use mair setup codex or mair setup claude for normal first-run setup.");
+  }
   const helperId = stringValue(body.helperId) ?? "ralph";
   const sessionId = stringValue(body.sessionId) ?? "mina-ralph-codex";
   const agent: Agent = {
@@ -612,14 +1012,18 @@ function buildSelfRegistrationPrompt(agent: Agent): string {
     `- agentType: ${agent.agentType}`,
     `- transport: ${agent.transport}`,
     `- sessionId: ${agent.sessionId}`,
+    `- sessionFingerprint: ${agent.sessionFingerprint ?? agent.sessionId}`,
     `- projectRoot: ${agent.projectRoot}`,
     `- startupCommand: ${agent.startupCommand ?? ""}`,
+    "",
+    "If Mina already created this agent record, confirm and update that existing id. Do not create a new id for the same session.",
     "",
     "Before registering, create a concise capability notice for this session:",
     "- Prefer capability docs in this order when present: CLAUDE.md/claude.md, AGENTS.md/agents.md, agent.md, README.md.",
     "- If those files are missing, inspect package metadata and the project file tree to infer what this project/agent can help with.",
     "- Set register_agent capabilitySummary to 2-5 short bullets or one short paragraph under 800 characters.",
     "- Set register_agent capabilitySources to a comma-separated list of the files or project signals you used.",
+    "- Set register_agent sessionFingerprint to the value above.",
     "After registering, call list_agents and confirm this agent is available.",
   ].join("\n");
 }
@@ -773,25 +1177,193 @@ function truncateText(value: string, maxLength: number): string {
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1).trim()}...` : normalized;
 }
 
-function isCodexTrustPrompt(capture: string): boolean {
-  return capture.includes("Do you trust the contents of this directory?")
-    || capture.includes("Press enter to continue")
-    || capture.includes("Yes, continue");
-}
-
 function isPendingUiRegistration(agent: Agent): boolean {
   return agent.capabilitySources?.startsWith("created from Mina UI") ?? false;
 }
 
+function needsSelfRegistration(agent: Agent): boolean {
+  if (agent.transport !== "tmux") {
+    return false;
+  }
+  if (agent.registrationStatus === "confirmed") {
+    return false;
+  }
+  if (agent.mcpPreflightStatus === "missing" || agent.mcpPreflightStatus === "stale") {
+    return false;
+  }
+  if (agent.bootstrapStatus === "mcp-configuring" || agent.bootstrapStatus === "failed") {
+    return false;
+  }
+  return agent.registrationStatus === "pending" || isPendingUiRegistration(agent);
+}
+
+function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined): TerminalAction[] {
+  if (prompt?.kind === "client-update") {
+    return [
+      {
+        id: "skip-codex-update",
+        label: "Skip Codex Update",
+        description: "Sends the explicit skip choice for the known Codex update prompt. Registration resumes after the prompt clears.",
+        policy: "guided",
+        input: { text: "2" },
+      },
+      {
+        id: "manual-update-choice",
+        label: "Choose Manually",
+        description: "Attach to tmux and choose the update option yourself.",
+        policy: "manual",
+      },
+    ];
+  }
+
+  if (prompt?.kind === "directory-trust") {
+    return [
+      {
+        id: "approve-project-trust",
+        label: "Approve Project Trust",
+        description: "Sends Enter for the visible project trust prompt after you have reviewed the directory.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "claude-folder-trust") {
+    return [
+      {
+        id: "approve-claude-project-trust",
+        label: "Approve Claude Trust",
+        description: "Sends Enter for the visible Claude folder trust prompt after you have reviewed the project path.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "mcp-registration-approval") {
+    return [
+      {
+        id: "approve-mcp-registration",
+        label: "Approve Mina MCP Call",
+        description: "Approves option 1 for this scoped Mina register_agent, list_agents, or call_agent MCP call only.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "codex-mcp-registration-approval") {
+    return [
+      {
+        id: "approve-codex-mcp-registration",
+        label: "Approve Codex MCP Call",
+        description: "Approves option 1 for this scoped Codex Mina register_agent or list_agents MCP call only.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "permission-approval") {
+    return [
+      {
+        id: "manual-permission-approval",
+        label: "Approve In Terminal",
+        description: "Attach to tmux and approve the scoped Claude permission prompt manually.",
+        policy: "manual",
+      },
+    ];
+  }
+
+  if (prompt?.kind === "scoped-command-approval") {
+    return [
+      {
+        id: "approve-scoped-registration-command",
+        label: "Approve Scoped Command",
+        description: "Approves the visible Mina registration command because it is scoped to this project root.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (needsSelfRegistration(agent)) {
+    return [
+      {
+        id: "retry-self-registration",
+        label: "Retry Self Registration",
+        description: "Sends the Mina self-registration prompt to this session again.",
+        policy: "guided",
+        input: {},
+      },
+    ];
+  }
+
+  return [];
+}
+
+function resolveTerminalAction(agent: Agent, actionId: string): TerminalAction {
+  const capture = new TmuxClient({ captureLines: 120 }).capture(agent.tmuxTarget ?? agent.sessionId);
+  const prompt = detectAgentBootstrapPrompt(agent, capture);
+  const action = terminalActions(agent, prompt).find((candidate) => candidate.id === actionId);
+  if (!action) {
+    throw new Error(`Terminal action "${actionId}" is not available for agent "${agent.id}".`);
+  }
+  return action;
+}
+
 function assertCommandAvailable(command: string): void {
+  if (commandAvailable(command)) {
+    return;
+  }
+
+  throw new Error(`Required command "${command}" is not available on PATH.`);
+}
+
+function commandAvailable(command: string): boolean {
   try {
     execFileSync("which", [command], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    return true;
   } catch {
-    throw new Error(`Required command "${command}" is not available on PATH.`);
+    return false;
   }
+}
+
+function detectClientMcpConfiguredUrl(client: "codex" | "claude", mcpName: string, mcpUrl: string, projectRoot: string): string | undefined {
+  if (!commandAvailable(client)) {
+    return undefined;
+  }
+
+  try {
+    const output = execFileSync(client, ["mcp", "get", mcpName], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const list = execFileSync(client, ["mcp", "list"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (!list.includes(mcpName)) {
+      return undefined;
+    }
+    return extractMcpUrl(output, mcpUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+function extractMcpUrl(output: string, expectedUrl: string): string | undefined {
+  if (output.includes(expectedUrl)) {
+    return expectedUrl;
+  }
+
+  const match = output.match(/https?:\/\/[^\s"',)]+/);
+  return match?.[0];
 }
 
 function sanitizeName(value: string): string {
