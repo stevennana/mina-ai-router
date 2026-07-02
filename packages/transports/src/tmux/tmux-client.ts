@@ -181,7 +181,7 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
     return {
       client: "claude",
       kind: "mcp-registration-approval",
-      message: "Claude is waiting for approval of a Mina MCP registration or verification call.",
+      message: "Claude is waiting for approval of a scoped Mina MCP call.",
       action: `Review the Mina MCP call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
       evidence: promptEvidence(latestSegment, claudeMcpApprovalPatterns),
     };
@@ -278,7 +278,8 @@ function hasClaudeMcpRegistrationApproval(value: string, agent: Agent): boolean 
     return false;
   }
   return hasClaudeRegisterAgentApproval(value, agent)
-    || hasClaudeListAgentsApproval(value, agent);
+    || hasClaudeListAgentsApproval(value, agent)
+    || hasClaudeCallAgentApproval(value, agent);
 }
 
 function hasCodexRegisterAgentApproval(value: string, agent: Agent): boolean {
@@ -305,6 +306,15 @@ function hasClaudeRegisterAgentApproval(value: string, agent: Agent): boolean {
 
 function hasClaudeListAgentsApproval(value: string, agent: Agent): boolean {
   return /mina-ai-router\s+-\s+list_agents/i.test(value)
+    && (
+      includesProjectRoot(value, agent.projectRoot)
+      || value.includes(agent.id)
+      || value.includes(agent.sessionFingerprint ?? agent.sessionId)
+    );
+}
+
+function hasClaudeCallAgentApproval(value: string, agent: Agent): boolean {
+  return /mina-ai-router\s+-\s+call_agent/i.test(value)
     && (
       includesProjectRoot(value, agent.projectRoot)
       || value.includes(agent.id)
@@ -353,7 +363,7 @@ const claudeFolderTrustPatterns = [
 ];
 
 const claudeMcpApprovalPatterns = [
-  /mina-ai-router\s+-\s+(?:register_agent|list_agents)/i,
+  /mina-ai-router\s+-\s+(?:register_agent|list_agents|call_agent)/i,
   /do you want to proceed\?/i,
   /1\.\s*yes/i,
   /\(mcp\)/i,
@@ -443,7 +453,7 @@ function latestInteractiveSegment(capture: string): string {
     return lines.slice(latestNormalPromptIndex).join("\n");
   }
 
-  const latestMcpToolIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\s+-\s+(?:register_agent|list_agents)/i.test(line));
+  const latestMcpToolIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\s+-\s+(?:register_agent|list_agents|call_agent)/i.test(line));
   if (latestMcpToolIndex >= 0) {
     const toolUseIndex = lastIndexWhere(trimmed.slice(0, latestMcpToolIndex + 1), (line) => /tool use/i.test(line));
     return lines.slice(Math.max(0, toolUseIndex >= 0 ? toolUseIndex : latestMcpToolIndex)).join("\n");

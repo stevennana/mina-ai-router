@@ -9,7 +9,7 @@
   "next_task_on_success": null,
   "prompt_docs": [
     "AGENTS.md",
-    "docs/reviews/2026-07-02-real-6repo-usage-review.md"
+    "docs/product-specs/release-readiness-review-fixes.md"
   ],
   "required_commands": [
     "npm run test",
@@ -18,7 +18,7 @@
     "npm run smoke:cli-controls"
   ],
   "required_files": [
-    "docs/reviews/2026-07-02-real-6repo-usage-review.md",
+    "docs/product-specs/release-readiness-review-fixes.md",
     "docs/exec-plans/active/index.md"
   ]
 }

@@ -137,7 +137,7 @@ Mina creates or reuses a tmux session and registers the agent in the router. If 
 Watch the readiness state after creation:
 
 - `created`: Mina created or reused the tmux session.
-- `permission-required`: Codex or Claude is waiting for trust or permission approval. Open the terminal and approve it.
+- `permission-required`: Codex or Claude is waiting for trust or permission approval. Use the guided action in Mina when one is available, or open the terminal and approve the prompt directly.
 - `client-update-required`: Codex is waiting at an update prompt. Skip or resolve the prompt in the terminal, then retry registration.
 - `mcp-configuring`: the session does not yet have the Mina MCP server configured. Run the setup command shown in the inspector.
 - `registration-pending`: Mina is waiting for the agent to confirm self-registration.

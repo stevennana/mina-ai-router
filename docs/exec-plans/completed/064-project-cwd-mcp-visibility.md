@@ -9,7 +9,7 @@
   "next_task_on_success": "safe-codex-update-skip",
   "prompt_docs": [
     "AGENTS.md",
-    "docs/reviews/2026-07-02-real-cli-webui-multi-agent-followup-review.md",
+    "docs/product-specs/release-readiness-review-fixes.md",
     "docs/product-specs/release-readiness-review-fixes.md",
     "docs/MCP-CLIENT-SETUP.md"
   ],

@@ -384,6 +384,39 @@ function testPermissionPromptDetection() {
   );
   assert.equal(claudeMcpListPrompt.client, "claude");
   assert.equal(claudeMcpListPrompt.kind, "mcp-registration-approval");
+  const claudeMcpCallAgentPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Routing work to another visible Mina helper agent.",
+      "",
+      "Tool use",
+      "",
+      "mina-ai-router - call_agent (MCP)",
+      "Call a selected Mina helper agent for this project.",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. Yes, and don't ask again for mina-ai-router - call_agent commands in /tmp/project",
+      "  3. No",
+      "",
+      "Esc to cancel · Tab to amend",
+    ].join("\n"),
+  );
+  assert.equal(claudeMcpCallAgentPrompt.client, "claude");
+  assert.equal(claudeMcpCallAgentPrompt.kind, "mcp-registration-approval");
+  const claudeUnknownMcpPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Tool use",
+      "",
+      "other-server - unknown_tool (MCP)",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. No",
+    ].join("\n"),
+  );
+  assert.equal(claudeUnknownMcpPrompt?.kind, "permission-approval");
   const claudeFolderTrustPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [

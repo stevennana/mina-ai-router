@@ -27,6 +27,7 @@ const claudeDevNullReadOnlySession = `mina-http-claude-devnull-readonly-${proces
 const claudeTmuxContextSession = `mina-http-claude-tmux-context-${process.pid}`;
 const claudeMcpApprovalSession = `mina-http-claude-mcp-approval-${process.pid}`;
 const claudeMcpListSession = `mina-http-claude-mcp-list-${process.pid}`;
+const claudeMcpCallAgentSession = `mina-http-claude-mcp-call-agent-${process.pid}`;
 const claudeTrustSession = `mina-http-claude-trust-${process.pid}`;
 const timeoutSession = `mina-http-timeout-${process.pid}`;
 const fakeBinDir = join(tempDir, "fake-bin");
@@ -788,6 +789,42 @@ async function main() {
     assert.equal(claudeMcpListTerminal.terminal.permissionPrompt.kind, "mcp-registration-approval");
     assert.equal(claudeMcpListTerminal.terminal.actions[0].id, "approve-mcp-registration");
 
+    const claudeMcpCallAgentScriptPath = join(tempDir, "claude-mcp-call-agent-approval-fixture.sh");
+    writeFileSync(claudeMcpCallAgentScriptPath, [
+      "printf 'Handling a routed Mina request that needs a helper agent.\\n\\n'",
+      "printf 'Tool use\\n\\n'",
+      "printf 'mina-ai-router - call_agent (MCP)\\n'",
+      "printf 'Route a request to a selected Mina helper agent.\\n\\n'",
+      "printf 'Do you want to proceed?\\n'",
+      "printf '❯ 1. Yes\\n'",
+      `printf '  2. Yes, and don'\"'\"'t ask again for mina-ai-router - call_agent commands in ${tempDir}\\n'`,
+      "printf '  3. No\\n\\n'",
+      "printf 'Esc to cancel · Tab to amend\\n'",
+      "IFS= read -r approval",
+      "printf 'approved-mcp-call-agent:%s\\n' \"$approval\"",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const claudeMcpCallAgent = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-claude-mcp-call-agent",
+      agentType: "claude",
+      projectRoot: tempDir,
+      sessionId: claudeMcpCallAgentSession,
+      startupCommand: `/bin/sh ${claudeMcpCallAgentScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(claudeMcpCallAgent.registration, "waiting for permission approval");
+    const claudeMcpCallAgentTerminal = await json(`${baseUrl}/api/agents/ui-claude-mcp-call-agent/terminal`);
+    assert.equal(claudeMcpCallAgentTerminal.terminal.permissionPrompt.kind, "mcp-registration-approval");
+    assert.equal(claudeMcpCallAgentTerminal.terminal.actions[0].id, "approve-mcp-registration");
+    assert.match(claudeMcpCallAgentTerminal.terminal.actions[0].description, /call_agent/);
+    const claudeMcpCallAgentApproved = await postJson(`${baseUrl}/api/agents/ui-claude-mcp-call-agent/terminal/input`, {
+      actionId: "approve-mcp-registration",
+    });
+    assert.equal(claudeMcpCallAgentApproved.registration, "unchanged");
+    assert.match(claudeMcpCallAgentApproved.terminal.text, /approved-mcp-call-agent/);
+
     const claudeTrustScriptPath = join(tempDir, "claude-folder-trust-fixture.sh");
     writeFileSync(claudeTrustScriptPath, [
       "printf 'Accessing workspace:\\n\\n'",
@@ -1111,6 +1148,7 @@ async function main() {
       claudeTmuxContextSession,
       claudeMcpApprovalSession,
       claudeMcpListSession,
+      claudeMcpCallAgentSession,
       claudeTrustSession,
     ]) {
       try {

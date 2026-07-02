@@ -643,7 +643,8 @@ function hasWebUiAsset(root: string, extension: ".js" | ".css"): boolean {
 async function runDoctor(args: string[], context: ReturnType<typeof createContext>): Promise<void> {
   const flags = parseFlags(args);
   const projectRoot = resolve(flags.project ?? process.cwd());
-  const clientFilter = normalizeSetupClientFilter(flags.client ?? flags.clients ?? "all");
+  const clientFilter = resolveDoctorClientFilter(args, flags);
+  const scopedDoctor = clientFilter.length !== 2;
   const ignoreBlockedAgents = flags["ignore-blocked-agents"] === "true";
   const liveServer = matchingLiveServerStatus();
   const status = serverStatus();
@@ -661,6 +662,7 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
   const agents = liveState?.agents ?? await context.router.listAgentStatuses();
   const blockers = agents
     .filter((agent) => agent.routeReady === false || ["mcp-configuring", "permission-required", "registration-pending"].includes(agent.bootstrapStatus ?? ""))
+    .filter((agent) => !scopedDoctor || agentMatchesDoctorScope(agent, clientFilter, projectRoot))
     .map((agent) => ({
       id: agent.id,
       status: agent.status,
@@ -679,7 +681,9 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
       ignoreBlockedAgents || blockers.length === 0,
       blockers.length
         ? `${blockers.length} agent(s) are blocked. Resolve the listed repairAction values or rerun with --ignore-blocked-agents for environment-only checks.`
-        : "No known agents are blocked from receiving routed work.",
+        : scopedDoctor
+          ? "No selected project/client agents are blocked from receiving routed work."
+          : "No known agents are blocked from receiving routed work.",
     ),
   ];
   const ok = checks.every((check) => check.ok) && clients.every((client) => client.ok);
@@ -697,6 +701,42 @@ async function runDoctor(args: string[], context: ReturnType<typeof createContex
   if (!ok) {
     process.exitCode = 1;
   }
+}
+
+function resolveDoctorClientFilter(args: string[], flags: Record<string, string>): SetupClient[] {
+  const explicit = flags.client ?? flags.clients;
+  if (explicit) {
+    return normalizeSetupClientFilter(explicit);
+  }
+
+  const positional = args.find((arg) => !arg.startsWith("--") && ["codex", "claude", "all"].includes(arg));
+  return normalizeSetupClientFilter(positional ?? "all");
+}
+
+function agentMatchesDoctorScope(agent: AgentStatus, clientFilter: SetupClient[], projectRoot: string): boolean {
+  const agentClient = agent.agentType === "claude" ? "claude" : agent.agentType === "codex" ? "codex" : undefined;
+  if (!agentClient) {
+    return false;
+  }
+  return clientFilter.includes(agentClient)
+    && projectRootAliases(projectRoot).includes(agent.projectRoot ?? "");
+}
+
+function projectRootAliases(projectRoot: string): string[] {
+  const aliases = new Set([projectRoot]);
+  if (projectRoot.startsWith("/tmp/")) {
+    aliases.add(`/private${projectRoot}`);
+  }
+  if (projectRoot.startsWith("/var/")) {
+    aliases.add(`/private${projectRoot}`);
+  }
+  if (projectRoot.startsWith("/private/tmp/")) {
+    aliases.add(projectRoot.replace(/^\/private/, ""));
+  }
+  if (projectRoot.startsWith("/private/var/")) {
+    aliases.add(projectRoot.replace(/^\/private/, ""));
+  }
+  return [...aliases].filter(Boolean);
 }
 
 function doctorRepairAction(agent: AgentStatus): string {

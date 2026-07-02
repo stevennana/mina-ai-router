@@ -85,3 +85,5 @@
 - [x] claude-cwd-scoped-readonly-approval — Claude cwd-scoped read-only approval
 - [x] claude-idle-text-prompt-precision — Claude idle text prompt precision
 - [x] claude-devnull-readonly-approval — Claude devnull read-only approval
+- [x] claude-mcp-call-agent-approval — Claude MCP call_agent approval
+- [x] doctor-client-scoped-oob-check — Doctor client-scoped OOB check

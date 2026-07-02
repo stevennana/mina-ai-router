@@ -8,7 +8,7 @@
   "status": "completed",
   "next_task_on_success": "permission-state-advance-after-approval",
   "prompt_docs": [
-    "docs/reviews/2026-07-02-real-cli-webui-multi-agent-review.md",
+    "docs/product-specs/release-readiness-review-fixes.md",
     "docs/design-docs/agent-bootstrap-reliability.md"
   ],
   "required_commands": [

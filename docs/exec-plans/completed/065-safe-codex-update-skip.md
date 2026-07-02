@@ -9,7 +9,7 @@
   "next_task_on_success": "guided-bootstrap-actions",
   "prompt_docs": [
     "AGENTS.md",
-    "docs/reviews/2026-07-02-real-cli-webui-multi-agent-followup-review.md",
+    "docs/product-specs/release-readiness-review-fixes.md",
     "docs/design-docs/agent-bootstrap-reliability.md",
     "docs/TROUBLESHOOTING.md"
   ],

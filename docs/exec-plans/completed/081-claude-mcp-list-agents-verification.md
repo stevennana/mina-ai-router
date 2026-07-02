@@ -9,7 +9,7 @@
   "next_task_on_success": "claude-cwd-scoped-readonly-approval",
   "prompt_docs": [
     "AGENTS.md",
-    "docs/reviews/2026-07-02-real-6repo-usage-review.md"
+    "docs/product-specs/release-readiness-review-fixes.md"
   ],
   "required_commands": [
     "npm run test",

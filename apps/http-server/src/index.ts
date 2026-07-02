@@ -1245,7 +1245,7 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
       {
         id: "approve-mcp-registration",
         label: "Approve Mina MCP Call",
-        description: "Approves option 1 for this scoped Mina register_agent or list_agents MCP call only.",
+        description: "Approves option 1 for this scoped Mina register_agent, list_agents, or call_agent MCP call only.",
         policy: "guided",
         input: { enter: true },
       },

@@ -183,6 +183,15 @@ async function main() {
     assert.equal(doctor.mcpUrl, `http://127.0.0.1:${port}/mcp`);
     assert.equal(doctor.clients.length, 2);
     assert.equal(doctor.clients.every((client) => client.ok), true);
+    const positionalCodexDoctor = JSON.parse(runNode(["doctor", "codex", "--project", tempDir, "--json"], setupEnv));
+    assert.equal(positionalCodexDoctor.ok, true);
+    assert.equal(positionalCodexDoctor.clients.length, 1);
+    assert.equal(positionalCodexDoctor.clients[0].client, "codex");
+    assert.equal(positionalCodexDoctor.clients[0].ok, true);
+    assert.match(
+      positionalCodexDoctor.checks.find((check) => check.name === "route-ready agents").detail,
+      /selected project\/client/,
+    );
     const oobCodex = JSON.parse(runNode([
       "codex",
       "--id",

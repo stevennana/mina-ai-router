@@ -8,7 +8,7 @@
   "status": "completed",
   "next_task_on_success": "guided-bootstrap-approval-loop-design",
   "prompt_docs": [
-    "docs/reviews/2026-07-02-real-cli-webui-multi-agent-review.md",
+    "docs/product-specs/release-readiness-review-fixes.md",
     "docs/product-specs/agent-bootstrap-reliability.md"
   ],
   "required_commands": [
