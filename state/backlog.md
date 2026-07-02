@@ -80,3 +80,6 @@
 - [x] codex-mcp-registration-approval — Codex MCP registration approval
 - [x] claude-readonly-registration-approvals — Claude read-only registration approvals
 - [x] six-repo-bootstrap-revalidation-docs — Six-repo bootstrap revalidation docs
+- [x] codex-mcp-list-agents-approval — Codex MCP list_agents approval
+- [x] claude-mcp-list-agents-verification — Claude MCP list_agents verification
+- [x] claude-cwd-scoped-readonly-approval — Claude cwd-scoped read-only approval

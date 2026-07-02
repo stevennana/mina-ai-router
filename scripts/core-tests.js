@@ -181,6 +181,27 @@ function testPermissionPromptDetection() {
   );
   assert.equal(codexMcpRegisterPrompt.client, "codex");
   assert.equal(codexMcpRegisterPrompt.kind, "codex-mcp-registration-approval");
+  const codexMcpListPrompt = detectAgentBootstrapPrompt(
+    codexAgent,
+    [
+      "Calling mina-ai-router.list_agents({",
+      '  "callerAgentId": "codex",',
+      '  "callerSessionFingerprint": "codex-session",',
+      '  "sourceAgent": "codex"',
+      "})",
+      "",
+      "Field 1/1",
+      'Allow the mina-ai-router MCP server to run tool "list_agents"?',
+      "",
+      "› 1. Allow",
+      "  2. Allow for this session",
+      "  3. Always allow",
+      "  4. Cancel",
+      "enter to submit | esc to cancel",
+    ].join("\n"),
+  );
+  assert.equal(codexMcpListPrompt.client, "codex");
+  assert.equal(codexMcpListPrompt.kind, "codex-mcp-registration-approval");
 
   const claudePrompt = detectAgentPermissionPrompt(
     claudeAgent,
@@ -217,6 +238,24 @@ function testPermissionPromptDetection() {
   );
   assert.equal(claudeReadOnlyPrompt.client, "claude");
   assert.equal(claudeReadOnlyPrompt.kind, "scoped-command-approval");
+  const claudeCwdReadOnlyPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      "ls -la && echo \"---\" && for f in CLAUDE.md claude.md AGENTS.md agents.md agent.md README.md; do if [ -f \"$f\" ]; then echo \"=== $f ===\"; fi; done",
+      "List project files and check for capability docs",
+      "",
+      "Contains simple_expansion",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. No",
+      "",
+      "Esc to cancel · Tab to amend · ctrl+e to explain",
+    ].join("\n"),
+  );
+  assert.equal(claudeCwdReadOnlyPrompt.client, "claude");
+  assert.equal(claudeCwdReadOnlyPrompt.kind, "scoped-command-approval");
   const claudeTmuxContextPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [
@@ -275,6 +314,26 @@ function testPermissionPromptDetection() {
   );
   assert.equal(claudeMcpRegisterPrompt.client, "claude");
   assert.equal(claudeMcpRegisterPrompt.kind, "mcp-registration-approval");
+  const claudeMcpListPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Registration succeeded already; now confirming via list_agents as instructed.",
+      "",
+      "Tool use",
+      "",
+      "mina-ai-router - list_agents (MCP)",
+      "List registered Mina helper agents.",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. Yes, and don't ask again for mina-ai-router - list_agents commands in /tmp/project",
+      "  3. No",
+      "",
+      "Esc to cancel · Tab to amend",
+    ].join("\n"),
+  );
+  assert.equal(claudeMcpListPrompt.client, "claude");
+  assert.equal(claudeMcpListPrompt.kind, "mcp-registration-approval");
   const claudeFolderTrustPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [

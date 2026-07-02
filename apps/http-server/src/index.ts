@@ -1244,8 +1244,8 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
     return [
       {
         id: "approve-mcp-registration",
-        label: "Approve MCP Registration",
-        description: "Approves option 1 for this Mina register_agent MCP call only.",
+        label: "Approve Mina MCP Call",
+        description: "Approves option 1 for this scoped Mina register_agent or list_agents MCP call only.",
         policy: "guided",
         input: { enter: true },
       },
@@ -1256,8 +1256,8 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
     return [
       {
         id: "approve-codex-mcp-registration",
-        label: "Approve Codex MCP Registration",
-        description: "Approves option 1 for this scoped Codex Mina register_agent MCP call only.",
+        label: "Approve Codex MCP Call",
+        description: "Approves option 1 for this scoped Codex Mina register_agent or list_agents MCP call only.",
         policy: "guided",
         input: { enter: true },
       },

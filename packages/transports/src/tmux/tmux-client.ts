@@ -161,9 +161,9 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
     return {
       client: "codex",
       kind: "codex-mcp-registration-approval",
-      message: "Codex is waiting for approval of the Mina MCP register_agent call.",
-      action: `Review the Mina MCP registration call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
-      evidence: promptEvidence(latestSegment, codexMcpRegistrationApprovalPatterns),
+      message: "Codex is waiting for approval of a Mina MCP registration or verification call.",
+      action: `Review the Mina MCP call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
+      evidence: promptEvidence(latestSegment, codexMcpApprovalPatterns),
     };
   }
 
@@ -181,9 +181,9 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
     return {
       client: "claude",
       kind: "mcp-registration-approval",
-      message: "Claude is waiting for approval of the Mina MCP register_agent call.",
-      action: `Review the Mina MCP registration call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
-      evidence: promptEvidence(latestSegment, claudeMcpRegistrationApprovalPatterns),
+      message: "Claude is waiting for approval of a Mina MCP registration or verification call.",
+      action: `Review the Mina MCP call, then approve option 1 in Mina or attach with "tmux attach -t ${agent.sessionId}".`,
+      evidence: promptEvidence(latestSegment, claudeMcpApprovalPatterns),
     };
   }
 
@@ -245,34 +245,69 @@ function hasClaudeScopedRegistrationApproval(value: string, projectRoot: string)
     return false;
   }
 
+  const tmuxContextProbe = /tmux\s+display-message\s+-p/i.test(value)
+    && /\bpwd\b/i.test(value);
+  if (tmuxContextProbe) {
+    return true;
+  }
+
   if (unsafeShellCommandPatterns.some((pattern) => pattern.test(value))) {
     return false;
   }
 
   const projectScopedRead = includesProjectRoot(value, projectRoot)
     && claudeReadOnlyRegistrationCommandPatterns.some((pattern) => pattern.test(value));
-  const tmuxContextProbe = /tmux\s+display-message\s+-p/i.test(value)
-    && /\bpwd\b/i.test(value);
+  const cwdScopedRead = !absolutePathPattern.test(value)
+    && claudeReadOnlyRegistrationCommandPatterns.some((pattern) => pattern.test(value));
 
-  return projectScopedRead || tmuxContextProbe;
+  return projectScopedRead || cwdScopedRead;
 }
 
 function hasCodexMcpRegistrationApproval(value: string, agent: Agent): boolean {
-  if (!codexMcpRegistrationApprovalPatterns.every((pattern) => pattern.test(value))) {
+  if (!codexMcpApprovalPatterns.every((pattern) => pattern.test(value))) {
     return false;
   }
-  return value.includes(agent.id)
+  return hasCodexRegisterAgentApproval(value, agent)
+    || hasCodexListAgentsApproval(value, agent);
+}
+
+function hasClaudeMcpRegistrationApproval(value: string, agent: Agent): boolean {
+  if (!claudeMcpApprovalPatterns.every((pattern) => pattern.test(value))) {
+    return false;
+  }
+  return hasClaudeRegisterAgentApproval(value, agent)
+    || hasClaudeListAgentsApproval(value, agent);
+}
+
+function hasCodexRegisterAgentApproval(value: string, agent: Agent): boolean {
+  return /mina-ai-router\.register_agent/i.test(value)
+    && /run tool ["“]register_agent["”]\?/i.test(value)
+    && value.includes(agent.id)
     && value.includes(agent.sessionId)
     && includesProjectRoot(value, agent.projectRoot);
 }
 
-function hasClaudeMcpRegistrationApproval(value: string, agent: Agent): boolean {
-  if (!claudeMcpRegistrationApprovalPatterns.every((pattern) => pattern.test(value))) {
-    return false;
-  }
-  return value.includes(agent.id)
+function hasCodexListAgentsApproval(value: string, agent: Agent): boolean {
+  return /mina-ai-router\.list_agents/i.test(value)
+    && /run tool ["“]list_agents["”]\?/i.test(value)
+    && value.includes(agent.id)
+    && value.includes(agent.sessionFingerprint ?? agent.sessionId);
+}
+
+function hasClaudeRegisterAgentApproval(value: string, agent: Agent): boolean {
+  return /mina-ai-router\s+-\s+register_agent/i.test(value)
+    && value.includes(agent.id)
     && value.includes(agent.sessionId)
     && includesProjectRoot(value, agent.projectRoot);
+}
+
+function hasClaudeListAgentsApproval(value: string, agent: Agent): boolean {
+  return /mina-ai-router\s+-\s+list_agents/i.test(value)
+    && (
+      includesProjectRoot(value, agent.projectRoot)
+      || value.includes(agent.id)
+      || value.includes(agent.sessionFingerprint ?? agent.sessionId)
+    );
 }
 
 function hasClaudeFolderTrustPrompt(value: string, projectRoot: string): boolean {
@@ -315,16 +350,16 @@ const claudeFolderTrustPatterns = [
   /enter to confirm/i,
 ];
 
-const claudeMcpRegistrationApprovalPatterns = [
-  /mina-ai-router\s+-\s+register_agent/i,
+const claudeMcpApprovalPatterns = [
+  /mina-ai-router\s+-\s+(?:register_agent|list_agents)/i,
   /do you want to proceed\?/i,
   /1\.\s*yes/i,
   /\(mcp\)/i,
 ];
 
-const codexMcpRegistrationApprovalPatterns = [
-  /mina-ai-router\.register_agent/i,
-  /allow the mina-ai-router mcp server to run tool ["“]register_agent["”]\?/i,
+const codexMcpApprovalPatterns = [
+  /mina-ai-router\.(?:register_agent|list_agents)/i,
+  /allow the mina-ai-router mcp server to run tool ["“](?:register_agent|list_agents)["”]\?/i,
   /1[.)]\s*allow/i,
   /enter to submit/i,
 ];
@@ -350,12 +385,17 @@ const unsafeShellCommandPatterns = [
   /\bsudo\b/i,
   /\bchmod\b/i,
   /\bchown\b/i,
+  /\b(?:cp|mv|touch|mkdir|rmdir)\b/i,
   /\bcurl\b/i,
   /\bwget\b/i,
   /\bnpm\s+(?:install|i)\b/i,
   /\bpnpm\s+(?:install|add)\b/i,
   /\byarn\s+add\b/i,
+  /(?:^|\s)\.\.(?:\/|\s|$)/i,
+  />\s*(?:\/|~|\.)/i,
 ];
+
+const absolutePathPattern = /(?:^|[\s"'])(?:\/|~\/)/;
 
 function recentPromptWindow(capture: string): string {
   return capture
@@ -383,20 +423,20 @@ function latestInteractiveSegment(capture: string): string {
   const latestNormalPromptIndex = lastIndexWhere(trimmed, (line) => codexNormalPromptPattern.test(line));
   const latestUpdateChoiceIndex = lastIndexWhere(trimmed, (line) => codexUpdateChoiceLinePatterns.some((pattern) => pattern.test(line)));
   const latestUpdateBannerIndex = lastIndexWhere(trimmed, (line) => codexUpdateBannerPattern.test(line));
-  const latestCodexMcpRegisterIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\.register_agent/i.test(line));
-  if (latestCodexMcpRegisterIndex >= 0) {
-    const callingIndex = lastIndexWhere(trimmed.slice(0, latestCodexMcpRegisterIndex + 1), (line) => /calling/i.test(line));
-    return lines.slice(Math.max(0, callingIndex >= 0 ? callingIndex : latestCodexMcpRegisterIndex)).join("\n");
+  const latestCodexMcpToolIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\.(?:register_agent|list_agents)/i.test(line));
+  if (latestCodexMcpToolIndex >= 0) {
+    const callingIndex = lastIndexWhere(trimmed.slice(0, latestCodexMcpToolIndex + 1), (line) => /calling/i.test(line));
+    return lines.slice(Math.max(0, callingIndex >= 0 ? callingIndex : latestCodexMcpToolIndex)).join("\n");
   }
 
   if (latestNormalPromptIndex > latestUpdateChoiceIndex && latestNormalPromptIndex > latestUpdateBannerIndex) {
     return lines.slice(latestNormalPromptIndex).join("\n");
   }
 
-  const latestMcpRegisterIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\s+-\s+register_agent/i.test(line));
-  if (latestMcpRegisterIndex >= 0) {
-    const toolUseIndex = lastIndexWhere(trimmed.slice(0, latestMcpRegisterIndex + 1), (line) => /tool use/i.test(line));
-    return lines.slice(Math.max(0, toolUseIndex >= 0 ? toolUseIndex : latestMcpRegisterIndex)).join("\n");
+  const latestMcpToolIndex = lastIndexWhere(trimmed, (line) => /mina-ai-router\s+-\s+(?:register_agent|list_agents)/i.test(line));
+  if (latestMcpToolIndex >= 0) {
+    const toolUseIndex = lastIndexWhere(trimmed.slice(0, latestMcpToolIndex + 1), (line) => /tool use/i.test(line));
+    return lines.slice(Math.max(0, toolUseIndex >= 0 ? toolUseIndex : latestMcpToolIndex)).join("\n");
   }
 
   const latestWorkspaceIndex = lastIndexWhere(trimmed, (line) => /accessing workspace:/i.test(line));
