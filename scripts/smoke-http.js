@@ -1431,7 +1431,11 @@ function assertRenderedVisualFixture(stylesheet) {
       continue;
     }
     const measurement = extractVisualMeasurement(rendered, viewport.name);
-    assert.equal(measurement.viewport.width, viewport.width);
+    assert.ok(
+      measurement.viewport.width >= viewport.width
+        && measurement.viewport.width <= Math.max(viewport.width, 500),
+      `${viewport.name} viewport width should match the requested size or Chrome's minimum content width`,
+    );
     assert.ok(
       measurement.viewport.height >= Math.floor(viewport.height * 0.6)
         && measurement.viewport.height <= viewport.height,
