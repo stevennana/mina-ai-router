@@ -59,6 +59,11 @@ const markdownFiles = [
   "docs/exec-plans/completed/056-cli-subcommand-help-no-side-effects.md",
   "docs/exec-plans/completed/057-session-fingerprint-display-name-dedupe.md",
   "docs/exec-plans/completed/058-verify-docs-install-mode-clarity.md",
+  "docs/exec-plans/completed/059-claude-session-mcp-visibility.md",
+  "docs/exec-plans/completed/060-codex-update-prompt-bootstrap-blocker.md",
+  "docs/exec-plans/completed/061-permission-state-advance-after-approval.md",
+  "docs/exec-plans/completed/062-guided-bootstrap-approval-loop-design.md",
+  "docs/exec-plans/completed/063-real-cli-contract-smoke.md",
   ...reviewFiles,
 ];
 
@@ -96,6 +101,7 @@ assert.match(read("docs/USER-START-GUIDE.md"), /Ask One Agent to Use Another/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Inspect the Routed Request/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Use the GitHub checkout/);
 assert.match(read("docs/USER-START-GUIDE.md"), /Watch the readiness state/);
+assert.match(read("docs/USER-START-GUIDE.md"), /client-update-required/);
 assert.match(read("docs/USER-START-GUIDE.md"), /registration-pending/);
 assert.match(read("docs/USER-START-GUIDE.md"), /If the Web UI already created the agent placeholder/);
 assert.match(read("docs/USER-START-GUIDE.md"), /where `isSelf` is not true/);
@@ -127,6 +133,9 @@ assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Recommended Setup/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /mair setup codex/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /mair setup claude/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /mair doctor/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /visible client list check/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /codex mcp list/);
+assert.match(read("docs/MCP-CLIENT-SETUP.md"), /claude mcp list/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Use the manual commands below only/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Mina runs an MCP preflight/);
 assert.match(read("docs/MCP-CLIENT-SETUP.md"), /Claude Code can keep MCP configuration per profile/);
@@ -152,8 +161,11 @@ assert.match(read("docs/SKILL-INSTALL-GUIDE.md"), /mair setup claude/);
 assert.match(read("docs/TROUBLESHOOTING.md"), /Occupied Port/);
 assert.match(read("docs/TROUBLESHOOTING.md"), /Stale or Non-Mina Pid File/);
 assert.match(read("docs/TROUBLESHOOTING.md"), /prevents split-brain writes/);
+assert.match(read("docs/TROUBLESHOOTING.md"), /Agent Created But Not Ready/);
+assert.match(read("docs/TROUBLESHOOTING.md"), /client-update-required/);
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Pain Point Gap Map/);
 assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /Duplicate registration/);
+assert.match(read("docs/product-specs/agent-bootstrap-reliability.md"), /client-update-required/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Release Readiness Review Fixes/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /live in-memory lock/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /server owns live router state/);
@@ -192,11 +204,17 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Inst
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Subcommand `--help` can execute side effects/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Duplicate session registration mixes canonical id and display name/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /User guide mixes checkout verify and installed self-check modes/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Real CLI\/Web UI multi-agent findings/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /Claude MCP verification can pass shell checks/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /client-update-required/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /smoke:real-cli-contract/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
+assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /client-update-required/);
+assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-058/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-063/);
 assert.match(read("docs/exec-plans/completed/023-cli-server-proxy-register-ask.md"), /CLI server proxy for register and ask/);
 assert.match(read("docs/exec-plans/completed/024-cli-server-proxy-agent-start-refresh.md"), /CLI server proxy for agent start and refresh/);
 assert.match(read("docs/exec-plans/completed/025-health-running-server-mcp-url.md"), /Health running server MCP URL/);
@@ -264,6 +282,16 @@ assert.match(read("docs/exec-plans/completed/057-session-fingerprint-display-nam
 assert.match(read("docs/exec-plans/completed/057-session-fingerprint-display-name-dedupe.md"), /canonical display name/);
 assert.match(read("docs/exec-plans/completed/058-verify-docs-install-mode-clarity.md"), /Verify docs install mode clarity/);
 assert.match(read("docs/exec-plans/completed/058-verify-docs-install-mode-clarity.md"), /Checkout full verification/);
+assert.match(read("docs/exec-plans/completed/059-claude-session-mcp-visibility.md"), /Claude session MCP visibility/);
+assert.match(read("docs/exec-plans/completed/059-claude-session-mcp-visibility.md"), /mcp list/);
+assert.match(read("docs/exec-plans/completed/060-codex-update-prompt-bootstrap-blocker.md"), /Codex update prompt bootstrap blocker/);
+assert.match(read("docs/exec-plans/completed/060-codex-update-prompt-bootstrap-blocker.md"), /client-update-required/);
+assert.match(read("docs/exec-plans/completed/061-permission-state-advance-after-approval.md"), /Permission state advance after approval/);
+assert.match(read("docs/exec-plans/completed/061-permission-state-advance-after-approval.md"), /registration-pending/);
+assert.match(read("docs/exec-plans/completed/062-guided-bootstrap-approval-loop-design.md"), /Guided bootstrap approval loop design/);
+assert.match(read("docs/exec-plans/completed/062-guided-bootstrap-approval-loop-design.md"), /first-run bootstrap blocker/);
+assert.match(read("docs/exec-plans/completed/063-real-cli-contract-smoke.md"), /Real CLI contract smoke/);
+assert.match(read("docs/exec-plans/completed/063-real-cli-contract-smoke.md"), /MINA_REAL_CLI_SMOKE=1/);
 assert.doesNotMatch(read("docs/GETTING-STARTED.md"), /Required Setup Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /Setup Reference Guides/);
 assert.match(read("docs/GETTING-STARTED.md"), /mair setup codex/);

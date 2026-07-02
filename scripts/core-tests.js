@@ -10,7 +10,7 @@ const {
   inspectMarkedResponse,
   parseMarkedResponse,
 } = require("../dist/packages/core/src");
-const { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport } = require("../dist/packages/transports/src");
+const { DefaultTransportRegistry, detectAgentBootstrapPrompt, detectAgentPermissionPrompt, HeadlessTransport } = require("../dist/packages/transports/src");
 
 async function main() {
   testParser();
@@ -107,6 +107,19 @@ function testPermissionPromptDetection() {
     ].join("\n"),
   );
   assert.equal(codexUpdatePrompt, undefined);
+  const codexBootstrapPrompt = detectAgentBootstrapPrompt(
+    codexAgent,
+    [
+      "Update available! 0.142.3 -> 0.142.4",
+      "1. Update now (runs `npm install -g @openai/codex`)",
+      "2. Skip",
+      "3. Skip until next version",
+      "Press enter to continue",
+    ].join("\n"),
+  );
+  assert.equal(codexBootstrapPrompt.client, "codex");
+  assert.equal(codexBootstrapPrompt.kind, "client-update");
+  assert.match(codexBootstrapPrompt.action, /skip the update prompt/);
 
   const claudePrompt = detectAgentPermissionPrompt(
     claudeAgent,

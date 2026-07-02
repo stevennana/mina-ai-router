@@ -28,7 +28,7 @@ mair doctor --client claude --project /path/to/project
 
 If you use both clients, run both setup commands and then `mair doctor --client all --project /path/to/project`.
 
-`mair setup` discovers the matching running server's MCP URL, configures the selected CLI, links the `mina-ai-router-agent` registration skill, and verifies that the client reports the same MCP URL. `mair doctor` prints a pass/fail matrix for the server, CLI binary, MCP config, skill install, and current blocked agents.
+`mair setup` discovers the matching running server's MCP URL, configures the selected CLI, links the `mina-ai-router-agent` registration skill, and verifies that the client reports the same MCP URL. Verification must pass both the named entry check and the visible client list check, because a real session may fail to see Mina even when `mcp get` prints an entry. `mair doctor` prints a pass/fail matrix for the server, CLI binary, MCP config, skill install, and current blocked agents.
 
 Use the manual commands below only for unusual client profiles or repair work.
 
@@ -40,6 +40,7 @@ Manual Codex MCP repair:
 codex mcp remove mina-ai-router
 codex mcp add mina-ai-router --url http://127.0.0.1:3333/mcp
 codex mcp get mina-ai-router
+codex mcp list
 ```
 
 Expected result:
@@ -66,6 +67,7 @@ Manual Claude Code MCP repair:
 claude mcp remove mina-ai-router
 claude mcp add --transport http mina-ai-router http://127.0.0.1:3333/mcp
 claude mcp get mina-ai-router
+claude mcp list
 ```
 
 Then start Claude inside a project with MAIR:
@@ -75,7 +77,7 @@ cd /path/to/project
 mair claude
 ```
 
-Claude Code can keep MCP configuration per profile or project/session context. If a newly created Claude agent cannot see Mina MCP, keep it in `mcp-configuring`, run `mair setup claude --project /path/to/project` or the setup command shown by Mina, then verify with `mair doctor --client claude --project /path/to/project` before routing work to that session.
+Claude Code can keep MCP configuration per profile or project/session context. If a newly created Claude agent cannot see Mina MCP, keep it in `mcp-configuring`, run `mair setup claude --project /path/to/project` or the setup command shown by Mina, then verify with `mair doctor --client claude --project /path/to/project` before routing work to that session. The repaired session should show `mina-ai-router` in `claude mcp list`.
 
 ## Verify From the AI CLI
 

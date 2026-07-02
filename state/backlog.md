@@ -59,3 +59,8 @@
 - [x] cli-subcommand-help-no-side-effects — CLI subcommand help no side effects
 - [x] session-fingerprint-display-name-dedupe — Session fingerprint display name dedupe
 - [x] verify-docs-install-mode-clarity — Verify docs install mode clarity
+- [x] claude-session-mcp-visibility — Claude session MCP visibility
+- [x] codex-update-prompt-bootstrap-blocker — Codex update prompt bootstrap blocker
+- [x] permission-state-advance-after-approval — Permission state advance after approval
+- [x] guided-bootstrap-approval-loop-design — Guided bootstrap approval loop design
+- [x] real-cli-contract-smoke — Real CLI contract smoke

@@ -13,6 +13,7 @@ const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
 const uiPromptSession = `mina-http-ui-prompt-${process.pid}`;
 const promptSession = `mina-http-permission-${process.pid}`;
+const promptAdvanceSession = `mina-http-permission-advance-${process.pid}`;
 const timeoutSession = `mina-http-timeout-${process.pid}`;
 const fakeBinDir = join(tempDir, "fake-bin");
 const fakeClientLog = join(tempDir, "fake-client-calls.log");
@@ -249,6 +250,7 @@ async function main() {
     );
     const fakeClientCalls = readFileSync(fakeClientLog, "utf8");
     assert.match(fakeClientCalls, /codex mcp get mina-ai-router/);
+    assert.match(fakeClientCalls, /codex mcp list/);
     assert.match(fakeClientCalls, /claude mcp get missing-fixture/);
 
     const promptScriptPath = join(tempDir, "permission-prompt-fixture.sh");
@@ -277,6 +279,34 @@ async function main() {
     assert.equal(blockedAgent.permissionPrompt.client, "codex");
     assert.match(blockedAgent.detail, /directory trust approval/);
 
+    const promptAdvanceScriptPath = join(tempDir, "permission-advance-fixture.sh");
+    writeFileSync(promptAdvanceScriptPath, [
+      "printf 'Do you trust the contents of this directory?\\nPress enter to continue\\n'",
+      "IFS= read -r _line",
+      "printf 'ready after trust approval\\n'",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const permissionAdvanceBlocked = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-permission-advance",
+      agentType: "codex",
+      projectRoot: tempDir,
+      sessionId: promptAdvanceSession,
+      startupCommand: `/bin/sh ${promptAdvanceScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(permissionAdvanceBlocked.registration, "waiting for permission approval");
+    assert.equal(permissionAdvanceBlocked.agent.bootstrapStatus, "permission-required");
+    const permissionAdvanceInput = await postJson(`${baseUrl}/api/agents/ui-permission-advance/terminal/input`, {
+      enter: true,
+    });
+    assert.equal(permissionAdvanceInput.registration, "registration prompt sent to agent");
+    assert.equal(permissionAdvanceInput.agent.bootstrapStatus, "registration-pending");
+    assert.equal(permissionAdvanceInput.agent.registrationStatus, "pending");
+    assert.equal(permissionAdvanceInput.terminal.trustPrompt, false);
+    assert.equal(permissionAdvanceInput.terminal.pendingRegistration, true);
+
     const updatePromptScriptPath = join(tempDir, "codex-update-prompt-fixture.sh");
     writeFileSync(updatePromptScriptPath, [
       "printf 'Update available! 0.142.3 -> 0.142.4\\n'",
@@ -295,13 +325,16 @@ async function main() {
       startupCommand: `/bin/sh ${updatePromptScriptPath}`,
       registerDelayMs: 250,
       mcpConfigured: true,
-      sendRegistrationPrompt: false,
     });
-    assert.equal(updatePromptAgent.agent.bootstrapStatus, "created");
-    assert.equal(updatePromptAgent.agent.permissionPrompt, undefined);
+    assert.equal(updatePromptAgent.registration, "waiting for client update choice");
+    assert.equal(updatePromptAgent.agent.bootstrapStatus, "client-update-required");
+    assert.match(updatePromptAgent.nextAction, /skip the update prompt/);
+    const updateState = await json(`${baseUrl}/api/state`);
+    const updateStatus = updateState.agents.find((agent) => agent.id === "ui-codex-update");
+    assert.equal(updateStatus.permissionPrompt.kind, "client-update");
     const updateTerminal = await json(`${baseUrl}/api/agents/ui-codex-update/terminal`);
     assert.equal(updateTerminal.terminal.trustPrompt, false);
-    assert.equal(updateTerminal.terminal.permissionPrompt, undefined);
+    assert.equal(updateTerminal.terminal.permissionPrompt.kind, "client-update");
     assert.match(updateTerminal.terminal.text, /Update available/);
 
     const registered = await postJson(`${baseUrl}/api/register`, {
@@ -573,6 +606,13 @@ async function main() {
       });
     } catch {
       // Temporary permission fixture session may not exist.
+    }
+    try {
+      execFileSync("tmux", ["kill-session", "-t", promptAdvanceSession], {
+        stdio: ["ignore", "ignore", "ignore"],
+      });
+    } catch {
+      // Temporary permission advance fixture session may not exist.
     }
     try {
       execFileSync("tmux", ["kill-session", "-t", timeoutSession], {
@@ -1104,6 +1144,10 @@ function writeFakeClientBinaries() {
     "    exit 0",
     "  fi",
     "  exit 1",
+    "fi",
+    "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'list' ]; then",
+    "  printf 'mina-ai-router %s connected\\n' \"$FAKE_MCP_URL\"",
+    "  exit 0",
     "fi",
     "exit 0",
     "",

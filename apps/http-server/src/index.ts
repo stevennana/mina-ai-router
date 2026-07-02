@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type AgentCapabilityProfile, type TransportType } from "../../../packages/core/src";
 import { createMinaMcpProvider } from "../../../packages/mcp/src/provider";
-import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
+import { DefaultTransportRegistry, detectAgentBootstrapPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type { McpFetchHandler, McpRuntimeProvider } from "@minasoft/mcp-runtime";
 
 type RuntimeModule = typeof import("@minasoft/mcp-runtime");
@@ -690,14 +690,26 @@ function captureAgentTerminal(id: string) {
 
   const tmux = new TmuxClient({ captureLines: 120 });
   const text = tmux.capture(agent.tmuxTarget ?? agent.sessionId);
-  const permissionPrompt = detectAgentPermissionPrompt(agent, text);
-  const nextAgent = permissionPrompt
+  const detectedBootstrapPrompt = detectAgentBootstrapPrompt(agent, text);
+  const bootstrapPrompt = agent.bootstrapStatus === "registration-pending"
+    ? undefined
+    : detectedBootstrapPrompt;
+  const resolvedPermission = !bootstrapPrompt && agent.bootstrapStatus === "permission-required";
+  const nextAgent = bootstrapPrompt
     ? context.registry.register({
       ...agent,
-      bootstrapStatus: "permission-required",
+      bootstrapStatus: bootstrapPrompt.kind === "client-update" ? "client-update-required" : "permission-required",
     })
-    : agent;
-  if (permissionPrompt) {
+    : resolvedPermission
+      ? context.registry.register({
+        ...agent,
+        bootstrapStatus: isPendingUiRegistration(agent) ? "registration-pending" : "created",
+        registrationStatus: isPendingUiRegistration(agent) ? "pending" : agent.registrationStatus,
+        permissionProfileStatus: agent.permissionProfileStatus === "unsupported" ? agent.permissionProfileStatus : "supported",
+        permissionProfileDetail: "Previous permission prompt no longer appears in the terminal capture.",
+      })
+      : agent;
+  if (bootstrapPrompt || resolvedPermission) {
     context.save();
   }
 
@@ -706,9 +718,9 @@ function captureAgentTerminal(id: string) {
     terminal: {
       text,
       capturedAt: new Date().toISOString(),
-      trustPrompt: Boolean(permissionPrompt),
-      permissionPrompt,
-      pendingRegistration: isPendingUiRegistration(agent),
+      trustPrompt: Boolean(bootstrapPrompt && bootstrapPrompt.kind !== "client-update"),
+      permissionPrompt: bootstrapPrompt,
+      pendingRegistration: isPendingUiRegistration(nextAgent),
     },
   };
 }
@@ -738,13 +750,22 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   if (enter && !text && isPendingUiRegistration(agent)) {
     sleep(1_200);
     const capture = tmux.capture(target);
-    if (!detectAgentPermissionPrompt(agent, capture)) {
+    const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
+    const permissionApprovalAttempt = agent.bootstrapStatus === "permission-required"
+      && bootstrapPrompt?.kind !== "client-update";
+    if (!bootstrapPrompt || permissionApprovalAttempt) {
       if (agent.agentType === "codex") {
         tmux.sendCodexText(target, buildSelfRegistrationPrompt(agent));
       } else {
         tmux.sendText(target, buildSelfRegistrationPrompt(agent));
       }
       registration = "registration prompt sent to agent";
+      context.registry.register({
+        ...agent,
+        bootstrapStatus: "registration-pending",
+        registrationStatus: "pending",
+      });
+      context.save();
     }
   }
 
@@ -827,13 +848,15 @@ function createTmuxAgent(body: Record<string, unknown>) {
     const delayMs = typeof body.registerDelayMs === "number" ? body.registerDelayMs : 4_000;
     sleep(delayMs);
     const capture = tmux.capture(sessionId);
-    const permissionPrompt = detectAgentPermissionPrompt(agent, capture);
-    if (permissionPrompt) {
-      registration = "waiting for permission approval";
-      nextAction = permissionPrompt.action;
+    const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
+    if (bootstrapPrompt) {
+      registration = bootstrapPrompt.kind === "client-update"
+        ? "waiting for client update choice"
+        : "waiting for permission approval";
+      nextAction = bootstrapPrompt.action;
       registeredAgent = context.registry.register({
         ...agent,
-        bootstrapStatus: "permission-required",
+        bootstrapStatus: bootstrapPrompt.kind === "client-update" ? "client-update-required" : "permission-required",
       });
       context.save();
     } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
@@ -846,10 +869,36 @@ function createTmuxAgent(body: Record<string, unknown>) {
       context.save();
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
-      if (agentType === "codex") {
-        tmux.sendCodexText(sessionId, prompt);
-      } else {
-        tmux.sendText(sessionId, prompt);
+      try {
+        if (agentType === "codex") {
+          tmux.sendCodexText(sessionId, prompt);
+        } else {
+          tmux.sendText(sessionId, prompt);
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        registration = "registration prompt failed";
+        nextAction = `Resolve the terminal/session blocker for ${sessionId}, then retry agent registration. ${detail}`;
+        registeredAgent = context.registry.register({
+          ...registeredAgent,
+          bootstrapStatus: "failed",
+          registrationStatus: "failed",
+          mcpPreflightDetail: detail,
+        });
+        context.save();
+        return {
+          agent: registeredAgent,
+          existed,
+          attach: `tmux attach -t ${sessionId}`,
+          registration,
+          nextAction,
+          mcpPreflight,
+          permissionProfile,
+          state: {
+            agents: context.registry.list(),
+            requests: context.requestStore.list(),
+          },
+        };
       }
       registration = "registration prompt sent to agent";
       registeredAgent = context.registry.register({
@@ -1134,6 +1183,13 @@ function detectClientMcpConfiguredUrl(client: "codex" | "claude", mcpName: strin
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    const list = execFileSync(client, ["mcp", "list"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (!list.includes(mcpName)) {
+      return undefined;
+    }
     return extractMcpUrl(output, mcpUrl);
   } catch {
     return undefined;

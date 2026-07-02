@@ -70,3 +70,8 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-01T22:45:00+09:00: manually completed cli-subcommand-help-no-side-effects -> session-fingerprint-display-name-dedupe | reason=subcommand help flags now print usage before side-effectful actions
 - 2026-07-01T22:45:00+09:00: manually completed session-fingerprint-display-name-dedupe -> verify-docs-install-mode-clarity | reason=session fingerprint dedupe preserves canonical id and display name together
 - 2026-07-01T22:45:00+09:00: manually completed verify-docs-install-mode-clarity -> NONE | reason=first-user docs now distinguish checkout verification from installed package self-checks
+- 2026-07-02T00:00:00+09:00: manually completed claude-session-mcp-visibility -> codex-update-prompt-bootstrap-blocker | reason=real CLI/Web UI review follow-up checks MCP list visibility
+- 2026-07-02T00:00:00+09:00: manually completed codex-update-prompt-bootstrap-blocker -> permission-state-advance-after-approval | reason=Codex update prompts are distinct bootstrap blockers
+- 2026-07-02T00:00:00+09:00: manually completed permission-state-advance-after-approval -> guided-bootstrap-approval-loop-design | reason=permission approval can advance to registration-pending
+- 2026-07-02T00:00:00+09:00: manually completed guided-bootstrap-approval-loop-design -> real-cli-contract-smoke | reason=docs explain first-run bootstrap blocker loop
+- 2026-07-02T00:00:00+09:00: manually completed real-cli-contract-smoke -> NONE | reason=optional real CLI MCP visibility smoke added

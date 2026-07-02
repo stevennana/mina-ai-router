@@ -49,6 +49,11 @@ export function healthMessage(agent: RouterAgent): string {
       || agent.detail
       || "This agent is waiting for a permission or trust prompt before it can receive routed work.";
   }
+  if (agent.bootstrapStatus === "client-update-required") {
+    return agent.permissionPrompt?.action
+      || agent.detail
+      || "This agent is waiting at a client update prompt before registration can continue.";
+  }
   if (agent.status === "available") return "Agent session is reachable. It can receive routed requests.";
   if (agent.status === "busy") return "Agent is currently handling a routed request.";
   if (agent.status === "stale") {

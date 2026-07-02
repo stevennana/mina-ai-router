@@ -1,6 +1,6 @@
 import type { Agent, AgentTransport, AgentTransportStatus } from "../../../core/src";
 import { parseMarkedResponse } from "../../../core/src";
-import { detectAgentPermissionPrompt, TmuxClient } from "./tmux-client";
+import { detectAgentBootstrapPrompt, TmuxClient } from "./tmux-client";
 
 const pollIntervalMs = 500;
 
@@ -50,13 +50,13 @@ export class TmuxTransport implements AgentTransport {
     }
 
     const capture = this.client.capture(targetFor(agent));
-    const permissionPrompt = detectAgentPermissionPrompt(agent, capture);
-    if (permissionPrompt) {
+    const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
+    if (bootstrapPrompt) {
       return {
         status: "needs-attention",
-        detail: `${permissionPrompt.message} ${permissionPrompt.action}`,
-        bootstrapStatus: "permission-required",
-        permissionPrompt,
+        detail: `${bootstrapPrompt.message} ${bootstrapPrompt.action}`,
+        bootstrapStatus: bootstrapPrompt.kind === "client-update" ? "client-update-required" : "permission-required",
+        permissionPrompt: bootstrapPrompt,
       };
     }
 

@@ -133,9 +133,26 @@ export class TmuxClient {
 }
 
 export function detectAgentPermissionPrompt(agent: Agent, capture: string): AgentPermissionPrompt | undefined {
+  const prompt = detectAgentBootstrapPrompt(agent, capture);
+  return prompt?.kind === "client-update"
+    ? undefined
+    : prompt;
+}
+
+export function detectAgentBootstrapPrompt(agent: Agent, capture: string): AgentPermissionPrompt | undefined {
   const normalized = capture.replace(/\s+/g, " ").trim();
   if (!normalized) {
     return undefined;
+  }
+
+  if (agent.agentType === "codex" && hasCodexUpdatePrompt(normalized)) {
+    return {
+      client: "codex",
+      kind: "client-update",
+      message: "Codex is waiting at an update prompt before Mina can continue registration.",
+      action: `Attach with "tmux attach -t ${agent.sessionId}" or press Send Enter in Mina to skip the update prompt, then retry registration.`,
+      evidence: promptEvidence(capture, codexUpdatePatterns),
+    };
   }
 
   if (agent.agentType === "codex" && hasCodexTrustPrompt(normalized)) {
@@ -165,9 +182,19 @@ function hasCodexTrustPrompt(value: string): boolean {
   return codexTrustPatterns.some((pattern) => pattern.test(value));
 }
 
+function hasCodexUpdatePrompt(value: string): boolean {
+  return codexUpdatePatterns.some((pattern) => pattern.test(value));
+}
+
 function hasClaudePermissionPrompt(value: string): boolean {
   return claudePermissionPatterns.some((pattern) => pattern.test(value));
 }
+
+const codexUpdatePatterns = [
+  /update available!\s+\S+\s*->\s*\S+/i,
+  /skip until next version/i,
+  /update now.+npm install/i,
+];
 
 const codexTrustPatterns = [
   /do you trust the contents of this directory\?/i,

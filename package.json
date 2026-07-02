@@ -50,6 +50,7 @@
     "smoke:docs": "node scripts/smoke-docs.js",
     "smoke:cli-controls": "npm run build && node scripts/smoke-cli-controls.js",
     "smoke:installed-cli": "npm run build && node scripts/smoke-installed-cli.js",
+    "smoke:real-cli-contract": "npm run build && node scripts/smoke-real-cli-contract.js",
     "smoke:tmux": "npm run build && node scripts/smoke-tmux.js",
     "smoke:mcp": "npm run build && node scripts/smoke-mcp.js",
     "smoke:multi": "npm run build && node scripts/smoke-multi-agent.js",

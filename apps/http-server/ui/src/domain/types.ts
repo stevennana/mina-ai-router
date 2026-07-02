@@ -3,6 +3,7 @@ export type AgentBootstrapStatus =
   | "created"
   | "starting"
   | "permission-required"
+  | "client-update-required"
   | "mcp-configuring"
   | "registration-pending"
   | "ready"
@@ -15,7 +16,7 @@ export type AgentPermissionProfileStatus = "not-requested" | "supported" | "unsu
 export type AgentMcpPreflightStatus = "configured" | "missing" | "stale" | "unsupported" | string;
 export type AgentPermissionPrompt = {
   client: "codex" | "claude" | "unknown" | string;
-  kind: "directory-trust" | "permission-approval" | string;
+  kind: "directory-trust" | "permission-approval" | "client-update" | string;
   message: string;
   action: string;
   evidence: string;

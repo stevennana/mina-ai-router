@@ -24,6 +24,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user installed CLI findings are summarized in completed exec plans 052-053.
 - First-user installed verify output findings are summarized in completed exec plans 054-055.
 - First-user verify docs and CLI exploration findings are summarized in completed exec plans 056-058.
+- Real CLI/Web UI multi-agent findings from 2026-07-02 are summarized in completed exec plans 059-063.
 
 ## User Story
 
@@ -70,6 +71,10 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Subcommand `--help` can execute side effects | Help flags are handled before command actions so usage inspection never starts servers, sessions, setup, or request mutations |
 | Duplicate session registration mixes canonical id and display name | Session fingerprint dedupe preserves the canonical id and canonical display name together |
 | User guide mixes checkout verify and installed self-check modes | First-user docs separate checkout `npm run verify` from installed package `mair verify` |
+| Claude MCP verification can pass shell checks while real sessions cannot see Mina | Setup and doctor verify both `mcp get` and `<client> mcp list`, and visible-agent preflight consumes only list-visible entries |
+| Codex update prompt blocks Web UI-created agents | Update prompts become `client-update-required` blockers with terminal guidance instead of stale created placeholders |
+| Permission-required state can stay stuck after approval | Terminal capture and Enter handling advance cleared prompts to `registration-pending` and retry self-registration |
+| Real first-run bootstrap lacks an operator contract smoke | A skipped-by-default real CLI contract smoke documents and probes installed Codex/Claude MCP visibility when explicitly enabled |
 
 ## Functional Requirements
 
@@ -115,6 +120,10 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 40. CLI subcommand `--help` and `-h` must print usage without creating state, pid files, tmux sessions, setup config, or request mutations.
 41. Session fingerprint dedupe must not let a later duplicate registration id overwrite the canonical display name.
 42. User-facing docs must distinguish checkout verification from installed package verification.
+43. MCP setup and preflight must require both named config output and list-visible client output before treating a real client profile as configured.
+44. Codex client update prompts must be visible as a distinct non-route-ready bootstrap blocker.
+45. When a permission prompt disappears after operator input, Mina must advance the placeholder to `registration-pending` and retry the self-registration prompt.
+46. Release verification must include an optional real CLI contract smoke that is safe to skip in CI and explicit to run on a real operator machine.
 
 ## Non-goals
 
@@ -163,3 +172,7 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - `mair server start --help`, `mair doctor --help`, setup help, visible-agent help, and request help print usage without executing their underlying actions.
 - Registering the same session fingerprint with a second id preserves one canonical agent whose `id` and `name` remain aligned.
 - User Start Guide, Developer Start Guide, and HTTP UI docs describe checkout `npm run verify` and installed `mair verify` as different modes.
+- `mair setup <client>`, `mair doctor`, CLI visible-agent preflight, and Web UI create-agent preflight require `mina-ai-router` to appear in `<client> mcp list`.
+- Codex update prompts show `client-update-required`, `trustPrompt: false`, and a next action to skip or resolve the update prompt.
+- After the operator clears a permission prompt from the Web UI terminal, the agent response advances to `registration-pending` and sends the registration prompt.
+- `npm run smoke:real-cli-contract` skips by default and probes installed client MCP list visibility only when `MINA_REAL_CLI_SMOKE=1` is set.

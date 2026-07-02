@@ -130,6 +130,7 @@ Watch the readiness state after creation:
 
 - `created`: Mina created or reused the tmux session.
 - `permission-required`: Codex or Claude is waiting for trust or permission approval. Open the terminal and approve it.
+- `client-update-required`: Codex is waiting at an update prompt. Skip or resolve the prompt in the terminal, then retry registration.
 - `mcp-configuring`: the session does not yet have the Mina MCP server configured. Run the setup command shown in the inspector.
 - `registration-pending`: Mina is waiting for the agent to confirm self-registration.
 - `ready`: the session is reachable, registered, and safe to route work to.

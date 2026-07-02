@@ -16,7 +16,7 @@ import {
   type AgentRequest,
   type TransportType,
 } from "../../../packages/core/src";
-import { DefaultTransportRegistry, detectAgentPermissionPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
+import { DefaultTransportRegistry, detectAgentBootstrapPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 
 const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
 const version = packageVersion();
@@ -381,13 +381,15 @@ async function startVisibleAgent(
   let nextAction: string | undefined;
   if (shouldPromptRegister && existing?.registrationStatus !== "confirmed") {
     sleep(registerDelayMs);
-    const permissionPrompt = detectAgentPermissionPrompt(agent, tmux.capture(sessionId));
-    if (permissionPrompt) {
-      registration = "waiting for permission approval";
-      nextAction = permissionPrompt.action;
+    const bootstrapPrompt = detectAgentBootstrapPrompt(agent, tmux.capture(sessionId));
+    if (bootstrapPrompt) {
+      registration = bootstrapPrompt.kind === "client-update"
+        ? "waiting for client update choice"
+        : "waiting for permission approval";
+      nextAction = bootstrapPrompt.action;
       registeredAgent = await registerThroughLiveOwner({
         ...registeredAgent,
-        bootstrapStatus: "permission-required",
+        bootstrapStatus: bootstrapPrompt.kind === "client-update" ? "client-update-required" : "permission-required",
       }, context);
     } else if (!mcpPreflight.canSendSelfRegistrationPrompt) {
       registration = "waiting for MCP setup";
@@ -398,10 +400,32 @@ async function startVisibleAgent(
       }, context);
     } else {
       const prompt = buildSelfRegistrationPrompt(agent);
-      if (agentType === "codex") {
-        tmux.sendCodexText(sessionId, prompt);
-      } else {
-        tmux.sendText(sessionId, prompt);
+      try {
+        if (agentType === "codex") {
+          tmux.sendCodexText(sessionId, prompt);
+        } else {
+          tmux.sendText(sessionId, prompt);
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        registration = "registration prompt failed";
+        nextAction = `Resolve the terminal/session blocker for ${sessionId}, then retry agent registration. ${detail}`;
+        registeredAgent = await registerThroughLiveOwner({
+          ...registeredAgent,
+          bootstrapStatus: "failed",
+          registrationStatus: "failed",
+          mcpPreflightDetail: detail,
+        }, context);
+        printJson({
+          agent: registeredAgent,
+          existed,
+          attach: `tmux attach -t ${sessionId}`,
+          registration,
+          nextAction,
+          mcpPreflight,
+          permissionProfile,
+        });
+        return;
       }
       registration = "registration prompt sent to agent";
       registeredAgent = await registerThroughLiveOwner({
@@ -735,6 +759,7 @@ function setupClient(client: SetupClient, flags: Record<string, string>): void {
         remove: shellCommand(commands.remove),
         add: shellCommand(commands.add),
         verify: shellCommand(commands.verify),
+        list: shellCommand(commands.list),
       },
       skill: {
         source,
@@ -748,11 +773,12 @@ function setupClient(client: SetupClient, flags: Record<string, string>): void {
   runOptionalMcpCommand(commands.remove, actions, "remove existing MCP entry");
   const addOutput = runRequiredMcpCommand(commands.add, actions, "add MCP entry");
   const verifyOutput = runRequiredMcpCommand(commands.verify, actions, "verify MCP entry");
-  const verified = `${addOutput}\n${verifyOutput}`.includes(mcpUrl);
+  const listOutput = runRequiredMcpCommand(commands.list, actions, "verify MCP visibility");
+  const verified = `${addOutput}\n${verifyOutput}`.includes(mcpUrl) && listOutput.includes(mcpName);
   actions.push({
     name: "verify MCP URL",
     ok: verified,
-    detail: verified ? `MCP URL verified: ${mcpUrl}` : `MCP command output did not include ${mcpUrl}.`,
+    detail: verified ? `MCP URL verified and visible in ${client} mcp list: ${mcpUrl}` : `MCP command output did not prove ${mcpName} is visible for ${mcpUrl}.`,
   });
   if (!verified) {
     throw new Error(`MCP setup for ${client} did not verify ${mcpUrl}. Run ${shellCommand(commands.verify)} to inspect the client config.`);
@@ -771,6 +797,7 @@ function setupClient(client: SetupClient, flags: Record<string, string>): void {
       remove: shellCommand(commands.remove),
       add: shellCommand(commands.add),
       verify: shellCommand(commands.verify),
+      list: shellCommand(commands.list),
     },
     skill: {
       source,
@@ -912,17 +939,22 @@ function doctorCheck(name: string, ok: boolean, detail: string) {
 }
 
 function inspectMcpConfig(client: SetupClient, mcpName: string, mcpUrl: string): { ok: boolean; detail: string } {
-  const command = mcpCommandsFor(client, mcpName, mcpUrl).verify;
+  const commands = mcpCommandsFor(client, mcpName, mcpUrl);
   try {
-    const output = execFileSync(command.command, command.args, {
+    const getOutput = execFileSync(commands.verify.command, commands.verify.args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    const listOutput = execFileSync(commands.list.command, commands.list.args, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const output = `${getOutput}\n${listOutput}`;
     return {
-      ok: output.includes(mcpUrl),
-      detail: output.includes(mcpUrl)
-        ? `configured for ${mcpUrl}`
-        : `MCP entry exists check did not show ${mcpUrl}; run mair setup ${client}.`,
+      ok: getOutput.includes(mcpUrl) && listOutput.includes(mcpName),
+      detail: getOutput.includes(mcpUrl) && listOutput.includes(mcpName)
+        ? `configured for ${mcpUrl}; ${mcpName} is visible in ${client} mcp list`
+        : `MCP entry check did not prove ${mcpName} is visible to ${client}; run mair setup ${client}.`,
     };
   } catch (error) {
     return {
@@ -942,6 +974,13 @@ function detectClientMcpConfiguredUrl(client: SetupClient, mcpName: string, mcpU
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    const list = execFileSync(client, ["mcp", "list"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (!list.includes(mcpName)) {
+      return undefined;
+    }
     return extractMcpUrl(output, mcpUrl);
   } catch {
     return undefined;
@@ -970,12 +1009,13 @@ function resolveMcpUrl(flags: Record<string, string>): string {
   return `http://${process.env.MINA_HTTP_HOST ?? "127.0.0.1"}:${process.env.MINA_HTTP_PORT ?? "3333"}/mcp`;
 }
 
-function mcpCommandsFor(client: SetupClient, mcpName: string, mcpUrl: string): Record<"remove" | "add" | "verify", { command: string; args: string[] }> {
+function mcpCommandsFor(client: SetupClient, mcpName: string, mcpUrl: string): Record<"remove" | "add" | "verify" | "list", { command: string; args: string[] }> {
   if (client === "codex") {
     return {
       remove: { command: "codex", args: ["mcp", "remove", mcpName] },
       add: { command: "codex", args: ["mcp", "add", mcpName, "--url", mcpUrl] },
       verify: { command: "codex", args: ["mcp", "get", mcpName] },
+      list: { command: "codex", args: ["mcp", "list"] },
     };
   }
 
@@ -983,6 +1023,7 @@ function mcpCommandsFor(client: SetupClient, mcpName: string, mcpUrl: string): R
     remove: { command: "claude", args: ["mcp", "remove", mcpName] },
     add: { command: "claude", args: ["mcp", "add", "--transport", "http", mcpName, mcpUrl] },
     verify: { command: "claude", args: ["mcp", "get", mcpName] },
+    list: { command: "claude", args: ["mcp", "list"] },
   };
 }
 

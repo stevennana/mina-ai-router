@@ -482,6 +482,13 @@ function classifyAgentHealth(input: {
     };
   }
 
+  if (input.bootstrapStatus === "client-update-required") {
+    return {
+      status: "needs-attention",
+      detail: "Agent CLI is waiting at an update prompt before Mina can continue registration.",
+    };
+  }
+
   if (input.bootstrapStatus === "mcp-configuring") {
     return {
       status: "needs-attention",
@@ -554,6 +561,10 @@ function routeBlocker(input: {
 }): string | undefined {
   if (input.bootstrapStatus === "permission-required") {
     return "Agent is waiting for operator permission before it can receive routed work.";
+  }
+
+  if (input.bootstrapStatus === "client-update-required") {
+    return "Agent CLI is waiting at an update prompt before Mina can continue registration.";
   }
 
   if (input.bootstrapStatus === "mcp-configuring") {

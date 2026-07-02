@@ -21,6 +21,7 @@ Suggested bootstrap states:
 | `created` | A record exists, usually from Web UI or CLI create, but no terminal confirmation has occurred. |
 | `starting` | A terminal session has been created and startup output is being observed. |
 | `permission-required` | Terminal evidence suggests a Codex/Claude trust or permission prompt blocks useful work. |
+| `client-update-required` | Terminal evidence shows a client update prompt, which is not a directory trust approval and should not be treated as ready. |
 | `mcp-configuring` | Mina is running, pasting, or waiting for MCP setup instructions. |
 | `registration-pending` | MCP should be available and Mina is waiting for the agent to confirm registration. |
 | `ready` | Agent confirmed registration and has usable capability metadata. |
@@ -55,11 +56,14 @@ tmux transport owns terminal evidence:
 
 Transport should not decide MCP policy or capability quality. It only reports evidence.
 
+Codex update prompts are classified as bootstrap blockers, not permission prompts. The Web UI may let the operator send Enter to skip the update prompt, but `trustPrompt` remains false and routing remains blocked until the prompt disappears and registration can continue.
+
 ### MCP Client Configurator
 
 An `McpClientConfigurator` boundary should describe client-specific setup:
 
 - detect whether Mina MCP is configured
+- verify that the configured entry is also visible in `<client> mcp list`
 - return setup command text
 - optionally run a supported setup command
 - explain unsupported states
@@ -105,6 +109,7 @@ Generated capabilities should move toward this shape:
 
 - Unit tests cover state transitions, idempotent registration, self-call rejection, and capability quality scoring.
 - HTTP smoke tests cover Web UI-visible agent creation metadata and request lease state.
+- Optional real CLI contract smoke can be enabled with `MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract` to probe installed Codex/Claude MCP list visibility without making CI depend on local CLIs.
 - MCP smoke tests cover `isSelf` and self-call rejection behavior.
 - tmux smoke tests cover prompt detection and long transaction recovery evidence.
 - Docs smoke tests keep the operator-facing story aligned with the active queue.

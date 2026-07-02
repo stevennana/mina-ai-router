@@ -19,6 +19,17 @@ Set the same `MINA_ROUTER_STATE` for both processes:
 export MINA_ROUTER_STATE=/absolute/path/to/router-state.json
 ```
 
+## Agent Created But Not Ready
+
+Visible Codex or Claude sessions can be reachable in tmux while still blocked by first-run prompts. Mina reports those sessions as `needs-attention` instead of `available`.
+
+Common blockers:
+
+- `permission-required`: approve the trust or permission prompt in the terminal.
+- `client-update-required`: Codex is stopped at an update prompt. Press Enter in the Web UI terminal to skip the update prompt, or attach to tmux and choose an update option, then retry registration.
+- `mcp-configuring`: run the setup command shown in the inspector, then confirm `codex mcp list` or `claude mcp list` contains `mina-ai-router`.
+- `registration-pending`: the prompt was sent and Mina is waiting for the CLI agent to call the registration skill.
+
 ## `mair server start` Fails on an Occupied Port
 
 `mair server start` waits for the Mina `/api/health` endpoint before it reports success. If the port is already occupied, the command should fail with a bind diagnostic such as `EADDRINUSE` and point at the server log.

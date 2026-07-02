@@ -17,6 +17,7 @@ As a local operator, I want to create a Codex or Claude CLI agent from the Web U
 | Pain point | Current gap | Desired outcome |
 | --- | --- | --- |
 | Web UI agent creation starts before permission readiness | Agent can show `available` while waiting for trust or directory permission | Agent creation exposes bootstrap state and permission/trust readiness before routing work |
+| Client update prompt blocks first run | Codex update prompt can look like a generic enter-to-continue screen | Update prompts use `client-update-required`, do not set trust approval state, and block routing until cleared |
 | MCP setup is not automatic per session | Claude/Codex sessions may lack Mina MCP config when self-registration starts | Agent creation runs or guides MCP preflight before asking the agent to register |
 | Long transactions outlive router timeout | Router request can time out while target terminal still works | Request leases track orphaned-running sessions and give explicit recovery actions |
 | Agent does not recognize itself | Agents can route work to their own session | `list_agents` marks the caller as self and `call_agent` blocks self-calls by default |
@@ -35,6 +36,8 @@ As a local operator, I want to create a Codex or Claude CLI agent from the Web U
 8. Generate structured capability profiles with evidence and quality labels.
 9. Track request leases so timed-out requests can be reconciled with still-active terminal sessions.
 10. Expose every bootstrap and recovery state in both Web UI and CLI.
+11. Treat client update prompts as a distinct bootstrap blocker.
+12. Verify MCP setup with both the named config entry and the client's visible MCP list.
 
 ## Non-goals
 
@@ -46,6 +49,7 @@ As a local operator, I want to create a Codex or Claude CLI agent from the Web U
 ## Acceptance Criteria
 
 - A newly created agent cannot silently look ready while blocked on a known permission or MCP setup prompt.
+- A Codex update prompt is not classified as directory trust and is surfaced as `client-update-required`.
 - Agent creation has an idempotent path from UI placeholder to agent-confirmed registration.
 - MCP `list_agents` clearly identifies the caller's own agent entry.
 - Self-calls fail with a clear error unless the caller opts in.
