@@ -888,6 +888,12 @@ pre {
   color: var(--terminal-ink);
 }
 
+.terminal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .terminal-panel pre {
   min-height: 16rem;
   max-height: 24rem;

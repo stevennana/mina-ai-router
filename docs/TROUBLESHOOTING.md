@@ -26,7 +26,7 @@ Visible Codex or Claude sessions can be reachable in tmux while still blocked by
 Common blockers:
 
 - `permission-required`: approve the trust or permission prompt in the terminal.
-- `client-update-required`: Codex is stopped at an update prompt. Press Enter in the Web UI terminal to skip the update prompt, or attach to tmux and choose an update option, then retry registration.
+- `client-update-required`: Codex is stopped at an update prompt. Use the Web UI's `Skip Codex Update` guided action for the known skip choice, or attach to tmux and choose an update option manually, then retry registration.
 - `mcp-configuring`: run the setup command shown in the inspector, then confirm `codex mcp list` or `claude mcp list` contains `mina-ai-router`.
 - `registration-pending`: the prompt was sent and Mina is waiting for the CLI agent to call the registration skill.
 

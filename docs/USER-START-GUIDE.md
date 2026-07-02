@@ -50,6 +50,14 @@ For a GitHub checkout, the full test suite is:
 npm run verify
 ```
 
+Before claiming a real Codex or Claude out-of-box flow is ready on your machine, also run:
+
+```sh
+MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract
+```
+
+Default `npm run verify` is account-free and deterministic. The opt-in real CLI contract smoke checks the installed client context and can fail when a local Codex or Claude profile cannot see Mina MCP.
+
 When Mina is installed as a packaged CLI instead of linked from this checkout,
 `mair verify` runs an installed-package self-check. It validates Mina's packaged
 CLI, MCP server, HTTP server, Web UI assets, docs, and registration skill without

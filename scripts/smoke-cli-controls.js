@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { chmodSync, existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } = require("node:fs");
+const { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, unlinkSync, writeFileSync } = require("node:fs");
 const { createServer } = require("node:net");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
@@ -9,6 +9,7 @@ const repoRoot = join(__dirname, "..");
 const packageVersion = require(join(repoRoot, "package.json")).version;
 const distCli = join(repoRoot, "dist", "apps", "cli", "src", "index.js");
 const tempDir = mkdtempSync(join(tmpdir(), "mina-cli-controls-"));
+const projectRootReal = realpathSync(tempDir);
 const statePath = join(tempDir, "router-state.json");
 const pidPath = join(tempDir, "mair-server.json");
 const session = `mina-cli-controls-${process.pid}`;
@@ -164,8 +165,9 @@ async function main() {
     assert.equal(claudeSetup.skill.installed, true);
     assert.ok(existsSync(join(tempDir, ".claude", "skills", "mina-ai-router-agent", "SKILL.md")));
     const mcpCallLog = readFileSync(setupEnv.MINA_FAKE_CLIENT_LOG, "utf8");
-    assert.match(mcpCallLog, new RegExp(`codex mcp add mina-ai-router --url http://127\\.0\\.0\\.1:${port}/mcp`));
-    assert.match(mcpCallLog, new RegExp(`claude mcp add --transport http mina-ai-router http://127\\.0\\.0\\.1:${port}/mcp`));
+    assert.match(mcpCallLog, new RegExp(`codex cwd=${escapeRegExp(projectRootReal)} mcp add mina-ai-router --url http://127\\.0\\.0\\.1:${port}/mcp`));
+    assert.match(mcpCallLog, new RegExp(`claude cwd=${escapeRegExp(projectRootReal)} mcp add --transport http mina-ai-router http://127\\.0\\.0\\.1:${port}/mcp`));
+    assert.match(mcpCallLog, new RegExp(`claude cwd=${escapeRegExp(projectRootReal)} mcp list`));
     const doctor = JSON.parse(runNode(["doctor", "--client", "all", "--project", tempDir, "--json"], setupEnv));
     assert.equal(doctor.ok, true);
     assert.equal(doctor.mcpUrl, `http://127.0.0.1:${port}/mcp`);
@@ -688,12 +690,16 @@ function createFakeClientSetupEnv(mcpUrl) {
   const script = [
     "#!/bin/sh",
     "client=$(basename \"$0\")",
-    "printf '%s %s\\n' \"$client\" \"$*\" >> \"$MINA_FAKE_CLIENT_LOG\"",
+    "printf '%s cwd=%s %s\\n' \"$client\" \"$(pwd)\" \"$*\" >> \"$MINA_FAKE_CLIENT_LOG\"",
     "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'get' ]; then",
     "  printf 'name: %s\\nurl: %s\\n' \"$3\" \"$FAKE_MCP_URL\"",
     "  exit 0",
     "fi",
     "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'list' ]; then",
+    "  if [ \"$client\" = 'claude' ] && [ \"$(pwd)\" != \"$FAKE_PROJECT_ROOT\" ]; then",
+    "    printf 'gitnexus connected\\n'",
+    "    exit 0",
+    "  fi",
     "  printf 'mina-ai-router %s connected\\n' \"$FAKE_MCP_URL\"",
     "  exit 0",
     "fi",
@@ -719,6 +725,7 @@ function createFakeClientSetupEnv(mcpUrl) {
     HOME: homeDir,
     FAKE_MCP_URL: mcpUrl,
     MINA_FAKE_CLIENT_LOG: logPath,
+    FAKE_PROJECT_ROOT: projectRootReal,
   };
 }
 
@@ -791,6 +798,10 @@ function clearHealthFixtures() {
   state.agents = state.agents.filter((agent) => !["cli-stale", "cli-missing", "cli-attention"].includes(agent.id));
   state.requests = state.requests.filter((request) => request.id !== "cli-attention-request");
   writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 main().catch((error) => {

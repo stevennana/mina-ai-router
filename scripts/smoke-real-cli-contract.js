@@ -11,7 +11,7 @@ writeFileSync(join(projectRoot, "README.md"), "# Mina real CLI contract smoke\n"
 
 function main() {
   if (process.env.MINA_REAL_CLI_SMOKE !== "1") {
-    console.log("real CLI contract smoke skipped: set MINA_REAL_CLI_SMOKE=1 to probe installed Codex/Claude clients");
+    console.log("real CLI contract smoke skipped: default verify does not prove real installed Codex/Claude MCP visibility. Run MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract on a machine with the intended clients before claiming OOB real CLI readiness.");
     return;
   }
 

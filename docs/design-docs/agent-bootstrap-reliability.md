@@ -56,7 +56,7 @@ tmux transport owns terminal evidence:
 
 Transport should not decide MCP policy or capability quality. It only reports evidence.
 
-Codex update prompts are classified as bootstrap blockers, not permission prompts. The Web UI may let the operator send Enter to skip the update prompt, but `trustPrompt` remains false and routing remains blocked until the prompt disappears and registration can continue.
+Codex update prompts are classified as bootstrap blockers, not permission prompts. The Web UI exposes a prompt-specific guided skip action for known Codex update prompts instead of treating raw Enter as safe. `trustPrompt` remains false and routing remains blocked until the prompt disappears and registration can continue.
 
 ### MCP Client Configurator
 

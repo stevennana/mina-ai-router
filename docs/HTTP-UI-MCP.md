@@ -110,6 +110,8 @@ suite. A linked checkout may make `mair verify` run that same suite from the Min
 package root. In an installed package, `mair verify` checks the packaged CLI,
 MCP server, HTTP server, Web UI assets, docs, and registration skill.
 
+Default verification does not require real Codex or Claude accounts. For local release readiness of the real CLI flow, run `MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract` after `npm run verify`; it proves the installed client context can see `mina-ai-router` in the client MCP list.
+
 `mair health`, `mair agents`, and `mair agent <id>` prefer live status from a running server whose recorded state path matches the current CLI state path. This keeps health output correct when the server was started with a non-default port and when an agent is actively busy inside the server process.
 
 ## Visible Agent Commands

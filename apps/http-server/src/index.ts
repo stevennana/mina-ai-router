@@ -4,12 +4,22 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type AgentCapabilityProfile, type TransportType } from "../../../packages/core/src";
+import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type AgentCapabilityProfile, type AgentPermissionPrompt, type TransportType } from "../../../packages/core/src";
 import { createMinaMcpProvider } from "../../../packages/mcp/src/provider";
 import { DefaultTransportRegistry, detectAgentBootstrapPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type { McpFetchHandler, McpRuntimeProvider } from "@minasoft/mcp-runtime";
 
 type RuntimeModule = typeof import("@minasoft/mcp-runtime");
+type TerminalAction = {
+  id: string;
+  label: string;
+  description: string;
+  policy: "manual" | "guided" | "auto-safe";
+  input?: {
+    text?: string;
+    enter?: boolean;
+  };
+};
 
 declare const __dirname: string;
 
@@ -720,6 +730,7 @@ function captureAgentTerminal(id: string) {
       capturedAt: new Date().toISOString(),
       trustPrompt: Boolean(bootstrapPrompt && bootstrapPrompt.kind !== "client-update"),
       permissionPrompt: bootstrapPrompt,
+      actions: terminalActions(nextAgent, bootstrapPrompt),
       pendingRegistration: isPendingUiRegistration(nextAgent),
     },
   };
@@ -734,9 +745,15 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   const target = agent.tmuxTarget ?? agent.sessionId;
   const text = stringValue(body.text);
   const enter = body.enter === true;
+  const actionId = stringValue(body.actionId);
   const tmux = new TmuxClient({ captureLines: 120 });
+  const action = actionId ? resolveTerminalAction(agent, actionId) : undefined;
 
-  if (text) {
+  if (action?.input?.text) {
+    tmux.sendText(target, action.input.text);
+  } else if (action?.input?.enter) {
+    tmux.sendEnter(target);
+  } else if (text) {
     if (agent.agentType === "codex") {
       tmux.sendCodexText(target, text);
     } else {
@@ -747,13 +764,18 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
   }
 
   let registration = "unchanged";
-  if (enter && !text && isPendingUiRegistration(agent)) {
+  const shouldRetryRegistration = (enter && !text && isPendingUiRegistration(agent))
+    || action?.id === "approve-project-trust"
+    || action?.id === "skip-codex-update"
+    || action?.id === "retry-self-registration";
+  if (shouldRetryRegistration && isPendingUiRegistration(agent)) {
     sleep(1_200);
     const capture = tmux.capture(target);
     const bootstrapPrompt = detectAgentBootstrapPrompt(agent, capture);
     const permissionApprovalAttempt = agent.bootstrapStatus === "permission-required"
       && bootstrapPrompt?.kind !== "client-update";
-    if (!bootstrapPrompt || permissionApprovalAttempt) {
+    const updateSkipAttempt = action?.id === "skip-codex-update";
+    if (!bootstrapPrompt || permissionApprovalAttempt || updateSkipAttempt) {
       if (agent.agentType === "codex") {
         tmux.sendCodexText(target, buildSelfRegistrationPrompt(agent));
       } else {
@@ -798,7 +820,7 @@ function createTmuxAgent(body: Record<string, unknown>) {
   const mcpName = stringValue(body.mcpName) ?? "mina-ai-router";
   const explicitConfiguredUrl = stringValue(body.mcpConfiguredUrl);
   const detectedConfiguredUrl = explicitConfiguredUrl
-    ?? (body.mcpConfigured === true ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl));
+    ?? (body.mcpConfigured === true ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl, projectRoot));
   const mcpPreflight = buildMcpPreflight({
     agentType,
     mcpUrl,
@@ -1153,6 +1175,73 @@ function isPendingUiRegistration(agent: Agent): boolean {
   return agent.capabilitySources?.startsWith("created from Mina UI") ?? false;
 }
 
+function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined): TerminalAction[] {
+  if (prompt?.kind === "client-update") {
+    return [
+      {
+        id: "skip-codex-update",
+        label: "Skip Codex Update",
+        description: "Sends the explicit skip choice for the known Codex update prompt, then retries self-registration.",
+        policy: "guided",
+        input: { text: "2" },
+      },
+      {
+        id: "manual-update-choice",
+        label: "Choose Manually",
+        description: "Attach to tmux and choose the update option yourself.",
+        policy: "manual",
+      },
+    ];
+  }
+
+  if (prompt?.kind === "directory-trust") {
+    return [
+      {
+        id: "approve-project-trust",
+        label: "Approve Project Trust",
+        description: "Sends Enter for the visible project trust prompt after you have reviewed the directory.",
+        policy: "guided",
+        input: { enter: true },
+      },
+    ];
+  }
+
+  if (prompt?.kind === "permission-approval") {
+    return [
+      {
+        id: "manual-permission-approval",
+        label: "Approve In Terminal",
+        description: "Attach to tmux and approve the scoped Claude permission prompt manually.",
+        policy: "manual",
+      },
+    ];
+  }
+
+  if (isPendingUiRegistration(agent)) {
+    return [
+      {
+        id: "retry-self-registration",
+        label: "Retry Self Registration",
+        description: "Sends the Mina self-registration prompt to this session again.",
+        policy: "guided",
+        input: {},
+      },
+    ];
+  }
+
+  return [];
+}
+
+function resolveTerminalAction(agent: Agent, actionId: string): TerminalAction {
+  const capture = new TmuxClient({ captureLines: 120 }).capture(agent.tmuxTarget ?? agent.sessionId);
+  const prompt = detectAgentBootstrapPrompt(agent, capture);
+  const action = terminalActions(agent, prompt).find((candidate) => candidate.id === actionId);
+  if (!action) {
+    throw new Error(`Terminal action "${actionId}" is not available for agent "${agent.id}".`);
+  }
+  return action;
+}
+
 function assertCommandAvailable(command: string): void {
   if (commandAvailable(command)) {
     return;
@@ -1173,17 +1262,19 @@ function commandAvailable(command: string): boolean {
   }
 }
 
-function detectClientMcpConfiguredUrl(client: "codex" | "claude", mcpName: string, mcpUrl: string): string | undefined {
+function detectClientMcpConfiguredUrl(client: "codex" | "claude", mcpName: string, mcpUrl: string, projectRoot: string): string | undefined {
   if (!commandAvailable(client)) {
     return undefined;
   }
 
   try {
     const output = execFileSync(client, ["mcp", "get", mcpName], {
+      cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
     const list = execFileSync(client, ["mcp", "list"], {
+      cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });

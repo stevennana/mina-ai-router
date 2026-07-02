@@ -119,7 +119,7 @@ function testPermissionPromptDetection() {
   );
   assert.equal(codexBootstrapPrompt.client, "codex");
   assert.equal(codexBootstrapPrompt.kind, "client-update");
-  assert.match(codexBootstrapPrompt.action, /skip the update prompt/);
+  assert.match(codexBootstrapPrompt.action, /Skip Codex Update|safe update option/);
 
   const claudePrompt = detectAgentPermissionPrompt(
     claudeAgent,

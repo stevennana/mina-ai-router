@@ -1,4 +1,4 @@
-import type { DirectoryListing, HealthState, RouterAgent, UiState } from "../domain/types";
+import type { DirectoryListing, HealthState, RouterAgent, TerminalAction, UiState } from "../domain/types";
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
@@ -45,11 +45,11 @@ export const routerApi = {
     method: "POST",
     body: JSON.stringify({ olderThanMs: 30 * 60 * 1000 }),
   }),
-  terminal: (agentId: string) => api<{ terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal`),
-  terminalInput: (agentId: string, text: string, enter: boolean) =>
-    api<{ registration: string; terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal/input`, {
+  terminal: (agentId: string) => api<{ terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; actions: TerminalAction[]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal`),
+  terminalInput: (agentId: string, text: string, enter: boolean, actionId?: string) =>
+    api<{ registration: string; terminal: { text: string; trustPrompt: boolean; permissionPrompt?: RouterAgent["permissionPrompt"]; actions: TerminalAction[]; pendingRegistration: boolean } }>(`/api/agents/${encodeURIComponent(agentId)}/terminal/input`, {
       method: "POST",
-      body: JSON.stringify({ text, enter }),
+      body: JSON.stringify({ text, enter, actionId }),
     }),
   setupPair: () => api<{ helper: RouterAgent }>("/api/setup-codex-pair", {
     method: "POST",

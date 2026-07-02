@@ -75,3 +75,8 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-02T00:00:00+09:00: manually completed permission-state-advance-after-approval -> guided-bootstrap-approval-loop-design | reason=permission approval can advance to registration-pending
 - 2026-07-02T00:00:00+09:00: manually completed guided-bootstrap-approval-loop-design -> real-cli-contract-smoke | reason=docs explain first-run bootstrap blocker loop
 - 2026-07-02T00:00:00+09:00: manually completed real-cli-contract-smoke -> NONE | reason=optional real CLI MCP visibility smoke added
+- 2026-07-02T15:55:00+09:00: seeded follow-up real CLI/Web UI hardening wave from docs/reviews/2026-07-02-real-cli-webui-multi-agent-followup-review.md; current task project-cwd-mcp-visibility
+- 2026-07-02T16:11:28+09:00: manually completed project-cwd-mcp-visibility -> safe-codex-update-skip | reason=project-root cwd MCP visibility checks pass for CLI and Web UI
+- 2026-07-02T16:11:28+09:00: manually completed safe-codex-update-skip -> guided-bootstrap-actions | reason=Codex update prompts now use explicit guided skip action
+- 2026-07-02T16:11:28+09:00: manually completed guided-bootstrap-actions -> real-cli-release-gate-docs | reason=Terminal API/UI exposes prompt-specific guided bootstrap actions
+- 2026-07-02T16:11:28+09:00: manually completed real-cli-release-gate-docs -> NONE | reason=real CLI opt-in release gate docs and skip output are protected

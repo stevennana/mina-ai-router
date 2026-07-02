@@ -335,7 +335,7 @@ async function startVisibleAgent(
   const mcpName = flags["mcp-name"] ?? "mina-ai-router";
   const explicitConfiguredUrl = flags["mcp-configured-url"];
   const detectedConfiguredUrl = explicitConfiguredUrl
-    ?? (flags["mcp-configured"] === "true" ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl));
+    ?? (flags["mcp-configured"] === "true" ? undefined : detectClientMcpConfiguredUrl(agentType, mcpName, mcpUrl, root));
   const mcpPreflight = buildMcpPreflight({
     agentType,
     mcpUrl,
@@ -770,10 +770,10 @@ function setupClient(client: SetupClient, flags: Record<string, string>): void {
     return;
   }
 
-  runOptionalMcpCommand(commands.remove, actions, "remove existing MCP entry");
-  const addOutput = runRequiredMcpCommand(commands.add, actions, "add MCP entry");
-  const verifyOutput = runRequiredMcpCommand(commands.verify, actions, "verify MCP entry");
-  const listOutput = runRequiredMcpCommand(commands.list, actions, "verify MCP visibility");
+  runOptionalMcpCommand(commands.remove, actions, "remove existing MCP entry", projectRoot);
+  const addOutput = runRequiredMcpCommand(commands.add, actions, "add MCP entry", projectRoot);
+  const verifyOutput = runRequiredMcpCommand(commands.verify, actions, "verify MCP entry", projectRoot);
+  const listOutput = runRequiredMcpCommand(commands.list, actions, "verify MCP visibility", projectRoot);
   const verified = `${addOutput}\n${verifyOutput}`.includes(mcpUrl) && listOutput.includes(mcpName);
   actions.push({
     name: "verify MCP URL",
@@ -916,7 +916,7 @@ function doctorClient(client: SetupClient, projectRoot: string, mcpUrl: string) 
   const binaryOk = commandAvailable(client);
   const target = skillTargetFor(client, projectRoot);
   const skillInstalled = existsSync(join(target, "SKILL.md"));
-  const mcp = binaryOk ? inspectMcpConfig(client, "mina-ai-router", mcpUrl) : {
+  const mcp = binaryOk ? inspectMcpConfig(client, "mina-ai-router", mcpUrl, projectRoot) : {
     ok: false,
     detail: `${client} is not available on PATH.`,
   };
@@ -938,14 +938,16 @@ function doctorCheck(name: string, ok: boolean, detail: string) {
   return { name, ok, detail };
 }
 
-function inspectMcpConfig(client: SetupClient, mcpName: string, mcpUrl: string): { ok: boolean; detail: string } {
+function inspectMcpConfig(client: SetupClient, mcpName: string, mcpUrl: string, projectRoot: string): { ok: boolean; detail: string } {
   const commands = mcpCommandsFor(client, mcpName, mcpUrl);
   try {
     const getOutput = execFileSync(commands.verify.command, commands.verify.args, {
+      cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
     const listOutput = execFileSync(commands.list.command, commands.list.args, {
+      cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -964,17 +966,19 @@ function inspectMcpConfig(client: SetupClient, mcpName: string, mcpUrl: string):
   }
 }
 
-function detectClientMcpConfiguredUrl(client: SetupClient, mcpName: string, mcpUrl: string): string | undefined {
+function detectClientMcpConfiguredUrl(client: SetupClient, mcpName: string, mcpUrl: string, projectRoot: string): string | undefined {
   if (!commandAvailable(client)) {
     return undefined;
   }
 
   try {
     const output = execFileSync(client, ["mcp", "get", mcpName], {
+      cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
     const list = execFileSync(client, ["mcp", "list"], {
+      cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -1027,9 +1031,10 @@ function mcpCommandsFor(client: SetupClient, mcpName: string, mcpUrl: string): R
   };
 }
 
-function runOptionalMcpCommand(command: { command: string; args: string[] }, actions: Array<{ name: string; ok: boolean; detail: string }>, name: string): void {
+function runOptionalMcpCommand(command: { command: string; args: string[] }, actions: Array<{ name: string; ok: boolean; detail: string }>, name: string, cwd?: string): void {
   try {
     execFileSync(command.command, command.args, {
+      cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -1039,9 +1044,10 @@ function runOptionalMcpCommand(command: { command: string; args: string[] }, act
   }
 }
 
-function runRequiredMcpCommand(command: { command: string; args: string[] }, actions: Array<{ name: string; ok: boolean; detail: string }>, name: string): string {
+function runRequiredMcpCommand(command: { command: string; args: string[] }, actions: Array<{ name: string; ok: boolean; detail: string }>, name: string, cwd?: string): string {
   try {
     const output = execFileSync(command.command, command.args, {
+      cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });

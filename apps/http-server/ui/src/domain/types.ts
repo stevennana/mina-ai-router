@@ -22,6 +22,17 @@ export type AgentPermissionPrompt = {
   evidence: string;
 };
 
+export type TerminalAction = {
+  id: string;
+  label: string;
+  description: string;
+  policy: "manual" | "guided" | "auto-safe" | string;
+  input?: {
+    text?: string;
+    enter?: boolean;
+  };
+};
+
 export type AgentRegistrationEvent = {
   at: string;
   source: AgentRegistrationSource;

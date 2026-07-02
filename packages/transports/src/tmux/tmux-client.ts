@@ -150,7 +150,7 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
       client: "codex",
       kind: "client-update",
       message: "Codex is waiting at an update prompt before Mina can continue registration.",
-      action: `Attach with "tmux attach -t ${agent.sessionId}" or press Send Enter in Mina to skip the update prompt, then retry registration.`,
+      action: `Attach with "tmux attach -t ${agent.sessionId}" and choose a safe update option, or use Mina's Skip Codex Update action when available.`,
       evidence: promptEvidence(capture, codexUpdatePatterns),
     };
   }

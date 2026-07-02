@@ -25,6 +25,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user installed verify output findings are summarized in completed exec plans 054-055.
 - First-user verify docs and CLI exploration findings are summarized in completed exec plans 056-058.
 - Real CLI/Web UI multi-agent findings from 2026-07-02 are summarized in completed exec plans 059-063.
+- Real CLI/Web UI follow-up findings from 2026-07-02 are split into active exec plans 064-067.
 
 ## User Story
 
@@ -75,6 +76,10 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Codex update prompt blocks Web UI-created agents | Update prompts become `client-update-required` blockers with terminal guidance instead of stale created placeholders |
 | Permission-required state can stay stuck after approval | Terminal capture and Enter handling advance cleared prompts to `registration-pending` and retry self-registration |
 | Real first-run bootstrap lacks an operator contract smoke | A skipped-by-default real CLI contract smoke documents and probes installed Codex/Claude MCP visibility when explicitly enabled |
+| Claude MCP visibility is checked outside the selected project context | MCP setup, doctor, CLI preflight, and Web UI preflight run `mcp get/list` from the selected project root |
+| Codex update skip guidance uses raw Enter | Update prompts expose a prompt-specific skip action that sends an explicit skip choice instead of bare Enter |
+| Guided approval loop is docs-only | Terminal API and UI expose prompt-specific guided actions with a clear safety policy |
+| Opt-in real CLI smoke can be missed before release | Release docs distinguish default verify from the required local real CLI contract gate |
 
 ## Functional Requirements
 
@@ -124,6 +129,10 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 44. Codex client update prompts must be visible as a distinct non-route-ready bootstrap blocker.
 45. When a permission prompt disappears after operator input, Mina must advance the placeholder to `registration-pending` and retry the self-registration prompt.
 46. Release verification must include an optional real CLI contract smoke that is safe to skip in CI and explicit to run on a real operator machine.
+47. MCP setup, doctor, CLI visible-agent preflight, and Web UI create-agent preflight must execute client visibility checks from the selected project root.
+48. Codex update prompts must not use raw Enter as a claimed skip action; known prompts need a prompt-specific explicit skip input.
+49. Terminal bootstrap responses must include prompt-specific action metadata and a small safety policy vocabulary for UI rendering.
+50. Release readiness docs must state what default `npm run verify` proves and what the opt-in real CLI contract smoke proves.
 
 ## Non-goals
 
@@ -176,3 +185,7 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 - Codex update prompts show `client-update-required`, `trustPrompt: false`, and a next action to skip or resolve the update prompt.
 - After the operator clears a permission prompt from the Web UI terminal, the agent response advances to `registration-pending` and sends the registration prompt.
 - `npm run smoke:real-cli-contract` skips by default and probes installed client MCP list visibility only when `MINA_REAL_CLI_SMOKE=1` is set.
+- Claude project-specific MCP visibility checks are covered by a fake-client regression that only reports Mina from the selected project cwd.
+- Codex update prompt handling offers a prompt-specific skip action and smoke coverage proves it does not send bare Enter.
+- The Web UI terminal bootstrap surface renders guided action labels for known prompts and leaves unknown prompts manual.
+- Local release guidance requires `npm run verify` plus `MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract` before claiming real Codex/Claude OOB flow readiness.

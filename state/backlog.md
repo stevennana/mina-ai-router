@@ -64,3 +64,7 @@
 - [x] permission-state-advance-after-approval — Permission state advance after approval
 - [x] guided-bootstrap-approval-loop-design — Guided bootstrap approval loop design
 - [x] real-cli-contract-smoke — Real CLI contract smoke
+- [x] project-cwd-mcp-visibility — Project cwd MCP visibility
+- [x] safe-codex-update-skip — Safe Codex update skip
+- [x] guided-bootstrap-actions — Guided bootstrap actions
+- [x] real-cli-release-gate-docs — Real CLI release gate docs

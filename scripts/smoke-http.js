@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } = require("node:fs");
+const { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 const { pathToFileURL } = require("node:url");
@@ -9,6 +9,7 @@ const port = 3344;
 const packageVersion = require(join(process.cwd(), "package.json")).version;
 const baseUrl = `http://127.0.0.1:${port}`;
 const tempDir = mkdtempSync(join(tmpdir(), "mina-http-smoke-"));
+const projectRootReal = realpathSync(tempDir);
 const statePath = join(tempDir, "router-state.json");
 const uiSession = `mina-http-ui-${process.pid}`;
 const uiPromptSession = `mina-http-ui-prompt-${process.pid}`;
@@ -66,6 +67,7 @@ const server = spawn(process.execPath, ["dist/apps/http-server/src/index.js"], {
     PATH: `${fakeBinDir}:${process.env.PATH}`,
     FAKE_MCP_URL: `${baseUrl}/mcp`,
     MINA_FAKE_CLIENT_LOG: fakeClientLog,
+    FAKE_PROJECT_ROOT: projectRootReal,
   },
   stdio: ["ignore", "ignore", "pipe"],
 });
@@ -249,9 +251,9 @@ async function main() {
       "readiness rejection must not create a routed request",
     );
     const fakeClientCalls = readFileSync(fakeClientLog, "utf8");
-    assert.match(fakeClientCalls, /codex mcp get mina-ai-router/);
-    assert.match(fakeClientCalls, /codex mcp list/);
-    assert.match(fakeClientCalls, /claude mcp get missing-fixture/);
+    assert.match(fakeClientCalls, new RegExp(`codex cwd=${escapeRegExp(projectRootReal)} mcp get mina-ai-router`));
+    assert.match(fakeClientCalls, new RegExp(`codex cwd=${escapeRegExp(projectRootReal)} mcp list`));
+    assert.match(fakeClientCalls, new RegExp(`claude cwd=${escapeRegExp(projectRootReal)} mcp get missing-fixture`));
 
     const promptScriptPath = join(tempDir, "permission-prompt-fixture.sh");
     writeFileSync(promptScriptPath, [
@@ -278,6 +280,10 @@ async function main() {
     assert.equal(blockedAgent.bootstrapStatus, "permission-required");
     assert.equal(blockedAgent.permissionPrompt.client, "codex");
     assert.match(blockedAgent.detail, /directory trust approval/);
+    assert.ok(blockedAgent.permissionPrompt);
+    const blockedTerminal = await json(`${baseUrl}/api/agents/ui-permission/terminal`);
+    assert.equal(blockedTerminal.terminal.actions[0].id, "approve-project-trust");
+    assert.equal(blockedTerminal.terminal.actions[0].policy, "guided");
 
     const promptAdvanceScriptPath = join(tempDir, "permission-advance-fixture.sh");
     writeFileSync(promptAdvanceScriptPath, [
@@ -314,6 +320,8 @@ async function main() {
       "printf '2. Skip\\n'",
       "printf '3. Skip until next version\\n'",
       "printf 'Press enter to continue\\n'",
+      "IFS= read -r choice",
+      "printf 'selected:%s\\n' \"$choice\"",
       "sleep 60",
       "",
     ].join("\n"));
@@ -328,14 +336,21 @@ async function main() {
     });
     assert.equal(updatePromptAgent.registration, "waiting for client update choice");
     assert.equal(updatePromptAgent.agent.bootstrapStatus, "client-update-required");
-    assert.match(updatePromptAgent.nextAction, /skip the update prompt/);
+    assert.match(updatePromptAgent.nextAction, /Skip Codex Update|safe update option/);
     const updateState = await json(`${baseUrl}/api/state`);
     const updateStatus = updateState.agents.find((agent) => agent.id === "ui-codex-update");
     assert.equal(updateStatus.permissionPrompt.kind, "client-update");
     const updateTerminal = await json(`${baseUrl}/api/agents/ui-codex-update/terminal`);
     assert.equal(updateTerminal.terminal.trustPrompt, false);
     assert.equal(updateTerminal.terminal.permissionPrompt.kind, "client-update");
+    assert.equal(updateTerminal.terminal.actions[0].id, "skip-codex-update");
+    assert.equal(updateTerminal.terminal.actions[0].input.text, "2");
     assert.match(updateTerminal.terminal.text, /Update available/);
+    const updateSkip = await postJson(`${baseUrl}/api/agents/ui-codex-update/terminal/input`, {
+      actionId: "skip-codex-update",
+    });
+    assert.equal(updateSkip.registration, "registration prompt sent to agent");
+    assert.match(updateSkip.terminal.text, /selected:2/);
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "http-smoke",
@@ -758,6 +773,11 @@ function assertFirstUserUiReviewAffordancesFromSource() {
   assert.match(app, /setState\(nextState\)/, "App should apply create-agent state immediately without relying on manual refresh");
   assert.match(app, /!isRouteReady\(agent\)/, "App should guard stale Ask modals with route readiness");
   assert.doesNotMatch(app, /onCreated=\{\(agent\) => \{\s*setSelectedAgentId\(agent\.id\);\s*void refresh\(\);/s);
+
+  const terminalPanel = readFileSync("apps/http-server/ui/src/features/TerminalPanel.tsx", "utf8");
+  assert.match(terminalPanel, /terminal\.actions/, "Terminal panel should render guided bootstrap actions");
+  assert.match(terminalPanel, /runAction/, "Terminal panel should execute prompt-specific actions");
+  assert.match(terminalPanel, /Guided bootstrap action is available/, "Terminal status should explain guided actions");
 }
 
 function assertStaticVisualFixture(stylesheet) {
@@ -1137,7 +1157,7 @@ function writeFakeClientBinaries() {
   const script = [
     "#!/bin/sh",
     "client=$(basename \"$0\")",
-    "printf '%s %s\\n' \"$client\" \"$*\" >> \"$MINA_FAKE_CLIENT_LOG\"",
+    "printf '%s cwd=%s %s\\n' \"$client\" \"$(pwd)\" \"$*\" >> \"$MINA_FAKE_CLIENT_LOG\"",
     "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'get' ]; then",
     "  if [ \"$3\" = 'mina-ai-router' ]; then",
     "    printf 'name: %s\\nurl: %s\\n' \"$3\" \"$FAKE_MCP_URL\"",
@@ -1146,6 +1166,10 @@ function writeFakeClientBinaries() {
     "  exit 1",
     "fi",
     "if [ \"$1\" = 'mcp' ] && [ \"$2\" = 'list' ]; then",
+    "  if [ \"$client\" = 'claude' ] && [ \"$(pwd)\" != \"$FAKE_PROJECT_ROOT\" ]; then",
+    "    printf 'gitnexus connected\\n'",
+    "    exit 0",
+    "  fi",
     "  printf 'mina-ai-router %s connected\\n' \"$FAKE_MCP_URL\"",
     "  exit 0",
     "fi",
@@ -1157,6 +1181,10 @@ function writeFakeClientBinaries() {
     writeFileSync(file, script);
     chmodSync(file, 0o755);
   }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 main().catch((error) => {
