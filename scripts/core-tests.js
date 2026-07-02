@@ -256,6 +256,22 @@ function testPermissionPromptDetection() {
   );
   assert.equal(claudeCwdReadOnlyPrompt.client, "claude");
   assert.equal(claudeCwdReadOnlyPrompt.kind, "scoped-command-approval");
+  const claudeDevNullReadOnlyPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "Bash command",
+      'cd /tmp/project && ls -la && echo "---CLAUDE.md---" && (cat CLAUDE.md 2>/dev/null || echo "none") && echo "---README---" && (cat README.md 2>/dev/null | head -100 || echo "none")',
+      "Run shell command",
+      "",
+      "This command uses shell operators that require approval for safety",
+      "",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. No",
+    ].join("\n"),
+  );
+  assert.equal(claudeDevNullReadOnlyPrompt.client, "claude");
+  assert.equal(claudeDevNullReadOnlyPrompt.kind, "scoped-command-approval");
   const claudeTmuxContextPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [
@@ -279,6 +295,9 @@ function testPermissionPromptDetection() {
       "Bash command",
       "cd /tmp/other && ls -la .claude/skills/mina-ai-router-agent && echo register_agent",
       "Compound command contains cd with output redirection - manual approval required to prevent path resolution bypass",
+      "Do you want to proceed?",
+      "❯ 1. Yes",
+      "  2. No",
     ].join("\n"),
   );
   assert.equal(claudeUnscopedPrompt?.kind, "permission-approval");
@@ -294,6 +313,37 @@ function testPermissionPromptDetection() {
     ].join("\n"),
   );
   assert.equal(claudeUnsafePrompt?.kind, "permission-approval");
+  const claudeIdleNarrativePrompt = detectAgentBootstrapPrompt(
+    {
+      ...claudeAgent,
+      registrationStatus: "confirmed",
+      bootstrapStatus: "permission-required",
+    },
+    [
+      "Registered and confirmed:",
+      "",
+      "- id / name: claude",
+      "- sessionId / fingerprint: claude-session",
+      "- registrationStatus: confirmed (via mcp)",
+      "",
+      "One flag: bootstrapStatus shows permission-required and status is needs-attention — Mina is waiting on an operator/trust approval before this session can receive routed work. That's a Claude Code",
+      "permission prompt, not something I can clear from here; it needs to be approved in the tmux session (tmux attach -t claude-session).",
+      "",
+      "❯",
+      "? for shortcuts · ← for agents",
+    ].join("\n"),
+  );
+  assert.equal(claudeIdleNarrativePrompt, undefined);
+  const claudeIdleFooterPrompt = detectAgentBootstrapPrompt(
+    claudeAgent,
+    [
+      "This agent is available and route-ready.",
+      "",
+      "❯",
+      "? for shortcuts · ← for agents",
+    ].join("\n"),
+  );
+  assert.equal(claudeIdleFooterPrompt, undefined);
   const claudeMcpRegisterPrompt = detectAgentBootstrapPrompt(
     claudeAgent,
     [

@@ -251,6 +251,8 @@ assert.match(read("docs/exec-plans/completed/076-cli-equals-flag-parser.md"), /-
 assert.match(read("docs/exec-plans/completed/080-codex-mcp-list-agents-approval.md"), /list_agents/);
 assert.match(read("docs/exec-plans/completed/081-claude-mcp-list-agents-verification.md"), /list_agents/);
 assert.match(read("docs/exec-plans/completed/082-claude-cwd-scoped-readonly-approval.md"), /cwd-scoped/);
+assert.match(read("docs/exec-plans/completed/083-claude-idle-text-prompt-precision.md"), /idle/);
+assert.match(read("docs/exec-plans/completed/084-claude-devnull-readonly-approval.md"), /devnull|\/dev\/null/);
 assert.match(read("docs/exec-plans/completed/069-codex-passive-update-banner-detection.md"), /Passive Codex update banners|passive update banners/);
 assert.match(read("docs/exec-plans/completed/070-generic-self-registration-retry.md"), /CLI-created pending agent/);
 assert.match(read("docs/exec-plans/completed/071-claude-scoped-registration-approval.md"), /project root/);

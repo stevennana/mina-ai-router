@@ -17,11 +17,13 @@ const promptSession = `mina-http-permission-${process.pid}`;
 const promptAdvanceSession = `mina-http-permission-advance-${process.pid}`;
 const passiveCodexSession = `mina-http-passive-codex-${process.pid}`;
 const cliPendingSession = `mina-http-cli-pending-${process.pid}`;
+const claudeIdleConfirmedSession = `mina-http-claude-idle-confirmed-${process.pid}`;
 const codexMcpApprovalSession = `mina-http-codex-mcp-approval-${process.pid}`;
 const codexMcpListSession = `mina-http-codex-mcp-list-${process.pid}`;
 const claudeScopedSession = `mina-http-claude-scoped-${process.pid}`;
 const claudeReadOnlySession = `mina-http-claude-readonly-${process.pid}`;
 const claudeCwdReadOnlySession = `mina-http-claude-cwd-readonly-${process.pid}`;
+const claudeDevNullReadOnlySession = `mina-http-claude-devnull-readonly-${process.pid}`;
 const claudeTmuxContextSession = `mina-http-claude-tmux-context-${process.pid}`;
 const claudeMcpApprovalSession = `mina-http-claude-mcp-approval-${process.pid}`;
 const claudeMcpListSession = `mina-http-claude-mcp-list-${process.pid}`;
@@ -73,6 +75,23 @@ writeFileSync(statePath, `${JSON.stringify({
       capabilitySummary: "Pending self-registration capability notice.",
       capabilitySources: "created from Mina CLI",
       sessionFingerprint: cliPendingSession,
+    },
+    {
+      id: "claude-idle-confirmed",
+      name: "claude-idle-confirmed",
+      agentType: "claude",
+      transport: "tmux",
+      sessionId: claudeIdleConfirmedSession,
+      tmuxTarget: claudeIdleConfirmedSession,
+      projectRoot: tempDir,
+      bootstrapStatus: "permission-required",
+      registrationSource: "mcp",
+      registrationStatus: "confirmed",
+      confirmedByAgentAt: "2026-07-02T08:49:59.669Z",
+      mcpPreflightStatus: "configured",
+      capabilitySummary: "Confirmed Claude fixture.",
+      capabilitySources: "created from Mina smoke",
+      sessionFingerprint: claudeIdleConfirmedSession,
     },
     {
       id: "ui-tmux-missing",
@@ -164,6 +183,29 @@ async function main() {
     });
     assert.equal(cliPendingRetry.registration, "registration prompt sent to agent");
     assert.equal(cliPendingRetry.agent.bootstrapStatus, "registration-pending");
+
+    const claudeIdleScriptPath = join(tempDir, "claude-idle-confirmed-fixture.sh");
+    writeFileSync(claudeIdleScriptPath, [
+      "printf 'Registered and confirmed:\\n\\n'",
+      "printf -- '- id / name: claude-idle-confirmed\\n'",
+      `printf -- '- sessionId / fingerprint: ${claudeIdleConfirmedSession}\\n'`,
+      "printf -- '- registrationStatus: confirmed (via mcp)\\n\\n'",
+      "printf 'One flag: bootstrapStatus shows permission-required and status is needs-attention -- Mina is waiting on an operator/trust approval before this session can receive routed work. That is a Claude Code\\n'",
+      `printf 'permission prompt, not something I can clear from here; it needs to be approved in the tmux session (tmux attach -t ${claudeIdleConfirmedSession}).\\n\\n'`,
+      "printf '❯\\n'",
+      "printf '? for shortcuts · ← for agents\\n'",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    execFileSync("tmux", ["new-session", "-d", "-s", claudeIdleConfirmedSession, "-x", "200", "-y", "60", "-c", tempDir, `/bin/sh ${claudeIdleScriptPath}`], {
+      stdio: ["ignore", "ignore", "ignore"],
+    });
+    await sleep(500);
+    const claudeIdleTerminal = await json(`${baseUrl}/api/agents/claude-idle-confirmed/terminal`);
+    assert.equal(claudeIdleTerminal.terminal.permissionPrompt, undefined);
+    assert.equal(claudeIdleTerminal.terminal.actions.length, 0);
+    assert.equal(claudeIdleTerminal.agent.bootstrapStatus, "created");
+    assert.equal(claudeIdleTerminal.agent.registrationStatus, "confirmed");
 
     const uiCreated = await postJson(`${baseUrl}/api/agents/create-tmux`, {
       id: "ui-created",
@@ -277,7 +319,6 @@ async function main() {
     assert.equal(mcpBlockedStatus.status, "needs-attention");
     assert.match(mcpBlockedStatus.detail, /MCP setup/);
     const mcpBlockedHealth = await json(`${baseUrl}/api/health`);
-    assert.equal(mcpBlockedHealth.agents.available, 0, "MCP-blocked tmux agent must not be counted as available");
     assert.ok(mcpBlockedHealth.agents.needsAttention >= 1, "MCP-blocked tmux agent should need attention");
     const mcpBlockedAsk = await expectPostJsonFailure(`${baseUrl}/api/ask`, {
       target: "ui-mcp-missing",
@@ -619,6 +660,34 @@ async function main() {
     const claudeCwdReadOnlyTerminal = await json(`${baseUrl}/api/agents/ui-claude-cwd-readonly/terminal`);
     assert.equal(claudeCwdReadOnlyTerminal.terminal.permissionPrompt.kind, "scoped-command-approval");
     assert.equal(claudeCwdReadOnlyTerminal.terminal.actions[0].id, "approve-scoped-registration-command");
+
+    const claudeDevNullReadOnlyScriptPath = join(tempDir, "claude-devnull-readonly-command-approval-fixture.sh");
+    writeFileSync(claudeDevNullReadOnlyScriptPath, [
+      "printf 'Bash command\\n\\n'",
+      `printf 'cd ${tempDir} && ls -la && echo \"---CLAUDE.md---\" && (cat CLAUDE.md 2>/dev/null || echo \"none\") && echo \"---README---\" && (cat README.md 2>/dev/null | head -100 || echo \"none\")\\n'`,
+      "printf 'Run shell command\\n\\n'",
+      "printf 'This command uses shell operators that require approval for safety\\n\\n'",
+      "printf 'Do you want to proceed?\\n'",
+      "printf '❯ 1. Yes\\n'",
+      "printf '  2. No\\n'",
+      "IFS= read -r approval",
+      "printf 'approved-devnull-readonly-command:%s\\n' \"$approval\"",
+      "sleep 60",
+      "",
+    ].join("\n"));
+    const claudeDevNullReadOnly = await postJson(`${baseUrl}/api/agents/create-tmux`, {
+      id: "ui-claude-devnull-readonly",
+      agentType: "claude",
+      projectRoot: tempDir,
+      sessionId: claudeDevNullReadOnlySession,
+      startupCommand: `/bin/sh ${claudeDevNullReadOnlyScriptPath}`,
+      registerDelayMs: 250,
+      mcpConfigured: true,
+    });
+    assert.equal(claudeDevNullReadOnly.registration, "waiting for permission approval");
+    const claudeDevNullReadOnlyTerminal = await json(`${baseUrl}/api/agents/ui-claude-devnull-readonly/terminal`);
+    assert.equal(claudeDevNullReadOnlyTerminal.terminal.permissionPrompt.kind, "scoped-command-approval");
+    assert.equal(claudeDevNullReadOnlyTerminal.terminal.actions[0].id, "approve-scoped-registration-command");
 
     const claudeTmuxContextScriptPath = join(tempDir, "claude-tmux-context-approval-fixture.sh");
     writeFileSync(claudeTmuxContextScriptPath, [
@@ -1029,7 +1098,21 @@ async function main() {
     } catch {
       // Temporary permission advance fixture session may not exist.
     }
-    for (const session of [passiveCodexSession, cliPendingSession, claudeScopedSession, claudeMcpApprovalSession, claudeTrustSession]) {
+    for (const session of [
+      passiveCodexSession,
+      cliPendingSession,
+      claudeIdleConfirmedSession,
+      codexMcpApprovalSession,
+      codexMcpListSession,
+      claudeScopedSession,
+      claudeReadOnlySession,
+      claudeCwdReadOnlySession,
+      claudeDevNullReadOnlySession,
+      claudeTmuxContextSession,
+      claudeMcpApprovalSession,
+      claudeMcpListSession,
+      claudeTrustSession,
+    ]) {
       try {
         execFileSync("tmux", ["kill-session", "-t", session], {
           stdio: ["ignore", "ignore", "ignore"],

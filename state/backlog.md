@@ -83,3 +83,5 @@
 - [x] codex-mcp-list-agents-approval — Codex MCP list_agents approval
 - [x] claude-mcp-list-agents-verification — Claude MCP list_agents verification
 - [x] claude-cwd-scoped-readonly-approval — Claude cwd-scoped read-only approval
+- [x] claude-idle-text-prompt-precision — Claude idle text prompt precision
+- [x] claude-devnull-readonly-approval — Claude devnull read-only approval

@@ -237,7 +237,8 @@ function hasActiveCodexUpdatePrompt(value: string): boolean {
 }
 
 function hasClaudePermissionPrompt(value: string): boolean {
-  return claudePermissionPatterns.some((pattern) => pattern.test(value));
+  return hasClaudeInteractiveApprovalUi(value)
+    && claudePermissionPatterns.some((pattern) => pattern.test(value));
 }
 
 function hasClaudeScopedRegistrationApproval(value: string, projectRoot: string): boolean {
@@ -251,7 +252,8 @@ function hasClaudeScopedRegistrationApproval(value: string, projectRoot: string)
     return true;
   }
 
-  if (unsafeShellCommandPatterns.some((pattern) => pattern.test(value))) {
+  const safetyValue = value.replace(safeDevNullRedirectionPattern, "");
+  if (unsafeShellCommandPatterns.some((pattern) => pattern.test(safetyValue))) {
     return false;
   }
 
@@ -395,7 +397,15 @@ const unsafeShellCommandPatterns = [
   />\s*(?:\/|~|\.)/i,
 ];
 
+const safeDevNullRedirectionPattern = /\b[12]?>\s*\/dev\/null\b/g;
 const absolutePathPattern = /(?:^|[\s"'])(?:\/|~\/)/;
+
+function hasClaudeInteractiveApprovalUi(value: string): boolean {
+  return /do you want to proceed\?/i.test(value) && /(?:❯\s*)?1\.\s*(?:yes|allow)/i.test(value)
+    || /enter to confirm/i.test(value)
+    || /press enter to continue/i.test(value)
+    || /yes,\s*i trust this folder/i.test(value);
+}
 
 function recentPromptWindow(capture: string): string {
   return capture
