@@ -775,7 +775,9 @@ function sendAgentTerminalInput(id: string, body: Record<string, unknown>) {
     const permissionApprovalAttempt = agent.bootstrapStatus === "permission-required"
       && bootstrapPrompt?.kind !== "client-update";
     const updateSkipAttempt = action?.id === "skip-codex-update";
-    if (!bootstrapPrompt || permissionApprovalAttempt || updateSkipAttempt) {
+    if (updateSkipAttempt && bootstrapPrompt?.kind === "client-update") {
+      registration = "update skip sent";
+    } else if (!bootstrapPrompt || permissionApprovalAttempt) {
       if (agent.agentType === "codex") {
         tmux.sendCodexText(target, buildSelfRegistrationPrompt(agent));
       } else {
@@ -1181,7 +1183,7 @@ function terminalActions(agent: Agent, prompt: AgentPermissionPrompt | undefined
       {
         id: "skip-codex-update",
         label: "Skip Codex Update",
-        description: "Sends the explicit skip choice for the known Codex update prompt, then retries self-registration.",
+        description: "Sends the explicit skip choice for the known Codex update prompt. Registration resumes after the prompt clears.",
         policy: "guided",
         input: { text: "2" },
       },

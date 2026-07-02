@@ -80,3 +80,5 @@ No promoted tasks yet for milestone 0.2.
 - 2026-07-02T16:11:28+09:00: manually completed safe-codex-update-skip -> guided-bootstrap-actions | reason=Codex update prompts now use explicit guided skip action
 - 2026-07-02T16:11:28+09:00: manually completed guided-bootstrap-actions -> real-cli-release-gate-docs | reason=Terminal API/UI exposes prompt-specific guided bootstrap actions
 - 2026-07-02T16:11:28+09:00: manually completed real-cli-release-gate-docs -> NONE | reason=real CLI opt-in release gate docs and skip output are protected
+- 2026-07-02T17:10:00+09:00: seeded second follow-up prompt-clearance task from docs/reviews/2026-07-02-real-cli-webui-multi-agent-second-followup-review.md; current task update-skip-clearance-gate
+- 2026-07-02T17:25:00+09:00: manually completed update-skip-clearance-gate -> NONE | reason=Codex update skip waits for prompt clearance before self-registration retry

@@ -68,6 +68,7 @@ const markdownFiles = [
   "docs/exec-plans/completed/065-safe-codex-update-skip.md",
   "docs/exec-plans/completed/066-guided-bootstrap-actions.md",
   "docs/exec-plans/completed/067-real-cli-release-gate-docs.md",
+  "docs/exec-plans/completed/068-update-skip-clearance-gate.md",
   ...reviewFiles,
 ];
 
@@ -220,13 +221,16 @@ assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /expl
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /prompt-specific guided actions/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /client-update-required/);
 assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /smoke:real-cli-contract/);
+assert.match(read("docs/product-specs/release-readiness-review-fixes.md"), /wait for the update prompt to clear/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /bootstrapStatus/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /caller identity/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /client-update-required/);
 assert.match(read("docs/design-docs/agent-bootstrap-reliability.md"), /MINA_REAL_CLI_SMOKE=1 npm run smoke:real-cli-contract/);
 assert.match(read("docs/exec-plans/active/index.md"), /Current active task/);
 assert.match(read("docs/exec-plans/active/index.md"), /`NONE`/);
-assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-067/);
+assert.match(read("docs/exec-plans/active/index.md"), /completed exec plans 034-068/);
+assert.match(read("docs/exec-plans/completed/068-update-skip-clearance-gate.md"), /Update skip clearance gate/);
+assert.match(read("docs/exec-plans/completed/068-update-skip-clearance-gate.md"), /prompt has cleared/);
 assert.match(read("docs/exec-plans/completed/064-project-cwd-mcp-visibility.md"), /Project cwd MCP visibility/);
 assert.match(read("docs/exec-plans/completed/064-project-cwd-mcp-visibility.md"), /selected project root/);
 assert.match(read("docs/exec-plans/completed/065-safe-codex-update-skip.md"), /Safe Codex update skip/);

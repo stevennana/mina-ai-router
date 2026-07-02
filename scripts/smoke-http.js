@@ -322,6 +322,14 @@ async function main() {
       "printf 'Press enter to continue\\n'",
       "IFS= read -r choice",
       "printf 'selected:%s\\n' \"$choice\"",
+      "printf 'Update available! 0.142.3 -> 0.142.4\\n'",
+      "printf '1. Update now (runs `npm install -g @openai/codex`)\\n'",
+      "printf '2. Skip\\n'",
+      "printf '3. Skip until next version\\n'",
+      "printf 'Press enter to continue\\n'",
+      "sleep 3",
+      "printf 'Codex prompt ready after update choice\\n'",
+      "i=0; while [ \"$i\" -lt 140 ]; do printf 'ready line %s\\n' \"$i\"; i=$((i + 1)); done",
       "sleep 60",
       "",
     ].join("\n"));
@@ -349,8 +357,19 @@ async function main() {
     const updateSkip = await postJson(`${baseUrl}/api/agents/ui-codex-update/terminal/input`, {
       actionId: "skip-codex-update",
     });
-    assert.equal(updateSkip.registration, "registration prompt sent to agent");
+    assert.equal(updateSkip.registration, "update skip sent");
     assert.match(updateSkip.terminal.text, /selected:2/);
+    assert.equal(updateSkip.terminal.permissionPrompt.kind, "client-update");
+    assert.equal(updateSkip.agent.bootstrapStatus, "client-update-required");
+    await sleep(3_200);
+    const updateClearedTerminal = await json(`${baseUrl}/api/agents/ui-codex-update/terminal`);
+    assert.equal(updateClearedTerminal.terminal.permissionPrompt, undefined);
+    assert.equal(updateClearedTerminal.terminal.actions[0].id, "retry-self-registration");
+    const updateRetry = await postJson(`${baseUrl}/api/agents/ui-codex-update/terminal/input`, {
+      actionId: "retry-self-registration",
+    });
+    assert.equal(updateRetry.registration, "registration prompt sent to agent");
+    assert.equal(updateRetry.agent.bootstrapStatus, "registration-pending");
 
     const registered = await postJson(`${baseUrl}/api/register`, {
       id: "http-smoke",
@@ -1094,6 +1113,10 @@ async function getWithRetry(url) {
     }
   }
   throw lastError;
+}
+
+async function sleep(milliseconds) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function postMcp(body) {

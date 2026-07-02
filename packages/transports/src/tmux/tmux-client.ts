@@ -140,7 +140,8 @@ export function detectAgentPermissionPrompt(agent: Agent, capture: string): Agen
 }
 
 export function detectAgentBootstrapPrompt(agent: Agent, capture: string): AgentPermissionPrompt | undefined {
-  const normalized = capture.replace(/\s+/g, " ").trim();
+  const promptWindow = recentPromptWindow(capture);
+  const normalized = promptWindow.replace(/\s+/g, " ").trim();
   if (!normalized) {
     return undefined;
   }
@@ -151,7 +152,7 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
       kind: "client-update",
       message: "Codex is waiting at an update prompt before Mina can continue registration.",
       action: `Attach with "tmux attach -t ${agent.sessionId}" and choose a safe update option, or use Mina's Skip Codex Update action when available.`,
-      evidence: promptEvidence(capture, codexUpdatePatterns),
+      evidence: promptEvidence(promptWindow, codexUpdatePatterns),
     };
   }
 
@@ -161,7 +162,7 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
       kind: "directory-trust",
       message: "Codex is waiting for directory trust approval before it can work in this project.",
       action: `Review the project directory, then attach with "tmux attach -t ${agent.sessionId}" or press Send Enter in Mina to approve the prompt.`,
-      evidence: promptEvidence(capture, codexTrustPatterns),
+      evidence: promptEvidence(promptWindow, codexTrustPatterns),
     };
   }
 
@@ -171,7 +172,7 @@ export function detectAgentBootstrapPrompt(agent: Agent, capture: string): Agent
       kind: "permission-approval",
       message: "Claude is waiting for a permission or trust approval before it can work in this project.",
       action: `Review the project directory, then attach with "tmux attach -t ${agent.sessionId}" and approve the Claude prompt.`,
-      evidence: promptEvidence(capture, claudePermissionPatterns),
+      evidence: promptEvidence(promptWindow, claudePermissionPatterns),
     };
   }
 
@@ -208,6 +209,13 @@ const claudePermissionPatterns = [
   /do you trust.+(?:folder|directory|workspace|project)/i,
   /permission.+(?:press enter|continue|approve|allow)/i,
 ];
+
+function recentPromptWindow(capture: string): string {
+  return capture
+    .split(/\r?\n/)
+    .slice(-80)
+    .join("\n");
+}
 
 function promptEvidence(capture: string, patterns: RegExp[]): string {
   const lines = capture

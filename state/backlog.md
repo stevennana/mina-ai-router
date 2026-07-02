@@ -68,3 +68,4 @@
 - [x] safe-codex-update-skip — Safe Codex update skip
 - [x] guided-bootstrap-actions — Guided bootstrap actions
 - [x] real-cli-release-gate-docs — Real CLI release gate docs
+- [x] update-skip-clearance-gate — Update skip clearance gate

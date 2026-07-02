@@ -25,7 +25,7 @@ The collaboration reliability branch passed the main 0.2 implementation wave, bu
 - First-user installed verify output findings are summarized in completed exec plans 054-055.
 - First-user verify docs and CLI exploration findings are summarized in completed exec plans 056-058.
 - Real CLI/Web UI multi-agent findings from 2026-07-02 are summarized in completed exec plans 059-063.
-- Real CLI/Web UI follow-up findings from 2026-07-02 are split into active exec plans 064-067.
+- Real CLI/Web UI follow-up findings from 2026-07-02 are split into completed exec plans 064-068, including the second follow-up prompt-clearance issue.
 
 ## User Story
 
@@ -78,6 +78,7 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 | Real first-run bootstrap lacks an operator contract smoke | A skipped-by-default real CLI contract smoke documents and probes installed Codex/Claude MCP visibility when explicitly enabled |
 | Claude MCP visibility is checked outside the selected project context | MCP setup, doctor, CLI preflight, and Web UI preflight run `mcp get/list` from the selected project root |
 | Codex update skip guidance uses raw Enter | Update prompts expose a prompt-specific skip action that sends an explicit skip choice instead of bare Enter |
+| Codex update skip can register too early | The skip action must wait for the update prompt to clear before sending self-registration |
 | Guided approval loop is docs-only | Terminal API and UI expose prompt-specific guided actions with a clear safety policy |
 | Opt-in real CLI smoke can be missed before release | Release docs distinguish default verify from the required local real CLI contract gate |
 
@@ -131,6 +132,7 @@ As a local operator, I want recovery, agent creation, and version diagnostics to
 46. Release verification must include an optional real CLI contract smoke that is safe to skip in CI and explicit to run on a real operator machine.
 47. MCP setup, doctor, CLI visible-agent preflight, and Web UI create-agent preflight must execute client visibility checks from the selected project root.
 48. Codex update prompts must not use raw Enter as a claimed skip action; known prompts need a prompt-specific explicit skip input.
+49. A Codex update skip action must not send the Mina self-registration prompt while the update prompt is still visible.
 49. Terminal bootstrap responses must include prompt-specific action metadata and a small safety policy vocabulary for UI rendering.
 50. Release readiness docs must state what default `npm run verify` proves and what the opt-in real CLI contract smoke proves.
 
