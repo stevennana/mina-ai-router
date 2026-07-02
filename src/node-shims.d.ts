@@ -77,6 +77,10 @@ declare module "node:http" {
   };
 }
 
+declare module "node:os" {
+  export function homedir(): string;
+}
+
 declare module "node:path" {
   export function basename(path: string): string;
   export function dirname(path: string): string;

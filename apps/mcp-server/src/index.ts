@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { appendFileSync } from "node:fs";
-import { AgentRegistry, AgentRouter, FileState, RequestStore, packageVersion, type Agent, type TransportType } from "../../../packages/core/src";
+import { AgentRegistry, AgentRouter, FileState, RequestStore, defaultRouterStatePath, packageVersion, type Agent, type TransportType } from "../../../packages/core/src";
 import { DefaultTransportRegistry, HeadlessTransport, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type {
   JsonValue,
@@ -29,7 +28,7 @@ interface JsonRpcMessage {
   params?: unknown;
 }
 
-const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
+const statePath = process.env.MINA_ROUTER_STATE ?? defaultRouterStatePath();
 const logPath = process.env.MINA_MCP_LOG;
 const context = createContext();
 let inputBuffer = Buffer.alloc(0);

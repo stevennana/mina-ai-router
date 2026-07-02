@@ -82,6 +82,8 @@ The center node is the local MCP router. The surrounding nodes are visible Codex
 
 While the router server is running, it owns the live state for that `MINA_ROUTER_STATE` file. Normal CLI reads and writes talk to the matching server when possible, so `mair health`, `mair agents`, `mair agent <id>`, the Web UI, and MCP calls stay aligned during active routes.
 
+By default, those runtime files live in `~/.mair`. You can run `mair server status` from your home directory or any project directory and it will check the same local server. Use `MINA_RUNTIME_DIR`, `MINA_ROUTER_STATE`, or `MINA_SERVER_PID` only when you intentionally want an isolated test/runtime.
+
 ## 3. Connect Your AI CLI to MCP
 
 Run setup from the project directory you want the agent to work in:

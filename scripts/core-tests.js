@@ -7,6 +7,9 @@ const {
   RequestStore,
   scoreCapabilityProfile,
   buildPromptEnvelope,
+  defaultRouterStatePath,
+  defaultRuntimeDir,
+  defaultServerPidPath,
   inspectMarkedResponse,
   parseMarkedResponse,
 } = require("../dist/packages/core/src");
@@ -16,6 +19,7 @@ async function main() {
   testParser();
   testPromptEnvelope();
   testCapabilityProfileScoring();
+  testRuntimePaths();
   testRegistryCapabilityMetadata();
   testRegistryIdempotentRegistration();
   testMcpPreflight();
@@ -31,6 +35,23 @@ async function main() {
   await testRouterHealthClassification();
   await testRouterRejectsNonReadyTarget();
   console.log("core tests passed");
+}
+
+function testRuntimePaths() {
+  const previous = process.env.MINA_RUNTIME_DIR;
+  try {
+    process.env.MINA_RUNTIME_DIR = "/tmp/mina-runtime-test";
+    assert.equal(defaultRuntimeDir(), "/tmp/mina-runtime-test");
+    assert.equal(defaultRouterStatePath(), "/tmp/mina-runtime-test/router-state.json");
+    assert.equal(defaultServerPidPath(), "/tmp/mina-runtime-test/mair-server.json");
+  } finally {
+    if (previous === undefined) {
+      delete process.env.MINA_RUNTIME_DIR;
+    } else {
+      process.env.MINA_RUNTIME_DIR = previous;
+    }
+  }
+  assert.match(defaultRuntimeDir(), /\.mair$/);
 }
 
 function testMcpPreflight() {

@@ -8,6 +8,8 @@ import {
   buildMcpPreflight,
   FileState,
   RequestStore,
+  defaultRouterStatePath,
+  defaultServerPidPath,
   packageRoot as minaPackageRoot,
   packageVersion,
   type Agent,
@@ -18,9 +20,9 @@ import {
 } from "../../../packages/core/src";
 import { DefaultTransportRegistry, detectAgentBootstrapPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 
-const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
+const statePath = process.env.MINA_ROUTER_STATE ?? defaultRouterStatePath();
 const version = packageVersion();
-const serverPidPath = process.env.MINA_SERVER_PID ?? join(process.cwd(), "data", "mair-server.json");
+const serverPidPath = process.env.MINA_SERVER_PID ?? defaultServerPidPath();
 const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
 type SetupClient = "codex" | "claude";
 
@@ -1944,7 +1946,8 @@ Example:
   mair ask payment "현재 payment flow를 요약해줘."
 
 State:
-  Set MINA_ROUTER_STATE=/path/to/router-state.json to share state between CLI and MCP.
+  By default, Mina uses ~/.mair for router state, pid, and logs across directories.
+  Set MINA_RUNTIME_DIR, MINA_ROUTER_STATE, or MINA_SERVER_PID only for an isolated runtime.
 `);
 }
 

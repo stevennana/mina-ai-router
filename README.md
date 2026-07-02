@@ -46,6 +46,8 @@ While this server is running, it owns the live router state for that state file.
 
 `mair server start` reports success only after the local Mina health endpoint is ready. If startup fails because the port is occupied, or a stale pid file points at a non-Mina process, Mina reports an actionable diagnostic instead of a healthy-looking server.
 
+By default, Mina stores local runtime files under `~/.mair`, so `mair server status`, `mair health`, and agent commands point at the same local server no matter which project directory you run them from. Set `MINA_RUNTIME_DIR`, `MINA_ROUTER_STATE`, or `MINA_SERVER_PID` only when you intentionally want an isolated test or custom runtime.
+
 ## Connect Codex or Claude
 
 Run setup from the project you want an agent to work in. It discovers the matching running router URL, configures MCP, installs the registration skill, and verifies the client profile.

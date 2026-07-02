@@ -4,7 +4,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
-import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, type Agent, type AgentCapabilityProfile, type AgentPermissionPrompt, type TransportType } from "../../../packages/core/src";
+import { AgentNotRouteReadyError, AgentRegistry, AgentRouter, buildMcpPreflight, FileState, RequestStore, defaultRouterStatePath, type Agent, type AgentCapabilityProfile, type AgentPermissionPrompt, type TransportType } from "../../../packages/core/src";
 import { createMinaMcpProvider } from "../../../packages/mcp/src/provider";
 import { DefaultTransportRegistry, detectAgentBootstrapPrompt, HeadlessTransport, TmuxClient, TmuxTransport, ZmuxTransport } from "../../../packages/transports/src";
 import type { McpFetchHandler, McpRuntimeProvider } from "@minasoft/mcp-runtime";
@@ -32,7 +32,7 @@ const runtimeModuleUrl = pathToFileURL(
 
 const port = Number(process.env.PORT ?? process.env.MINA_HTTP_PORT ?? 3333);
 const host = process.env.HOST ?? process.env.MINA_HTTP_HOST ?? "127.0.0.1";
-const statePath = process.env.MINA_ROUTER_STATE ?? join(process.cwd(), "data", "router-state.json");
+const statePath = process.env.MINA_ROUTER_STATE ?? defaultRouterStatePath();
 const agentStaleAfterMs = Number(process.env.MINA_AGENT_STALE_AFTER_MS ?? 15 * 60 * 1000);
 const context = createContext();
 let mcpHandlerPromise: Promise<McpFetchHandler> | undefined;

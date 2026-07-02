@@ -11,7 +11,9 @@ export MINA_TMUX_BIN=/opt/homebrew/bin/tmux
 
 ## MCP and CLI See Different Agents
 
-They are probably using different state files.
+By default, Mina uses `~/.mair/router-state.json` and `~/.mair/mair-server.json` so commands run from different directories share one local server.
+
+If MCP and CLI still see different agents, they are probably using explicit custom state files.
 
 Set the same `MINA_ROUTER_STATE` for both processes:
 
@@ -39,7 +41,7 @@ Useful checks:
 ```sh
 mair server status
 lsof -nP -iTCP:3333 -sTCP:LISTEN
-cat data/mair-server.log
+cat ~/.mair/mair-server.log
 ```
 
 Stop the process that owns the port, or start Mina on another port:
@@ -56,7 +58,7 @@ Safe recovery:
 
 ```sh
 mair server status
-rm data/mair-server.json
+rm ~/.mair/mair-server.json
 mair server start --port 3333
 ```
 
@@ -116,7 +118,7 @@ mair register payment --agent gemini --transport tmux --session payment --target
 Runtime JSON state is ignored by git.
 
 ```sh
-rm data/router-state.json
+rm ~/.mair/router-state.json
 ```
 
 Use this carefully; it deletes local registrations and request history.

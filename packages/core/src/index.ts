@@ -7,5 +7,6 @@ export * from "./registry";
 export * from "./request-store";
 export * from "./response-parser";
 export * from "./router";
+export * from "./runtime-paths";
 export * from "./types";
 export * from "./version";
